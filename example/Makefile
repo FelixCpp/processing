@@ -1,12 +1,18 @@
-.PHONY: build run clean
+.PHONY: build run clean debug
+
+BUILD_TYPE ?= Release
 
 build:
 	@mkdir -p build
-	@cd build && cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON .. && make
+	@cd build && cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) .. && make
 	@ln -sf build/compile_commands.json compile_commands.json
 
 run: build
 	@./build/example
+
+debug:
+	@$(MAKE) BUILD_TYPE=Debug build
+	@lldb ./build/example
 
 clean:
 	@rm -rf build

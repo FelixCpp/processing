@@ -15,8 +15,11 @@ add_subdirectory(../external/glad ${CMAKE_BINARY_DIR}/glad)
 add_library(processing STATIC
     src/processing/glfw_graphics_context.cpp
     src/processing/glfw_window.cpp
+    src/processing/graphics.cpp
     src/processing/graphics_context.cpp
     src/processing/processing.cpp
+    src/processing/render_targets.cpp
+    src/processing/renderer.cpp
     src/processing/window.cpp
 )
 

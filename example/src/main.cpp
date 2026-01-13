@@ -8,6 +8,7 @@ struct DemoApp : processing::Sketch
 
     virtual void draw() override
     {
+        processing::background(100);
     }
 
     virtual void destroy() override
