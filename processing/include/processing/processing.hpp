@@ -60,6 +60,25 @@ namespace processing
     using int4 = value4<int32_t>;
     using uint4 = value4<uint32_t>;
     using float4 = value4<float>;
+
+    struct matrix4x4
+    {
+        std::array<float, 16> data;
+    };
+
+    matrix4x4 create_matrix(
+        float m00, float m01, float m02, float m03,
+        float m10, float m11, float m12, float m13,
+        float m20, float m21, float m22, float m23,
+        float m30, float m31, float m32, float m33
+    );
+
+    matrix4x4 translate(float x, float y, float z);
+    matrix4x4 scale(float x, float y, float z);
+    matrix4x4 orthographic(float left, float top, float width, float height, float near, float far);
+
+    float3 transformPoint(const matrix4x4& matrix, const float3& point);
+    float2 transformVector(const matrix4x4& matrix, const float2& vector);
 } // namespace processing
 
 namespace processing
@@ -129,6 +148,7 @@ namespace processing
             float strokeWeight;
             bool isFillEnabled;
             bool isStrokeEnabled;
+            matrix4x4 transform;
 
             RenderStyle();
 

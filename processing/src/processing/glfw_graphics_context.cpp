@@ -23,6 +23,8 @@ namespace processing
         info(std::format("OpenGL-Vendor: {}", std::bit_cast<const char*>(glGetString(GL_VENDOR))));
         info(std::format("GLSL Language Version: {}", std::bit_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION))));
 
+        glEnable(GL_TEXTURE);
+
         return std::unique_ptr<GraphicsContextImplGLFW>(new GraphicsContextImplGLFW(handle, true));
     }
 

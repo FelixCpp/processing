@@ -113,25 +113,15 @@ namespace processing
 
     void Graphics::background(color_t color)
     {
-        // error("Function is not yet implemented");
+        float left = 0.0f, top = 0.0f, width = 1.0f, height = 1.0f;
+        float right = left + width;
+        float bottom = top + height;
 
         Vertex vertices[] = {
-            Vertex{
-                .position = {-0.5f, 0.5f, 0.0f},
-                .color = {1.0f, 0.0f, 0.0f, 1.0f},
-            },
-            Vertex{
-                .position = {0.5f, 0.5f, 0.0f},
-                .color = {1.0f, 0.0f, 0.0f, 1.0f},
-            },
-            Vertex{
-                .position = {0.5f, -0.5f, 0.0f},
-                .color = {1.0f, 0.0f, 0.0f, 1.0f},
-            },
-            Vertex{
-                .position = {-0.5f, -0.5f, 0.0f},
-                .color = {1.0f, 0.0f, 0.0f, 1.0f},
-            },
+            Vertex{.position = {left, top, 0.0f}, .texcoord = {0.0f, 1.0f}, .color = {1.0f, 0.0f, 0.0f, 1.0f}},
+            Vertex{.position = {right, top, 0.0f}, .texcoord = {1.0f, 1.0f}, .color = {1.0f, 0.0f, 0.0f, 1.0f}},
+            Vertex{.position = {right, bottom, 0.0f}, .texcoord = {1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f, 1.0f}},
+            Vertex{.position = {left, bottom, 0.0f}, .texcoord = {0.0f, 1.0f}, .color = {1.0f, 0.0f, 0.0f, 1.0f}},
         };
 
         uint32_t indices[] = {0, 1, 2, 2, 3, 0};

@@ -1,4 +1,5 @@
 #include <processing/render_targets.hpp>
+#include <format>
 
 namespace processing
 {
@@ -9,12 +10,13 @@ namespace processing
     void MainRenderTarget::resize(const uint2 size)
     {
         m_size = size;
+        info(std::format("Resized: {}x{}", size.x, size.y));
     }
 
     void MainRenderTarget::beginDraw()
     {
-        glViewport(0, 0, m_size.x, m_size.y);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, m_size.x, m_size.y);
     }
 
     void MainRenderTarget::endDraw()

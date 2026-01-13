@@ -21,8 +21,8 @@ namespace processing
 
     struct DrawSubmission
     {
-        std::span<Vertex> vertices;
-        std::span<uint32_t> indices;
+        std::span<const Vertex> vertices;
+        std::span<const uint32_t> indices;
         std::optional<GLuint> shaderProgramId;
         std::optional<GLuint> textureId;
     };
@@ -52,7 +52,7 @@ namespace processing
         static std::unique_ptr<Renderer> create();
         ~Renderer();
 
-        void beginDraw();
+        void beginDraw(const matrix4x4& projectionMatrix);
         void endDraw();
 
         void submit(const DrawSubmission& submission);
@@ -72,6 +72,8 @@ namespace processing
         std::vector<uint32_t> m_indices;
 
         std::unordered_map<BatchKey, Batch, BatchKeyHash> m_batches;
+
+        matrix4x4 m_projectionMatrix;
     };
 } // namespace processing
 

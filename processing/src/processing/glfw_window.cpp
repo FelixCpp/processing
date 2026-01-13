@@ -54,6 +54,7 @@ namespace processing
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
         glfwWindowHint(GLFW_CONTEXT_DEBUG, GLFW_TRUE);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
 
         GLFWwindow* window = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
         if (window == nullptr)
@@ -77,7 +78,7 @@ namespace processing
             }
         );
 
-        glfwSetWindowSizeCallback(
+        glfwSetFramebufferSizeCallback(
             window, [](GLFWwindow* window, int width, int height)
             {
                 auto* parent = static_cast<WindowImplGLFW*>(glfwGetWindowUserPointer(window));
@@ -90,6 +91,13 @@ namespace processing
             }
         );
 
+        int fbWidth, fbHeight;
+        glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+        Event event;
+        event.type = Event::resized;
+        event.size.width = static_cast<uint32_t>(fbWidth);
+        event.size.height = static_cast<uint32_t>(fbHeight);
+        result->m_events.push(event);
         return result;
     }
 

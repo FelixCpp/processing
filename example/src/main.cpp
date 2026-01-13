@@ -1,6 +1,7 @@
 #include <processing/processing.hpp>
+using namespace processing;
 
-struct DemoApp : processing::Sketch
+struct DemoApp : Sketch
 {
     virtual void setup() override
     {
@@ -8,7 +9,11 @@ struct DemoApp : processing::Sketch
 
     virtual void draw() override
     {
-        processing::background(100);
+        background(255, 0, 0);
+        fill(255, 100, 200);
+        strokeWeight(4.0f);
+        stroke(255, 0, 0);
+        rect(10.0f, 10.0f, 50.0f, 50.0f);
     }
 
     virtual void destroy() override
@@ -16,7 +21,7 @@ struct DemoApp : processing::Sketch
     }
 };
 
-std::unique_ptr<processing::Sketch> processing::createSketch()
+std::unique_ptr<Sketch> processing::createSketch()
 {
     return std::make_unique<DemoApp>();
 }
