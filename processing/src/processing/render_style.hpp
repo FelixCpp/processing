@@ -14,6 +14,7 @@ namespace processing
         bool isStrokeEnabled;
         StrokeJoin strokeJoin;
         StrokeCap strokeCap;
+        RectMode rectMode;
     };
 
     RenderStyle render_style_default();

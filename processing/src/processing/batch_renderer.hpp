@@ -55,7 +55,7 @@ namespace processing
 
         std::unordered_map<BatchKey, Batch, BatchKeyHash> m_batches;
 
-        matrix4x4 m_projectionMatrix;
+        ProjectionDetails m_projectionDetails;
     };
 } // namespace processing
 

@@ -146,11 +146,30 @@ namespace processing
         glfwSetWindowSize(m_window, static_cast<int>(width), static_cast<int>(height));
     }
 
+    uint2 WindowImplGLFW::getSize()
+    {
+        int width, height;
+        printf("Here: %p", m_window);
+        glfwGetWindowSize(m_window, &width, &height);
+        return uint2{static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+    }
+
     void WindowImplGLFW::setTitle(const std::string_view title)
     {
         glfwSetWindowTitle(m_window, title.data());
     }
 
+    std::string WindowImplGLFW::getTitle()
+    {
+        return glfwGetWindowTitle(m_window);
+    }
+
+    int2 WindowImplGLFW::getMousePosition()
+    {
+        double mx, my;
+        glfwGetCursorPos(m_window, &mx, &my);
+        return {static_cast<int32_t>(mx), static_cast<int32_t>(my)};
+    }
     std::optional<Event> WindowImplGLFW::pollEvent()
     {
         if (m_events.empty())

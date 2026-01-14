@@ -31,10 +31,11 @@ namespace processing
         out vec4 v_Color;
 
         uniform mat4 u_ProjectionMatrix;
+        uniform mat4 u_ViewMatrix;
 
         void main()
         {
-            gl_Position = u_ProjectionMatrix * vec4(a_Position, 1.0);
+            gl_Position = u_ProjectionMatrix * u_ViewMatrix * vec4(a_Position, 1.0);
             v_TexCoord = a_TexCoord;
             v_Color = a_Color;
         }
@@ -124,7 +125,7 @@ namespace processing
 
     void BatchRenderer::beginDraw(const ProjectionDetails& details)
     {
-        m_projectionMatrix = details.projectionMatrix;
+        m_projectionDetails = details;
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -204,7 +205,8 @@ namespace processing
             {
                 currentShader = key.shaderProgramId;
                 glUseProgram(currentShader.value);
-                glUniformMatrix4fv(glGetUniformLocation(currentShader.value, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionMatrix.data.data());
+                glUniformMatrix4fv(glGetUniformLocation(currentShader.value, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
+                glUniformMatrix4fv(glGetUniformLocation(currentShader.value, "u_ViewMatrix"), 1, GL_FALSE, m_projectionDetails.viewMatrix.data.data());
                 glUniform1i(glGetUniformLocation(currentShader.value, "u_TextureSampler"), 0);
             }
 

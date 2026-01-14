@@ -1,31 +1,20 @@
 #include <processing/render_targets.hpp>
-#include <format>
 
 namespace processing
 {
-    MainRenderTarget::MainRenderTarget(const uint2 size) : m_size(size)
+    MainRenderTarget::MainRenderTarget(const rect2u viewport) : m_viewport(viewport)
     {
     }
 
-    void MainRenderTarget::resize(const uint2 size)
+    void MainRenderTarget::setViewport(const rect2u viewport)
     {
-        m_size = size;
-        // info(std::format("Resized: {}x{}", size.x, size.y));
+        m_viewport = viewport;
     }
 
-    void MainRenderTarget::beginDraw()
+    void MainRenderTarget::activate()
     {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, m_size.x, m_size.y);
-    }
-
-    void MainRenderTarget::endDraw()
-    {
-    }
-
-    uint2 MainRenderTarget::getSize()
-    {
-        return m_size;
+        glViewport(m_viewport.left, m_viewport.top, m_viewport.width, m_viewport.height);
     }
 } // namespace processing
 
@@ -69,20 +58,10 @@ namespace processing
         glDeleteFramebuffers(1, &m_framebufferId);
     }
 
-    void OffscreenRenderTarget::beginDraw()
+    void OffscreenRenderTarget::activate()
     {
         glViewport(0, 0, m_size.x, m_size.y);
         glBindFramebuffer(GL_FRAMEBUFFER, m_framebufferId);
-    }
-
-    void OffscreenRenderTarget::endDraw()
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
-
-    uint2 OffscreenRenderTarget::getSize()
-    {
-        return m_size;
     }
 
     GLuint OffscreenRenderTarget::getTextureId()

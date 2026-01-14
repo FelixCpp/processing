@@ -10,15 +10,13 @@ namespace processing
     class MainRenderTarget : public RenderTarget
     {
     public:
-        explicit MainRenderTarget(uint2 size);
-        void resize(uint2 size);
+        explicit MainRenderTarget(rect2u viewport);
+        void setViewport(rect2u viewport);
 
-        void beginDraw() override;
-        void endDraw() override;
-        uint2 getSize() override;
+        void activate() override;
 
     private:
-        uint2 m_size;
+        rect2u m_viewport;
     };
 
     class OffscreenRenderTarget : public RenderTarget
@@ -28,9 +26,7 @@ namespace processing
 
         ~OffscreenRenderTarget() override;
 
-        void beginDraw() override;
-        void endDraw() override;
-        uint2 getSize() override;
+        void activate() override;
 
         GLuint getTextureId();
 

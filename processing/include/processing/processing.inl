@@ -115,6 +115,19 @@ namespace processing
 namespace processing
 {
     // clang-format off
+    template <typename T> constexpr rect2<T>::rect2() : left(T{}), top(T{}), width(T{}), height(T{}) {}
+    template <typename T> constexpr rect2<T>::rect2(T left, T top, T width, T height) : left(left), top(top), width(width), height(height) {}
+    template <typename T> template <typename U> constexpr rect2<T>::rect2(const rect2<U>& other): left(static_cast<T>(other.left)), top(static_cast<T>(other.top)), width(static_cast<T>(other.width)), height(static_cast<T>(other.height)) {}
+    template <typename T> constexpr T rect2<T>::right() const { return left + width; }
+    template <typename T> constexpr T rect2<T>::bottom() const { return top + height; }
+    template <typename T> constexpr bool operator == (const rect2<T>& lhs, const rect2<T>& rhs) { return lhs.left == rhs.left and lhs.top == rhs.top and lhs.width == rhs.width and lhs.height == rhs.height; }
+    template <typename T> constexpr bool operator != (const rect2<T>& lhs, const rect2<T>& rhs) { return lhs.left != rhs.left or lhs.top != rhs.top or lhs.width != rhs.width or lhs.height != rhs.height; }
+    // clang-format on
+} // namespace processing
+
+namespace processing
+{
+    // clang-format off
     constexpr bool operator == (const ShaderProgramId& lhs, const ShaderProgramId& rhs) { return lhs.value == rhs.value; }
     constexpr bool operator != (const ShaderProgramId& lhs, const ShaderProgramId& rhs) { return lhs.value != rhs.value; }
     // clang-format on

@@ -22,7 +22,7 @@ namespace processing
         std::shared_ptr<Renderer> renderer;
         std::unique_ptr<Sketch> sketch;
         std::shared_ptr<MainRenderTarget> mainRenderTarget;
-        std::unique_ptr<Graphics> graphics;
+        std::unique_ptr<GraphicsImpl> graphics;
     };
 } // namespace processing
 

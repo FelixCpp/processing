@@ -41,11 +41,53 @@ namespace processing
 namespace processing
 {
     // clang-format off
+    void setWindowSize(uint32_t width, uint32_t height) { s_data.window->setSize(width, height); }
+    uint2 getWindowSize() { return s_data.window->getSize(); }
+    void setWindowTitle(std::string_view title) { s_data.window->setTitle(title); }
+    std::string getWindowTitle() { return s_data.window->getTitle(); }
+    int2 getMousePosition() { return s_data.window->getMousePosition(); }
+    // clang-format on
+} // namespace processing
+
+namespace processing
+{
+    RectMode rect_mode_ltwh()
+    {
+        return [](float x1, float y1, float x2, float y2)
+        {
+            return rect2f(x1, y1, x2, y2);
+        };
+    }
+
+    RectMode rect_mode_ltrb()
+    {
+        return [](float x1, float y1, float x2, float y2)
+        {
+            return rect2f(x1, y1, x2 - x1, y2 - y1);
+        };
+    }
+
+    RectMode rect_mode_center_size()
+    {
+        return [](float x1, float y1, float x2, float y2)
+        {
+            const float width = x2 - x1;
+            const float height = y2 - y1;
+            return rect2f(x1 - width * 0.5f, y1 - height * 0.5f, width, height);
+        };
+    }
+} // namespace processing
+
+namespace processing
+{
+    // clang-format off
     std::unique_ptr<Graphics> createGraphics(std::shared_ptr<RenderTarget> renderTarget) { return std::make_unique<GraphicsImpl>(renderTarget, s_data.renderer); }
     std::unique_ptr<Graphics> createGraphics(uint32_t width, uint32_t height) { return std::make_unique<GraphicsImpl>(OffscreenRenderTarget::create({ width, height }), s_data.renderer); }
 
     void pushState() { s_data.graphics->pushState(); }
     void popState() { s_data.graphics->popState(); }
+
+    rect2f getViewport() { return s_data.graphics->getViewport(); }
 
     void strokeJoin(StrokeJoin strokeJoin) { s_data.graphics->strokeJoin(strokeJoin); }
     void strokeCap(StrokeCap strokeCap) { s_data.graphics->strokeCap(strokeCap); }
@@ -65,6 +107,7 @@ namespace processing
     void noStroke() { s_data.graphics->noStroke(); }
 
     void strokeWeight(float strokeWeight) { s_data.graphics->strokeWeight(strokeWeight); }
+    void rectMode(RectMode rectMode) { s_data.graphics->rectMode(rectMode);}
 
     void rect(float left, float top, float width, float height) { s_data.graphics->rect(left, top, width, height); }
     void square(float left, float top, float size) { s_data.graphics->square(left, top, size); }
@@ -80,7 +123,7 @@ void launch()
 {
     s_data.window = createWindow(1280, 720, "Processing");
     s_data.context = createContext(*s_data.window);
-    s_data.mainRenderTarget = std::make_shared<MainRenderTarget>(uint2{1280, 720});
+    s_data.mainRenderTarget = std::make_shared<MainRenderTarget>(rect2u{0, 0, 1280, 720});
     s_data.renderer = BatchRenderer::create();
     s_data.graphics = createGraphics(s_data.mainRenderTarget);
     s_data.sketch = createSketch();
@@ -98,21 +141,12 @@ void launch()
 
             if (event->type == Event::framebuffer_resized)
             {
-                s_data.mainRenderTarget->resize(uint2{event->size.width, event->size.height});
+                s_data.mainRenderTarget->setViewport(rect2u{0, 0, event->size.width, event->size.height});
             }
 
             if (event->type == Event::window_resized)
             {
-                width = event->size.width;
-                height = event->size.height;
-            }
-
-            if (event->type == Event::mouse_moved)
-            {
-                pmouseX = mouseX;
-                pmouseY = mouseY;
-                mouseX = event->mouse_move.x;
-                mouseY = event->mouse_move.y;
+                s_data.graphics->
             }
         }
 

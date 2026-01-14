@@ -19,7 +19,13 @@ namespace processing
         ~WindowImplGLFW() override;
 
         void setSize(uint32_t width, uint32_t height) override;
+        uint2 getSize() override;
+
         void setTitle(std::string_view title) override;
+        std::string getTitle() override;
+
+        int2 getMousePosition() override;
+
         std::optional<Event> pollEvent() override;
 
         GLFWwindow* getPlatformHandle();

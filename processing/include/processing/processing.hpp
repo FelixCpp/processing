@@ -7,6 +7,7 @@
 #include <array>
 #include <span>
 #include <optional>
+#include <string_view>
 
 namespace processing
 {
@@ -19,17 +20,6 @@ namespace processing
 
 namespace processing
 {
-    inline int mouseX = 0;
-    inline int mouseY = 0;
-    inline int pmouseX = 0;
-    inline int pmouseY = 0;
-    inline int width = 0;
-    inline int height = 0;
-} // namespace processing
-
-namespace processing
-{
-
     void close();
     void close(int exitCode);
     void restart();
@@ -133,6 +123,51 @@ namespace processing
 
 namespace processing
 {
+    template <typename T>
+    struct rect2
+    {
+        constexpr rect2();
+        constexpr rect2(T left, T top, T width, T height);
+
+        template <typename U>
+        constexpr rect2(const rect2<U>& other);
+
+        constexpr T right() const;
+        constexpr T bottom() const;
+
+        union
+        {
+            struct
+            {
+                T left, top;
+            };
+
+            value2<T> position;
+        };
+
+        union
+        {
+            struct
+            {
+                T width, height;
+            };
+
+            value2<T> size;
+        };
+    };
+
+    // clang-format off
+    template <typename T> constexpr bool operator == (const rect2<T>& lhs, const rect2<T>& rhs);
+    template <typename T> constexpr bool operator != (const rect2<T>& lhs, const rect2<T>& rhs);
+    // clang-format on
+
+    using rect2i = rect2<int32_t>;
+    using rect2u = rect2<uint32_t>;
+    using rect2f = rect2<float>;
+} // namespace processing
+
+namespace processing
+{
     struct Event
     {
         enum Type
@@ -175,6 +210,15 @@ namespace processing
 
 namespace processing
 {
+    void setWindowSize(uint32_t width, uint32_t height);
+    uint2 getWindowSize();
+    void setWindowTitle(std::string_view title);
+    std::string getWindowTitle();
+    int2 getMousePosition();
+} // namespace processing
+
+namespace processing
+{
     using color_t = struct
     {
         uint32_t value;
@@ -193,9 +237,7 @@ namespace processing
     struct RenderTarget
     {
         virtual ~RenderTarget() = default;
-        virtual void beginDraw() = 0;
-        virtual void endDraw() = 0;
-        virtual uint2 getSize() = 0;
+        virtual void activate() = 0;
     };
 } // namespace processing
 
@@ -297,6 +339,11 @@ namespace processing
         static const StrokeCap round;
     };
 
+    using RectMode = rect2f (*)(float, float, float, float);
+    RectMode rect_mode_ltwh();
+    RectMode rect_mode_ltrb();
+    RectMode rect_mode_center_size();
+
 } // namespace processing
 
 namespace processing
@@ -305,9 +352,7 @@ namespace processing
     {
         virtual ~Graphics() = default;
 
-        virtual void beginDraw() = 0;
-        virtual void endDraw() = 0;
-        virtual uint2 getSize() = 0;
+        virtual rect2f getViewport() = 0;
 
         virtual void pushState() = 0;
         virtual void popState() = 0;
@@ -330,6 +375,7 @@ namespace processing
         virtual void noStroke() = 0;
 
         virtual void strokeWeight(float strokeWeight) = 0;
+        virtual void rectMode(RectMode rectMode) = 0;
 
         virtual void rect(float left, float top, float width, float height) = 0;
         virtual void square(float left, float top, float size) = 0;
@@ -344,6 +390,8 @@ namespace processing
 
     void pushState();
     void popState();
+
+    rect2f getViewport();
 
     void strokeJoin(StrokeJoin strokeJoin);
     void strokeCap(StrokeCap strokeCap);
@@ -363,6 +411,7 @@ namespace processing
     void noStroke();
 
     void strokeWeight(float strokeWeight);
+    void rectMode(RectMode rectMode);
 
     void rect(float left, float top, float width, float height);
     void square(float left, float top, float size);

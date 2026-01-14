@@ -12,6 +12,7 @@ namespace processing
             .isStrokeEnabled = true,
             .strokeJoin = StrokeJoin::miter,
             .strokeCap = StrokeCap::round,
+            .rectMode = rect_mode_ltwh(),
         };
     }
 } // namespace processing

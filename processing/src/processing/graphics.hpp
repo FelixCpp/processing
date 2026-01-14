@@ -8,14 +8,23 @@
 
 namespace processing
 {
-    class GraphicsImpl : public Graphics
+    struct ActivatableGraphics : Graphics
+    {
+        virtual ~ActivatableGraphics() = default;
+        virtual void beginDraw() = 0;
+        virtual void endDraw() = 0;
+    };
+
+    class GraphicsImpl : public ActivatableGraphics
     {
     public:
-        explicit GraphicsImpl(std::shared_ptr<RenderTarget> rendertarget, std::shared_ptr<Renderer> renderer);
+        explicit GraphicsImpl(std::unique_ptr<RenderTarget> rendertarget, std::shared_ptr<Renderer> renderer);
+
+        void resize(uint2 size);
 
         void beginDraw() override;
         void endDraw() override;
-        uint2 getSize() override;
+        rect2f getViewport() override;
 
         void strokeJoin(StrokeJoin strokeJoin) override;
         void strokeCap(StrokeCap strokeCap) override;
@@ -39,6 +48,7 @@ namespace processing
         void noStroke() override;
 
         void strokeWeight(float strokeWeight) override;
+        void rectMode(RectMode rectMode) override;
 
         void rect(float left, float top, float width, float height) override;
         void square(float left, float top, float size) override;
@@ -51,10 +61,12 @@ namespace processing
     private:
         float getNextDepth();
 
-        std::shared_ptr<RenderTarget> m_renderTarget;
+        std::unique_ptr<RenderTarget> m_renderTarget;
         std::shared_ptr<Renderer> m_renderer;
         RenderStyleStack m_renderStyles;
         float m_currentDepth;
+
+        matrix4x4 m_projectionMatrix;
     };
 } // namespace processing
 

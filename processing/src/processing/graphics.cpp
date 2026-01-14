@@ -9,16 +9,20 @@ namespace processing
     inline static constexpr float MAX_DEPTH = 1.0f;
     inline static constexpr float DEPTH_INCREMENT = (MAX_DEPTH - MIN_DEPTH) / 20'000.0f;
 
-    GraphicsImpl::GraphicsImpl(std::shared_ptr<RenderTarget> renderTarget, std::shared_ptr<Renderer> renderer) : m_renderTarget(std::move(renderTarget)), m_renderer(std::move(renderer))
+    GraphicsImpl::GraphicsImpl(std::unique_ptr<RenderTarget> renderTarget, std::shared_ptr<Renderer> renderer) : m_renderTarget(std::move(renderTarget)), m_renderer(std::move(renderer))
     {
+    }
+
+    void GraphicsImpl::resize(const uint2 size)
+    {
+        m_projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(size.x), static_cast<float>(size.y), MIN_DEPTH, MAX_DEPTH);
     }
 
     void GraphicsImpl::beginDraw()
     {
-        const uint2 size = getSize();
         const ProjectionDetails details = {
-            .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(size.x), static_cast<float>(size.y), MIN_DEPTH, MAX_DEPTH),
-            .viewMatrix = matrix4x4_identity()
+            .projectionMatrix = m_projectionMatrix,
+            .viewMatrix = matrix4x4_identity(),
         };
 
         m_renderer->beginDraw(details);
@@ -33,9 +37,9 @@ namespace processing
         m_renderer->endDraw();
     }
 
-    uint2 GraphicsImpl::getSize()
+    rect2f GraphicsImpl::getViewport()
     {
-        return m_renderTarget->getSize();
+        return m_renderTarget->getViewport();
     }
 
     void GraphicsImpl::strokeJoin(const StrokeJoin lineJoin)
@@ -43,6 +47,7 @@ namespace processing
         RenderStyle& style = render_style_stack_peek(m_renderStyles);
         style.strokeJoin = lineJoin;
     }
+
     void GraphicsImpl::strokeCap(const StrokeCap strokeCap)
     {
         RenderStyle& style = render_style_stack_peek(m_renderStyles);
@@ -76,9 +81,9 @@ namespace processing
 
     void GraphicsImpl::background(color_t color)
     {
-        const uint2 size = getSize();
-        Contour rect_contour = contour_rect_fill(0.0f, 0.0f, static_cast<float>(size.x), static_cast<float>(size.y));
-        Shape shape = shape_from_contour(rect_contour, color, getNextDepth());
+        const rect2f viewport = getViewport();
+        const Contour rect_contour = contour_rect_fill(viewport.left, viewport.top, viewport.width, viewport.height);
+        const Shape shape = shape_from_contour(rect_contour, color, getNextDepth());
 
         m_renderer->submit({
             .vertices = shape.vertices,
@@ -138,9 +143,16 @@ namespace processing
         style.strokeWeight = strokeWeight;
     }
 
+    void GraphicsImpl::rectMode(RectMode rectMode)
+    {
+        RenderStyle& style = peekState();
+        style.rectMode = rectMode;
+    }
+
     void GraphicsImpl::rect(float left, float top, float width, float height)
     {
         const RenderStyle& style = render_style_stack_peek(m_renderStyles);
+        const rect2f rectMode = style.rectMode(left, top, width, height);
 
         if (style.isFillEnabled)
         {

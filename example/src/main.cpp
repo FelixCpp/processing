@@ -10,8 +10,7 @@ struct DemoApp : Sketch
 
     virtual void setup() override
     {
-        width = 1280;
-        height = 720;
+        const auto [width, height] = getViewport().size;
 
         ballPosition.x = static_cast<float>(width) / 2.0f;
         ballPosition.y = static_cast<float>(height) / 2.0f;
@@ -24,6 +23,8 @@ struct DemoApp : Sketch
 
     virtual void draw() override
     {
+        const auto [width, height] = getViewport().size;
+
         const float minX = ballRadius;
         const float maxX = width - ballRadius;
 
@@ -45,7 +46,7 @@ struct DemoApp : Sketch
 
         background(51);
         fill(255, 0, 0);
-        circle(ballPosition.x, ballPosition.y, 50.0f);
+        circle(getMousePosition().x, getMousePosition().y, 50.0f);
     }
 
     virtual void destroy() override
