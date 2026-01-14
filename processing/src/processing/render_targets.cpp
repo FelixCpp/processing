@@ -10,7 +10,7 @@ namespace processing
     void MainRenderTarget::resize(const uint2 size)
     {
         m_size = size;
-        info(std::format("Resized: {}x{}", size.x, size.y));
+        // info(std::format("Resized: {}x{}", size.x, size.y));
     }
 
     void MainRenderTarget::beginDraw()

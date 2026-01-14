@@ -1,6 +1,4 @@
-#include "processing/processing.hpp"
-#include <csetjmp>
-#include <processing/renderer.hpp>
+#include <processing/batch_renderer.hpp>
 
 namespace processing
 {
@@ -11,8 +9,8 @@ namespace processing
 
     size_t BatchKeyHash::operator()(const BatchKey& key) const
     {
-        size_t h1 = std::hash<GLuint>{}(key.shaderProgramId);
-        size_t h2 = std::hash<GLuint>{}(key.textureId);
+        size_t h1 = std::hash<GLuint>{}(key.shaderProgramId.value);
+        size_t h2 = std::hash<GLuint>{}(key.textureId.value);
         return h1 ^ (h2 << 1);
     }
 } // namespace processing
@@ -26,17 +24,19 @@ namespace processing
         #version 330 core
 
         layout (location = 0) in vec3 a_Position;
-        // layout (location = 1) in vec2 a_TexCoord;
-        // layout (location = 2) in vec4 a_Color;
-        //
-        // layout (location = 0) out vec2 v_TexCoord;
-        // layout (location = 1) out vec4 v_Color;
+        layout (location = 1) in vec2 a_TexCoord;
+        layout (location = 2) in vec4 a_Color;
+
+        out vec2 v_TexCoord;
+        out vec4 v_Color;
+
+        uniform mat4 u_ProjectionMatrix;
 
         void main()
         {
-            gl_Position = vec4(a_Position.xyz, 1.0);
-            // v_TexCoord = a_TexCoord;
-            // v_Color = a_Color;
+            gl_Position = u_ProjectionMatrix * vec4(a_Position, 1.0);
+            v_TexCoord = a_TexCoord;
+            v_Color = a_Color;
         }
     )";
 
@@ -45,18 +45,18 @@ namespace processing
 
         layout (location = 0) out vec4 o_Color;
 
-        // layout (location = 0) in vec2 v_TexCoord;
-        // layout (location = 1) in vec4 v_Color;
+        in vec2 v_TexCoord;
+        in vec4 v_Color;
 
-        // uniform sampler2D u_TextureSampler;
+        uniform sampler2D u_TextureSampler;
 
         void main()
         {
-            o_Color = vec4(1.0, 0.0, 0.0, 1.0);
+            o_Color = texture(u_TextureSampler, v_TexCoord) * v_Color;
         }
     )";
 
-    std::unique_ptr<Renderer> Renderer::create()
+    std::unique_ptr<Renderer> BatchRenderer::create()
     {
         GLuint vertexArrayId = 0;
         glGenVertexArrays(1, &vertexArrayId);
@@ -69,10 +69,10 @@ namespace processing
 
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
-        // glEnableVertexAttribArray(1);
-        // glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texcoord));
-        // glEnableVertexAttribArray(2);
-        // glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texcoord));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
 
         GLuint elementBufferId = 0;
         glGenBuffers(1, &elementBufferId);
@@ -110,32 +110,32 @@ namespace processing
         uint8_t pixel[] = {255, 255, 255, 255};
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
 
-        return std::unique_ptr<Renderer>(new Renderer(vertexArrayId, vertexBufferId, elementBufferId, shaderProgramId, textureId));
+        return std::unique_ptr<Renderer>(new BatchRenderer(vertexArrayId, vertexBufferId, elementBufferId, shaderProgramId, textureId));
     }
 
-    Renderer::~Renderer()
+    BatchRenderer::~BatchRenderer()
     {
         glDeleteVertexArrays(1, &m_vertexArrayId);
         glDeleteBuffers(1, &m_vertexBufferId);
         glDeleteBuffers(1, &m_elementBufferId);
-        glDeleteTextures(1, &m_whiteTextureId);
-        glDeleteProgram(m_defaultShaderProgramId);
+        glDeleteTextures(1, &m_whiteTextureId.value);
+        glDeleteProgram(m_defaultShaderProgramId.value);
     }
 
-    void Renderer::beginDraw(const matrix4x4& projectionMatrix)
+    void BatchRenderer::beginDraw(const ProjectionDetails& details)
     {
-        m_projectionMatrix = projectionMatrix;
+        m_projectionMatrix = details.projectionMatrix;
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
-    void Renderer::endDraw()
+    void BatchRenderer::endDraw()
     {
         flush();
     }
 
-    void Renderer::submit(const DrawSubmission& submission)
+    void BatchRenderer::submit(const RenderingSubmission& submission)
     {
         if (m_vertices.size() + submission.vertices.size() >= MAX_VERTICES or m_indices.size() + submission.indices.size() >= MAX_INDICES)
         {
@@ -180,7 +180,7 @@ namespace processing
         }
     }
 
-    void Renderer::flush()
+    void BatchRenderer::flush()
     {
         if (m_batches.empty())
         {
@@ -195,23 +195,24 @@ namespace processing
 
         glBindVertexArray(m_vertexArrayId);
 
-        GLuint currentShader = 0;
-        GLuint currentTexture = 0;
+        auto currentShader = ShaderProgramId{.value = 0};
+        auto currentTexture = TextureId{.value = 0};
 
         for (const auto& [key, batch] : m_batches)
         {
             if (key.shaderProgramId != currentShader)
             {
                 currentShader = key.shaderProgramId;
-                glUseProgram(currentShader);
-                glUniformMatrix4fv(glGetUniformLocation(currentShader, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionMatrix.data.data());
+                glUseProgram(currentShader.value);
+                glUniformMatrix4fv(glGetUniformLocation(currentShader.value, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionMatrix.data.data());
+                glUniform1i(glGetUniformLocation(currentShader.value, "u_TextureSampler"), 0);
             }
 
             if (key.textureId != currentTexture)
             {
                 currentTexture = key.textureId;
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, currentTexture);
+                glBindTexture(GL_TEXTURE_2D, currentTexture.value);
             }
 
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(batch.indexCount), GL_UNSIGNED_INT, (void*)(batch.indexStart * sizeof(uint32_t)));
@@ -222,11 +223,10 @@ namespace processing
         m_indices.clear();
     }
 
-    Renderer::Renderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, GLuint defaultShaderProgramId, GLuint whiteTextureId)
+    BatchRenderer::BatchRenderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, GLuint defaultShaderProgramId, GLuint whiteTextureId)
         : m_vertexArrayId(vertexArrayId), m_vertexBufferId(vertexBufferId), m_elementBufferId(elementBufferId), m_defaultShaderProgramId(defaultShaderProgramId), m_whiteTextureId(whiteTextureId)
     {
         m_vertices.reserve(MAX_VERTICES);
         m_indices.reserve(MAX_INDICES);
     }
-
 } // namespace processing

@@ -1,226 +1,262 @@
-#include <processing/render_targets.hpp>
-#include <processing/processing.hpp>
-#include <processing/renderer.hpp>
+#include "processing/processing.hpp"
+#include "processing/render_style_stack.hpp"
+#include <processing/graphics.hpp>
+#include <processing/shape_builder.hpp>
 
 namespace processing
 {
-    color_t color(int32_t red, int32_t green, int32_t blue, int32_t alpha)
+    inline static constexpr float MIN_DEPTH = -1.0f;
+    inline static constexpr float MAX_DEPTH = 1.0f;
+    inline static constexpr float DEPTH_INCREMENT = (MAX_DEPTH - MIN_DEPTH) / 20'000.0f;
+
+    GraphicsImpl::GraphicsImpl(std::shared_ptr<RenderTarget> renderTarget, std::shared_ptr<Renderer> renderer) : m_renderTarget(std::move(renderTarget)), m_renderer(std::move(renderer))
     {
-        return color_t{
-            .value = (uint32_t)(red << 24) | (uint32_t)(green << 16) | (uint32_t)(blue << 8) | (uint32_t)alpha
+    }
+
+    void GraphicsImpl::beginDraw()
+    {
+        const uint2 size = getSize();
+        const ProjectionDetails details = {
+            .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(size.x), static_cast<float>(size.y), MIN_DEPTH, MAX_DEPTH),
+            .viewMatrix = matrix4x4_identity()
         };
-    }
 
-    color_t color(int32_t grey, int32_t alpha)
-    {
-        return color(grey, grey, grey, alpha);
-    }
-
-    int32_t red(color_t color)
-    {
-        return (color.value & 0xFF000000) >> 24;
-    }
-
-    int32_t green(color_t color)
-    {
-        return (color.value & 0x00FF0000) >> 16;
-    }
-
-    int32_t blue(color_t color)
-    {
-        return (color.value & 0x0000FF00) >> 8;
-    }
-
-    int32_t alpha(color_t color)
-    {
-        return (color.value & 0x000000FF);
-    }
-} // namespace processing
-
-namespace processing
-{
-    Graphics::RenderStyle::RenderStyle()
-        : fillColor(color(255)), strokeColor(color(255)), strokeWeight(1.0f), isFillEnabled(true), isStrokeEnabled(true)
-    {
-    }
-
-    const Graphics::RenderStyle Graphics::RenderStyle::Default;
-} // namespace processing
-
-namespace processing
-{
-    Graphics::RenderStyleStack::RenderStyleStack() : m_currentStyle(0)
-    {
-    }
-
-    void Graphics::RenderStyleStack::pushStyle()
-    {
-        if (m_currentStyle < m_renderStyles.size())
-        {
-            m_currentStyle++;
-        }
-    }
-
-    void Graphics::RenderStyleStack::popStyle()
-    {
-        if (m_currentStyle > 0)
-        {
-            m_renderStyles[m_currentStyle] = RenderStyle::Default;
-            --m_currentStyle;
-        }
-    }
-
-    Graphics::RenderStyle& Graphics::RenderStyleStack::peekStyle()
-    {
-        return m_renderStyles[m_currentStyle];
-    }
-
-    void Graphics::RenderStyleStack::reset()
-    {
-        m_currentStyle = 0;
-    }
-} // namespace processing
-
-namespace processing
-{
-    void Graphics::beginDraw()
-    {
-        m_renderer->beginDraw();
+        m_renderer->beginDraw(details);
         m_renderTarget->beginDraw();
-        m_renderStyles.reset();
+        render_style_stack_reset(m_renderStyles);
+        m_currentDepth = MIN_DEPTH;
     }
 
-    void Graphics::endDraw()
+    void GraphicsImpl::endDraw()
     {
         m_renderTarget->endDraw();
         m_renderer->endDraw();
     }
 
-    uint2 Graphics::getSize()
+    uint2 GraphicsImpl::getSize()
     {
         return m_renderTarget->getSize();
     }
 
-    void Graphics::background(int red, int green, int blue, int alpha)
+    void GraphicsImpl::strokeJoin(const StrokeJoin lineJoin)
+    {
+        RenderStyle& style = render_style_stack_peek(m_renderStyles);
+        style.strokeJoin = lineJoin;
+    }
+    void GraphicsImpl::strokeCap(const StrokeCap strokeCap)
+    {
+        RenderStyle& style = render_style_stack_peek(m_renderStyles);
+        style.strokeCap = strokeCap;
+    }
+
+    void GraphicsImpl::pushState()
+    {
+        render_style_stack_push(m_renderStyles, peekState());
+    }
+
+    void GraphicsImpl::popState()
+    {
+        render_style_stack_pop(m_renderStyles);
+    }
+
+    RenderStyle& GraphicsImpl::peekState()
+    {
+        return render_style_stack_peek(m_renderStyles);
+    }
+
+    void GraphicsImpl::background(int red, int green, int blue, int alpha)
     {
         background(color(red, green, blue, alpha));
     }
 
-    void Graphics::background(int grey, int alpha)
+    void GraphicsImpl::background(int grey, int alpha)
     {
         background(color(grey, grey, grey, alpha));
     }
 
-    void Graphics::background(color_t color)
+    void GraphicsImpl::background(color_t color)
     {
-        float left = 0.0f, top = 0.0f, width = 1.0f, height = 1.0f;
-        float right = left + width;
-        float bottom = top + height;
+        const uint2 size = getSize();
+        Contour rect_contour = contour_rect_fill(0.0f, 0.0f, static_cast<float>(size.x), static_cast<float>(size.y));
+        Shape shape = shape_from_contour(rect_contour, color, getNextDepth());
 
-        Vertex vertices[] = {
-            Vertex{.position = {left, top, 0.0f}, .texcoord = {0.0f, 1.0f}, .color = {1.0f, 0.0f, 0.0f, 1.0f}},
-            Vertex{.position = {right, top, 0.0f}, .texcoord = {1.0f, 1.0f}, .color = {1.0f, 0.0f, 0.0f, 1.0f}},
-            Vertex{.position = {right, bottom, 0.0f}, .texcoord = {1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f, 1.0f}},
-            Vertex{.position = {left, bottom, 0.0f}, .texcoord = {0.0f, 1.0f}, .color = {1.0f, 0.0f, 0.0f, 1.0f}},
-        };
-
-        uint32_t indices[] = {0, 1, 2, 2, 3, 0};
-
-        m_renderer->submit(DrawSubmission{
-            .vertices = vertices,
-            .indices = indices,
+        m_renderer->submit({
+            .vertices = shape.vertices,
+            .indices = shape.indices,
         });
     }
 
-    void Graphics::fill(int red, int green, int blue, int alpha)
+    void GraphicsImpl::fill(int red, int green, int blue, int alpha)
     {
         fill(color(red, green, blue, alpha));
     }
 
-    void Graphics::fill(int grey, int alpha)
+    void GraphicsImpl::fill(int grey, int alpha)
     {
         fill(color(grey, alpha));
     }
 
-    void Graphics::fill(color_t color)
+    void GraphicsImpl::fill(color_t color)
     {
-        RenderStyle& style = m_renderStyles.peekStyle();
+        RenderStyle& style = peekState();
         style.fillColor = color;
         style.isFillEnabled = true;
     }
 
-    void Graphics::noFill()
+    void GraphicsImpl::noFill()
     {
-        RenderStyle& style = m_renderStyles.peekStyle();
+        RenderStyle& style = peekState();
         style.isFillEnabled = false;
     }
 
-    void Graphics::stroke(int red, int green, int blue, int alpha)
+    void GraphicsImpl::stroke(int red, int green, int blue, int alpha)
     {
         stroke(color(red, green, blue, alpha));
     }
 
-    void Graphics::stroke(int grey, int alpha)
+    void GraphicsImpl::stroke(int grey, int alpha)
     {
         stroke(color(grey, alpha));
     }
 
-    void Graphics::stroke(color_t color)
+    void GraphicsImpl::stroke(color_t color)
     {
-        RenderStyle& style = m_renderStyles.peekStyle();
+        RenderStyle& style = peekState();
         style.strokeColor = color;
         style.isStrokeEnabled = true;
     }
 
-    void Graphics::noStroke()
+    void GraphicsImpl::noStroke()
     {
-        RenderStyle& style = m_renderStyles.peekStyle();
+        RenderStyle& style = peekState();
         style.isStrokeEnabled = false;
     }
 
-    void Graphics::strokeWeight(float strokeWeight)
+    void GraphicsImpl::strokeWeight(float strokeWeight)
     {
-        RenderStyle& style = m_renderStyles.peekStyle();
+        RenderStyle& style = peekState();
         style.strokeWeight = strokeWeight;
     }
 
-    void Graphics::rect(float left, float top, float width, float height)
+    void GraphicsImpl::rect(float left, float top, float width, float height)
     {
-        error("Function is not yet implemented");
+        const RenderStyle& style = render_style_stack_peek(m_renderStyles);
+
+        if (style.isFillEnabled)
+        {
+            const Contour contour = contour_rect_fill(left, top, width, height);
+            const Shape shape = shape_from_contour(contour, style.fillColor, getNextDepth());
+
+            m_renderer->submit({
+                .vertices = shape.vertices,
+                .indices = shape.indices,
+            });
+        }
+
+        if (style.isStrokeEnabled)
+        {
+            const Contour contour = contour_rect_stroke(left, top, width, height, style.strokeWeight, style.strokeJoin);
+            const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
+
+            m_renderer->submit({
+                .vertices = shape.vertices,
+                .indices = shape.indices,
+            });
+        }
     }
 
-    void Graphics::square(float left, float top, float size)
+    void GraphicsImpl::square(float left, float top, float size)
     {
-        error("Function is not yet implemented");
+        rect(left, top, size, size);
     }
 
-    void Graphics::ellipse(float centerX, float centerY, float radiusX, float radiusY)
+    void GraphicsImpl::ellipse(float centerX, float centerY, float radiusX, float radiusY)
     {
-        error("Function is not yet implemented");
+        const RenderStyle& style = render_style_stack_peek(m_renderStyles);
+
+        if (style.isFillEnabled)
+        {
+            const Contour contour = contour_ellipse_fill(centerX, centerY, radiusX, radiusY, 32);
+            const Shape shape = shape_from_contour(contour, style.fillColor, getNextDepth());
+
+            m_renderer->submit({
+                .vertices = shape.vertices,
+                .indices = shape.indices,
+            });
+        }
+
+        if (style.isStrokeEnabled)
+        {
+            const Contour contour = contour_ellipse_stroke(centerX, centerY, radiusX, radiusY, style.strokeWeight, 32, style.strokeJoin);
+            const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
+
+            m_renderer->submit({
+                .vertices = shape.vertices,
+                .indices = shape.indices,
+            });
+        }
     }
 
-    void Graphics::circle(float centerX, float centerY, float radius)
+    void GraphicsImpl::circle(float centerX, float centerY, float radius)
     {
-        error("Function is not yet implemented");
+        ellipse(centerX, centerY, radius, radius);
     }
 
-    void Graphics::line(float x1, float y1, float x2, float y2)
+    void GraphicsImpl::line(float x1, float y1, float x2, float y2)
     {
-        error("Function is not yet implemented");
+        const RenderStyle& style = render_style_stack_peek(m_renderStyles);
+        const Contour contour = contour_line(x1, y1, x2, y2, style.strokeWeight, style.strokeCap);
+        const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
+
+        m_renderer->submit({
+            .vertices = shape.vertices,
+            .indices = shape.indices,
+        });
     }
 
-    void Graphics::triangle(float x1, float y1, float x2, float y2, float x3, float y3)
+    void GraphicsImpl::triangle(float x1, float y1, float x2, float y2, float x3, float y3)
     {
-        error("Function is not yet implemented");
+        const RenderStyle& style = render_style_stack_peek(m_renderStyles);
+
+        if (style.isFillEnabled)
+        {
+            const Contour contour = contour_triangle_fill(x1, y1, x2, y2, x3, y3);
+            const Shape shape = shape_from_contour(contour, style.fillColor, getNextDepth());
+
+            m_renderer->submit({
+                .vertices = shape.vertices,
+                .indices = shape.indices,
+            });
+        }
+
+        if (style.isStrokeEnabled)
+        {
+            const Contour contour = contour_triangle_stroke(x1, y1, x2, y2, x3, y3, style.strokeWeight, style.strokeJoin);
+            const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
+
+            m_renderer->submit({
+                .vertices = shape.vertices,
+                .indices = shape.indices,
+            });
+        }
     }
 
-    void Graphics::point(float x, float y)
+    void GraphicsImpl::point(float x, float y)
     {
-        error("Function is not yet implemented");
+        const RenderStyle& style = render_style_stack_peek(m_renderStyles);
+        const Contour contour = contour_ellipse_fill(x, y, style.strokeWeight, style.strokeWeight, 16);
+        const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
+
+        m_renderer->submit({
+            .vertices = shape.vertices,
+            .indices = shape.indices,
+        });
     }
 
-    Graphics::Graphics(std::shared_ptr<RenderTarget> renderTarget, std::shared_ptr<Renderer> renderer) : m_renderTarget(std::move(renderTarget)), m_renderer(std::move(renderer))
+    float GraphicsImpl::getNextDepth()
     {
+        float value = m_currentDepth;
+        m_currentDepth += DEPTH_INCREMENT;
+        return value;
     }
-
 } // namespace processing

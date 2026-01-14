@@ -5,6 +5,8 @@
 #include <string>
 #include <memory>
 #include <array>
+#include <span>
+#include <optional>
 
 namespace processing
 {
@@ -17,6 +19,17 @@ namespace processing
 
 namespace processing
 {
+    inline int mouseX = 0;
+    inline int mouseY = 0;
+    inline int pmouseX = 0;
+    inline int pmouseY = 0;
+    inline int width = 0;
+    inline int height = 0;
+} // namespace processing
+
+namespace processing
+{
+
     void close();
     void close(int exitCode);
     void restart();
@@ -34,23 +47,55 @@ namespace processing
     template <typename T>
     struct value2
     {
+        constexpr value2();
+        constexpr value2(T x, T y);
+        constexpr explicit value2(T scalar);
+
         T x, y;
     };
+
+    // clang-format off
+    template <typename T> T value2_length(const value2<T>& value);
+    template <typename T> constexpr T value2_lengthSquared(const value2<T>& value);
+
+    template <typename T> constexpr value2<T> operator+(const value2<T>& lhs, const value2<T>& rhs);
+    template <typename T> constexpr value2<T> operator-(const value2<T>& lhs, const value2<T>& rhs);
+    template <typename T> constexpr value2<T> operator*(const value2<T>& lhs, const value2<T>& rhs);
+    template <typename T> constexpr value2<T> operator/(const value2<T>& lhs, const value2<T>& rhs);
+
+    template <typename T> constexpr value2<T> operator+(const value2<T>& lhs, T rhs);
+    template <typename T> constexpr value2<T> operator-(const value2<T>& lhs, T rhs);
+    template <typename T> constexpr value2<T> operator*(const value2<T>& lhs, T rhs);
+    template <typename T> constexpr value2<T> operator/(const value2<T>& lhs, T rhs);
+    // clang-format on
 
     using int2 = value2<int32_t>;
     using uint2 = value2<uint32_t>;
     using float2 = value2<float>;
+} // namespace processing
 
+namespace processing
+{
     template <typename T>
     struct value3
     {
+        constexpr value3();
+        constexpr value3(T x, T y, T z);
+        constexpr explicit value3(T scalar);
+
+        constexpr explicit value3(const value2<T>& xy, T z);
+        constexpr explicit value3(T x, const value2<T>& yz);
+
         T x, y, z;
     };
 
     using int3 = value3<int32_t>;
     using uint3 = value3<uint32_t>;
     using float3 = value3<float>;
+} // namespace processing
 
+namespace processing
+{
     template <typename T>
     struct value4
     {
@@ -60,25 +105,30 @@ namespace processing
     using int4 = value4<int32_t>;
     using uint4 = value4<uint32_t>;
     using float4 = value4<float>;
+} // namespace processing
 
+namespace processing
+{
     struct matrix4x4
     {
         std::array<float, 16> data;
     };
 
-    matrix4x4 create_matrix(
+    constexpr matrix4x4 matrix4x4_create(
         float m00, float m01, float m02, float m03,
         float m10, float m11, float m12, float m13,
         float m20, float m21, float m22, float m23,
         float m30, float m31, float m32, float m33
     );
 
-    matrix4x4 translate(float x, float y, float z);
-    matrix4x4 scale(float x, float y, float z);
-    matrix4x4 orthographic(float left, float top, float width, float height, float near, float far);
+    constexpr matrix4x4 matrix4x4_identity();
 
-    float3 transformPoint(const matrix4x4& matrix, const float3& point);
-    float2 transformVector(const matrix4x4& matrix, const float2& vector);
+    constexpr matrix4x4 matrix4x4_translate(float x, float y, float z);
+    constexpr matrix4x4 matrix4x4_scale(float x, float y, float z);
+    constexpr matrix4x4 matrix4x4_orthographic(float left, float top, float width, float height, float near, float far);
+
+    constexpr float3 transformPoint(const matrix4x4& matrix, const float3& point);
+    constexpr float2 transformVector(const matrix4x4& matrix, const float2& vector);
 } // namespace processing
 
 namespace processing
@@ -88,7 +138,9 @@ namespace processing
         enum Type
         {
             closed,
-            resized,
+            window_resized,
+            framebuffer_resized,
+            mouse_moved,
         } type;
 
         struct SizeEvent
@@ -97,9 +149,16 @@ namespace processing
             uint32_t height;
         };
 
+        struct MouseMoveEvent
+        {
+            int32_t x;
+            int32_t y;
+        };
+
         union
         {
             SizeEvent size;
+            MouseMoveEvent mouse_move;
         };
     };
 
@@ -121,13 +180,16 @@ namespace processing
         uint32_t value;
     };
 
-    color_t color(int32_t red, int32_t green, int32_t blue, int32_t alpha = 255);
-    color_t color(int32_t grey, int32_t alpha = 255);
-    int32_t red(color_t color);
-    int32_t green(color_t color);
-    int32_t blue(color_t color);
-    int32_t alpha(color_t color);
+    constexpr color_t color(int32_t red, int32_t green, int32_t blue, int32_t alpha = 255);
+    constexpr color_t color(int32_t grey, int32_t alpha = 255);
+    constexpr int32_t red(color_t color);
+    constexpr int32_t green(color_t color);
+    constexpr int32_t blue(color_t color);
+    constexpr int32_t alpha(color_t color);
+} // namespace processing
 
+namespace processing
+{
     struct RenderTarget
     {
         virtual ~RenderTarget() = default;
@@ -135,87 +197,159 @@ namespace processing
         virtual void endDraw() = 0;
         virtual uint2 getSize() = 0;
     };
+} // namespace processing
 
-    class Renderer;
-
-    class Graphics
+namespace processing
+{
+    struct Vertex
     {
-    private:
-        struct RenderStyle
-        {
-            color_t fillColor;
-            color_t strokeColor;
-            float strokeWeight;
-            bool isFillEnabled;
-            bool isStrokeEnabled;
-            matrix4x4 transform;
+        float3 position;
+        float2 texcoord;
+        float4 color;
+    };
+} // namespace processing
 
-            RenderStyle();
-
-            static const RenderStyle Default;
-        };
-
-        struct RenderStyleStack
-        {
-        public:
-            RenderStyleStack();
-
-            void pushStyle();
-            void popStyle();
-            RenderStyle& peekStyle();
-
-            void reset();
-
-        private:
-            std::array<RenderStyle, 64> m_renderStyles;
-            size_t m_currentStyle;
-        };
-
-    public:
-        void beginDraw();
-        void endDraw();
-        uint2 getSize();
-
-        void background(int red, int green, int blue, int alpha = 255);
-        void background(int grey, int alpha = 255);
-        void background(color_t color);
-
-        void fill(int red, int green, int blue, int alpha = 255);
-        void fill(int grey, int alpha = 255);
-        void fill(color_t color);
-        void noFill();
-
-        void stroke(int red, int green, int blue, int alpha = 255);
-        void stroke(int grey, int alpha = 255);
-        void stroke(color_t color);
-        void noStroke();
-
-        void strokeWeight(float strokeWeight);
-
-        void rect(float left, float top, float width, float height);
-        void square(float left, float top, float size);
-        void ellipse(float centerX, float centerY, float radiusX, float radiusY);
-        void circle(float centerX, float centerY, float radius);
-        void line(float x1, float y1, float x2, float y2);
-        void triangle(float x1, float y1, float x2, float y2, float x3, float y3);
-        void point(float x, float y);
-
-    private:
-        explicit Graphics(std::shared_ptr<RenderTarget> renderTarget, std::shared_ptr<Renderer> renderer);
-
-        std::shared_ptr<RenderTarget> m_renderTarget;
-        std::shared_ptr<Renderer> m_renderer;
-        RenderStyleStack m_renderStyles;
-
-    private:
-        friend std::unique_ptr<Graphics> createGraphics(std::shared_ptr<RenderTarget>);
+namespace processing
+{
+    using ShaderProgramId = struct
+    {
+        uint32_t value;
     };
 
-    std::unique_ptr<Graphics> createGraphics(std::shared_ptr<RenderTarget> renderTarget);
+    constexpr bool operator==(const ShaderProgramId& lhs, const ShaderProgramId& rhs);
+    constexpr bool operator!=(const ShaderProgramId& lhs, const ShaderProgramId& rhs);
+
+    struct ShaderProgram
+    {
+        virtual ~ShaderProgram() = default;
+        virtual ShaderProgramId getResourceId() const = 0;
+    };
+} // namespace processing
+
+namespace processing
+{
+    using TextureId = struct
+    {
+        uint32_t value;
+    };
+
+    constexpr bool operator==(const TextureId& lhs, const TextureId& rhs);
+    constexpr bool operator!=(const TextureId& lhs, const TextureId& rhs);
+
+    struct Texture
+    {
+        virtual ~Texture() = default;
+        virtual TextureId getResourceId() const = 0;
+    };
+} // namespace processing
+
+namespace processing
+{
+    struct RenderingSubmission
+    {
+        std::span<const Vertex> vertices;
+        std::span<const uint32_t> indices;
+        std::optional<ShaderProgramId> shaderProgramId;
+        std::optional<TextureId> textureId;
+    };
+
+    struct ProjectionDetails
+    {
+        matrix4x4 projectionMatrix;
+        matrix4x4 viewMatrix;
+    };
+
+    struct Renderer
+    {
+        virtual ~Renderer() = default;
+        virtual void beginDraw(const ProjectionDetails& details) = 0;
+        virtual void endDraw() = 0;
+        virtual void submit(const RenderingSubmission& submission) = 0;
+        virtual void flush() = 0;
+    };
+} // namespace processing
+
+namespace processing
+{
+    enum class StrokeJoin
+    {
+        miter,
+        bevel,
+        round,
+    };
+
+    enum class StrokeCapStyle
+    {
+        butt,
+        square,
+        round,
+    };
+
+    struct StrokeCap
+    {
+        StrokeCapStyle start;
+        StrokeCapStyle end;
+
+        // constexpr StrokeCap(StrokeCapStyle start, StrokeCapStyle end);
+
+        static const StrokeCap butt;
+        static const StrokeCap square;
+        static const StrokeCap round;
+    };
+
+} // namespace processing
+
+namespace processing
+{
+    struct Graphics
+    {
+        virtual ~Graphics() = default;
+
+        virtual void beginDraw() = 0;
+        virtual void endDraw() = 0;
+        virtual uint2 getSize() = 0;
+
+        virtual void pushState() = 0;
+        virtual void popState() = 0;
+
+        virtual void strokeJoin(StrokeJoin strokeJoin) = 0;
+        virtual void strokeCap(StrokeCap strokeCap) = 0;
+
+        virtual void background(int red, int green, int blue, int alpha = 255) = 0;
+        virtual void background(int grey, int alpha = 255) = 0;
+        virtual void background(color_t color) = 0;
+
+        virtual void fill(int red, int green, int blue, int alpha = 255) = 0;
+        virtual void fill(int grey, int alpha = 255) = 0;
+        virtual void fill(color_t color) = 0;
+        virtual void noFill() = 0;
+
+        virtual void stroke(int red, int green, int blue, int alpha = 255) = 0;
+        virtual void stroke(int grey, int alpha = 255) = 0;
+        virtual void stroke(color_t color) = 0;
+        virtual void noStroke() = 0;
+
+        virtual void strokeWeight(float strokeWeight) = 0;
+
+        virtual void rect(float left, float top, float width, float height) = 0;
+        virtual void square(float left, float top, float size) = 0;
+        virtual void ellipse(float centerX, float centerY, float radiusX, float radiusY) = 0;
+        virtual void circle(float centerX, float centerY, float radius) = 0;
+        virtual void line(float x1, float y1, float x2, float y2) = 0;
+        virtual void triangle(float x1, float y1, float x2, float y2, float x3, float y3) = 0;
+        virtual void point(float x, float y) = 0;
+    };
+
     std::unique_ptr<Graphics> createGraphics(uint32_t width, uint32_t height);
 
+    void pushState();
+    void popState();
+
+    void strokeJoin(StrokeJoin strokeJoin);
+    void strokeCap(StrokeCap strokeCap);
+
     void background(int red, int green, int blue, int alpha = 255);
-    void background(int grey, int alpha = 255);
+    void background(int gmey, int alpha = 255);
     void background(color_t color);
 
     void fill(int red, int green, int blue, int alpha = 255);
@@ -238,5 +372,7 @@ namespace processing
     void triangle(float x1, float y1, float x2, float y2, float x3, float y3);
     void point(float x, float y);
 } // namespace processing
+
+#include <processing/processing.inl>
 
 #endif // _PROCESSING_INCLUDE_LIBRARY_HPP_

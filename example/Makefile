@@ -1,6 +1,6 @@
 .PHONY: build run clean debug
 
-BUILD_TYPE ?= Release
+BUILD_TYPE ?= Debug
 
 build:
 	@mkdir -p build

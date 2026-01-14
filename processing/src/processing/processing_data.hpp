@@ -5,7 +5,6 @@
 #include <processing/window.hpp>
 #include <processing/graphics_context.hpp>
 #include <processing/render_targets.hpp>
-#include <processing/renderer.hpp>
 
 namespace processing
 {

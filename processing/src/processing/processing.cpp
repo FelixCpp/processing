@@ -1,7 +1,8 @@
-#include "processing/renderer.hpp"
+#include <processing/batch_renderer.hpp>
 #include <processing/processing.hpp>
 #include <processing/processing_data.hpp>
 #include <processing/render_targets.hpp>
+#include <processing/graphics.hpp>
 
 #include <iostream>
 
@@ -40,8 +41,14 @@ namespace processing
 namespace processing
 {
     // clang-format off
-    std::unique_ptr<Graphics> createGraphics(std::shared_ptr<RenderTarget> renderTarget) { return std::unique_ptr<Graphics>(new Graphics(renderTarget, s_data.renderer)); }
-    std::unique_ptr<Graphics> createGraphics(uint32_t width, uint32_t height) { return createGraphics(OffscreenRenderTarget::create(uint2{width, height})); }
+    std::unique_ptr<Graphics> createGraphics(std::shared_ptr<RenderTarget> renderTarget) { return std::make_unique<GraphicsImpl>(renderTarget, s_data.renderer); }
+    std::unique_ptr<Graphics> createGraphics(uint32_t width, uint32_t height) { return std::make_unique<GraphicsImpl>(OffscreenRenderTarget::create({ width, height }), s_data.renderer); }
+
+    void pushState() { s_data.graphics->pushState(); }
+    void popState() { s_data.graphics->popState(); }
+
+    void strokeJoin(StrokeJoin strokeJoin) { s_data.graphics->strokeJoin(strokeJoin); }
+    void strokeCap(StrokeCap strokeCap) { s_data.graphics->strokeCap(strokeCap); }
 
     void background(int red, int green, int blue, int alpha) { s_data.graphics->background(red, green, blue, alpha); }
     void background(int grey, int alpha) { s_data.graphics->background(grey, alpha); }
@@ -74,7 +81,7 @@ void launch()
     s_data.window = createWindow(1280, 720, "Processing");
     s_data.context = createContext(*s_data.window);
     s_data.mainRenderTarget = std::make_shared<MainRenderTarget>(uint2{1280, 720});
-    s_data.renderer = Renderer::create();
+    s_data.renderer = BatchRenderer::create();
     s_data.graphics = createGraphics(s_data.mainRenderTarget);
     s_data.sketch = createSketch();
 
@@ -89,9 +96,23 @@ void launch()
                 close();
             }
 
-            if (event->type == Event::resized)
+            if (event->type == Event::framebuffer_resized)
             {
                 s_data.mainRenderTarget->resize(uint2{event->size.width, event->size.height});
+            }
+
+            if (event->type == Event::window_resized)
+            {
+                width = event->size.width;
+                height = event->size.height;
+            }
+
+            if (event->type == Event::mouse_moved)
+            {
+                pmouseX = mouseX;
+                pmouseY = mouseY;
+                mouseX = event->mouse_move.x;
+                mouseY = event->mouse_move.y;
             }
         }
 

@@ -1,19 +1,51 @@
+#include <algorithm>
 #include <processing/processing.hpp>
 using namespace processing;
 
 struct DemoApp : Sketch
 {
+    float2 ballPosition = float2{};
+    float2 ballVelocity = float2{};
+    float ballRadius = 50.0f;
+
     virtual void setup() override
     {
+        width = 1280;
+        height = 720;
+
+        ballPosition.x = static_cast<float>(width) / 2.0f;
+        ballPosition.y = static_cast<float>(height) / 2.0f;
+
+        ballVelocity.x = 1.0f;
+        ballVelocity.y = 2.0f;
+
+        noStroke();
     }
 
     virtual void draw() override
     {
-        background(255, 0, 0);
-        fill(255, 100, 200);
-        strokeWeight(4.0f);
-        stroke(255, 0, 0);
-        rect(10.0f, 10.0f, 50.0f, 50.0f);
+        const float minX = ballRadius;
+        const float maxX = width - ballRadius;
+
+        ballPosition.x += ballVelocity.x;
+        if (ballPosition.x < minX or ballPosition.x > maxX)
+        {
+            ballPosition.x = std::clamp(ballPosition.x, minX, maxX);
+            ballVelocity.x *= -1.0f;
+        }
+
+        const float minY = ballRadius;
+        const float maxY = height - ballRadius;
+        ballPosition.y += ballVelocity.y;
+        if (ballPosition.y < minY or ballPosition.y > maxY)
+        {
+            ballPosition.y = std::clamp(ballPosition.y, minY, maxY);
+            ballVelocity.y *= -1.0f;
+        }
+
+        background(51);
+        fill(255, 0, 0);
+        circle(ballPosition.x, ballPosition.y, 50.0f);
     }
 
     virtual void destroy() override

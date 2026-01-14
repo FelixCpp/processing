@@ -84,20 +84,49 @@ namespace processing
                 auto* parent = static_cast<WindowImplGLFW*>(glfwGetWindowUserPointer(window));
 
                 Event event;
-                event.type = Event::resized;
+                event.type = Event::framebuffer_resized;
                 event.size.width = static_cast<uint32_t>(width);
                 event.size.height = static_cast<uint32_t>(height);
                 parent->m_events.push(event);
             }
         );
 
-        int fbWidth, fbHeight;
-        glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
-        Event event;
-        event.type = Event::resized;
-        event.size.width = static_cast<uint32_t>(fbWidth);
-        event.size.height = static_cast<uint32_t>(fbHeight);
-        result->m_events.push(event);
+        glfwSetWindowSizeCallback(
+            window, [](GLFWwindow* window, int width, int height)
+            {
+                auto* parent = static_cast<WindowImplGLFW*>(glfwGetWindowUserPointer(window));
+
+                Event event;
+                event.type = Event::window_resized;
+                event.size.width = static_cast<uint32_t>(width);
+                event.size.height = static_cast<uint32_t>(height);
+                parent->m_events.push(event);
+            }
+        );
+
+        glfwSetCursorPosCallback(
+            window, [](GLFWwindow* window, double mx, double my)
+            {
+                auto* parent = static_cast<WindowImplGLFW*>(glfwGetWindowUserPointer(window));
+
+                Event event;
+                event.type = Event::mouse_moved;
+                event.mouse_move.x = static_cast<uint32_t>(mx);
+                event.mouse_move.y = static_cast<uint32_t>(my);
+                parent->m_events.push(event);
+            }
+        );
+
+        {
+            int fbWidth, fbHeight;
+            glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+            Event event;
+            event.type = Event::framebuffer_resized;
+            event.size.width = static_cast<uint32_t>(fbWidth);
+            event.size.height = static_cast<uint32_t>(fbHeight);
+            result->m_events.push(event);
+        }
+
         return result;
     }
 

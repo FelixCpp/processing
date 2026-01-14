@@ -24,6 +24,8 @@ namespace processing
         info(std::format("GLSL Language Version: {}", std::bit_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION))));
 
         glEnable(GL_TEXTURE);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
 
         return std::unique_ptr<GraphicsContextImplGLFW>(new GraphicsContextImplGLFW(handle, true));
     }
