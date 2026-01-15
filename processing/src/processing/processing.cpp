@@ -1,8 +1,11 @@
+#include "processing/graphics_stack.hpp"
+#include <memory>
 #include <processing/batch_renderer.hpp>
 #include <processing/processing.hpp>
 #include <processing/processing_data.hpp>
 #include <processing/render_targets.hpp>
 #include <processing/graphics.hpp>
+#include <processing/recursive_renderer.hpp>
 
 #include <iostream>
 
@@ -81,51 +84,55 @@ namespace processing
 namespace processing
 {
     // clang-format off
-    std::unique_ptr<Graphics> createGraphics(std::shared_ptr<RenderTarget> renderTarget) { return std::make_unique<GraphicsImpl>(renderTarget, s_data.renderer); }
-    std::unique_ptr<Graphics> createGraphics(uint32_t width, uint32_t height) { return std::make_unique<GraphicsImpl>(OffscreenRenderTarget::create({ width, height }), s_data.renderer); }
+    Graphics& getGraphics() { return graphics_stack_peek(s_data.graphicsStack); }
+    std::unique_ptr<ClientGraphics> createGraphics(uint32_t width, uint32_t height) { return std::make_unique<OffscreenGraphics>(uint2{ width, height }, s_data.renderer); }
 
-    void pushState() { s_data.graphics->pushState(); }
-    void popState() { s_data.graphics->popState(); }
+    void pushGraphics(std::shared_ptr<Graphics> graphics) { graphics_stack_push(s_data.graphicsStack, std::dynamic_pointer_cast<OffscreenGraphics>(graphics)); }
+    void popGraphics() { graphics_stack_pop(s_data.graphicsStack); }
 
-    rect2f getViewport() { return s_data.graphics->getViewport(); }
+    void pushState() { getGraphics().pushState(); }
+    void popState() { getGraphics().popState(); }
 
-    void strokeJoin(StrokeJoin strokeJoin) { s_data.graphics->strokeJoin(strokeJoin); }
-    void strokeCap(StrokeCap strokeCap) { s_data.graphics->strokeCap(strokeCap); }
+    rect2f getViewport() { return getGraphics().getViewport(); }
 
-    void background(int red, int green, int blue, int alpha) { s_data.graphics->background(red, green, blue, alpha); }
-    void background(int grey, int alpha) { s_data.graphics->background(grey, alpha); }
-    void background(color_t color) { s_data.graphics->background(color); }
+    void strokeJoin(StrokeJoin strokeJoin) { getGraphics().strokeJoin(strokeJoin); }
+    void strokeCap(StrokeCap strokeCap) { getGraphics().strokeCap(strokeCap); }
 
-    void fill(int red, int green, int blue, int alpha) { s_data.graphics->fill(red, green, blue, alpha); }
-    void fill(int grey, int alpha) { s_data.graphics->fill(grey, alpha); }
-    void fill(color_t color) { s_data.graphics->fill(color); }
-    void noFill() { s_data.graphics->noFill(); }
+    void background(int red, int green, int blue, int alpha) { getGraphics().background(red, green, blue, alpha); }
+    void background(int grey, int alpha) { getGraphics().background(grey, alpha); }
+    void background(color_t color) { getGraphics().background(color); }
 
-    void stroke(int red, int green, int blue, int alpha) { s_data.graphics->stroke(red, green, blue, alpha); }
-    void stroke(int grey, int alpha) { s_data.graphics->stroke(grey, alpha); }
-    void strkoe(color_t color) { s_data.graphics->stroke(color); }
-    void noStroke() { s_data.graphics->noStroke(); }
+    void fill(int red, int green, int blue, int alpha) { getGraphics().fill(red, green, blue, alpha); }
+    void fill(int grey, int alpha) { getGraphics().fill(grey, alpha); }
+    void fill(color_t color) { getGraphics().fill(color); }
+    void noFill() { getGraphics().noFill(); }
 
-    void strokeWeight(float strokeWeight) { s_data.graphics->strokeWeight(strokeWeight); }
-    void rectMode(RectMode rectMode) { s_data.graphics->rectMode(rectMode);}
+    void stroke(int red, int green, int blue, int alpha) { getGraphics().stroke(red, green, blue, alpha); }
+    void stroke(int grey, int alpha) { getGraphics().stroke(grey, alpha); }
+    void strkoe(color_t color) { getGraphics().stroke(color); }
+    void noStroke() { getGraphics().noStroke(); }
 
-    void rect(float left, float top, float width, float height) { s_data.graphics->rect(left, top, width, height); }
-    void square(float left, float top, float size) { s_data.graphics->square(left, top, size); }
-    void ellipse(float centerX, float centerY, float radiusX, float radiusY) { s_data.graphics->ellipse(centerX, centerY, radiusX, radiusY); }
-    void circle(float centerX, float centerY, float radius) { s_data.graphics->circle(centerX, centerY, radius); }
-    void line(float x1, float y1, float x2, float y2) { s_data.graphics->line(x1, y1, x2, y2); }
-    void triangle(float x1, float y1, float x2, float y2, float x3, float y3) { s_data.graphics->triangle(x1, y1, x2, y2, x3, y3); }
-    void point(float x, float y) { s_data.graphics->point(x, y); }
+    void strokeWeight(float strokeWeight) { getGraphics().strokeWeight(strokeWeight); }
+    void rectMode(RectMode rectMode) { getGraphics().rectMode(rectMode);}
+
+    void rect(float left, float top, float width, float height) { getGraphics().rect(left, top, width, height); }
+    void square(float left, float top, float size) { getGraphics().square(left, top, size); }
+    void ellipse(float centerX, float centerY, float radiusX, float radiusY) { getGraphics().ellipse(centerX, centerY, radiusX, radiusY); }
+    void circle(float centerX, float centerY, float radius) { getGraphics().circle(centerX, centerY, radius); }
+    void line(float x1, float y1, float x2, float y2) { getGraphics().line(x1, y1, x2, y2); }
+    void triangle(float x1, float y1, float x2, float y2, float x3, float y3) { getGraphics().triangle(x1, y1, x2, y2, x3, y3); }
+    void point(float x, float y) { getGraphics().point(x, y); }
     // clang-format on
 } // namespace processing
 
 void launch()
 {
-    s_data.window = createWindow(1280, 720, "Processing");
+    const rect2u initialViewport = rect2u{0, 0, 1280, 720};
+    s_data.window = createWindow(initialViewport.width, initialViewport.height, "Processing");
     s_data.context = createContext(*s_data.window);
-    s_data.mainRenderTarget = std::make_shared<MainRenderTarget>(rect2u{0, 0, 1280, 720});
-    s_data.renderer = BatchRenderer::create();
-    s_data.graphics = createGraphics(s_data.mainRenderTarget);
+    s_data.renderer = std::make_unique<RecursiveRenderer>(BatchRenderer::create());
+    s_data.mainGraphics = std::make_shared<MainGraphics>(initialViewport, s_data.renderer);
+    s_data.graphicsStack = graphics_stack_create(s_data.mainGraphics);
     s_data.sketch = createSketch();
 
     s_data.sketch->setup();
@@ -139,25 +146,16 @@ void launch()
                 close();
             }
 
-            if (event->type == Event::framebuffer_resized)
-            {
-                s_data.mainRenderTarget->setViewport(rect2u{0, 0, event->size.width, event->size.height});
-            }
-
-            if (event->type == Event::window_resized)
-            {
-                s_data.graphics->
-            }
+            s_data.mainGraphics->handle(*event);
         }
 
         if (not s_data.isMainLoopPaused or s_data.userRequestedRedraw)
         {
-            s_data.graphics->beginDraw();
+            s_data.mainGraphics->beginDraw();
             s_data.sketch->draw();
-            s_data.graphics->endDraw();
+            s_data.mainGraphics->endDraw();
 
             s_data.context->flush();
-
             s_data.userRequestedRedraw = false;
         }
     }

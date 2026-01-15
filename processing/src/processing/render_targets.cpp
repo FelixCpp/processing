@@ -64,6 +64,11 @@ namespace processing
         glBindFramebuffer(GL_FRAMEBUFFER, m_framebufferId);
     }
 
+    uint2 OffscreenRenderTarget::getSize()
+    {
+        return m_size;
+    }
+
     GLuint OffscreenRenderTarget::getTextureId()
     {
         return m_textureId;

@@ -8,22 +8,13 @@
 
 namespace processing
 {
-    struct ActivatableGraphics : Graphics
-    {
-        virtual ~ActivatableGraphics() = default;
-        virtual void beginDraw() = 0;
-        virtual void endDraw() = 0;
-    };
+    struct Shape;
 
-    class GraphicsImpl : public ActivatableGraphics
+    class BaseGraphics : public Graphics
     {
     public:
-        explicit GraphicsImpl(std::unique_ptr<RenderTarget> rendertarget, std::shared_ptr<Renderer> renderer);
+        explicit BaseGraphics();
 
-        void resize(uint2 size);
-
-        void beginDraw() override;
-        void endDraw() override;
         rect2f getViewport() override;
 
         void strokeJoin(StrokeJoin strokeJoin) override;
@@ -57,16 +48,64 @@ namespace processing
         void line(float x1, float y1, float x2, float y2) override;
         void triangle(float x1, float y1, float x2, float y2, float x3, float y3) override;
         void point(float x, float y) override;
+        void image(const Texture& texture, float left, float top, float width, float height) override;
+
+    protected:
+        virtual Renderer& getRenderer() = 0;
+
+        void submit(const Shape& shape);
 
     private:
         float getNextDepth();
 
-        std::unique_ptr<RenderTarget> m_renderTarget;
-        std::shared_ptr<Renderer> m_renderer;
         RenderStyleStack m_renderStyles;
         float m_currentDepth;
 
         matrix4x4 m_projectionMatrix;
+    };
+
+    class MainGraphics : public BaseGraphics
+    {
+    public:
+        explicit MainGraphics(const rect2u& windowViewport, std::shared_ptr<Renderer> renderer);
+
+        void handle(const Event& event);
+
+        void pause();
+        void resume();
+
+        void beginDraw();
+        void endDraw();
+
+    protected:
+        Renderer& getRenderer() override;
+
+    private:
+        MainRenderTarget m_renderTarget;
+        std::shared_ptr<Renderer> m_renderer;
+        rect2u m_windowViewport;
+        rect2u m_framebufferViewport;
+    };
+
+    class OffscreenGraphics : public BaseGraphics, virtual ClientGraphics
+    {
+    public:
+        explicit OffscreenGraphics(const uint2& size, std::shared_ptr<Renderer> renderer);
+
+        void pause();
+        void resume();
+
+        void beginDraw();
+        void endDraw();
+
+        const Texture& getTexture() const override;
+
+    private:
+        Renderer& getRenderer();
+
+        std::unique_ptr<OffscreenRenderTarget> m_renderTarget;
+        std::shared_ptr<Renderer> m_renderer;
+        rect2u m_windowViewport;
     };
 } // namespace processing
 

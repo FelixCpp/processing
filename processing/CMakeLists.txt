@@ -17,7 +17,9 @@ add_library(processing STATIC
     src/processing/glfw_window.cpp
     src/processing/graphics.cpp
     src/processing/graphics_context.cpp
+    src/processing/graphics_stack.cpp
     src/processing/processing.cpp
+    src/processing/recursive_renderer.cpp
     src/processing/render_style.cpp
     src/processing/render_style_stack.cpp
     src/processing/render_targets.cpp

@@ -35,6 +35,8 @@ namespace processing
         static std::unique_ptr<Renderer> create();
         ~BatchRenderer();
 
+        rect2f getViewport() override;
+
         void beginDraw(const ProjectionDetails& details) override;
         void endDraw() override;
 

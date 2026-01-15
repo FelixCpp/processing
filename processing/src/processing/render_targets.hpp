@@ -28,6 +28,7 @@ namespace processing
 
         void activate() override;
 
+        uint2 getSize();
         GLuint getTextureId();
 
     private:
@@ -36,6 +37,8 @@ namespace processing
         GLuint m_framebufferId;
         GLuint m_renderbufferId;
         GLuint m_textureId;
+
+        Texture m_texture;
 
         uint2 m_size;
     };

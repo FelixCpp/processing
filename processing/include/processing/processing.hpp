@@ -297,6 +297,8 @@ namespace processing
 
     struct ProjectionDetails
     {
+        rect2f viewport;
+
         matrix4x4 projectionMatrix;
         matrix4x4 viewMatrix;
     };
@@ -304,6 +306,9 @@ namespace processing
     struct Renderer
     {
         virtual ~Renderer() = default;
+
+        virtual rect2f getViewport() = 0;
+
         virtual void beginDraw(const ProjectionDetails& details) = 0;
         virtual void endDraw() = 0;
         virtual void submit(const RenderingSubmission& submission) = 0;
@@ -384,9 +389,19 @@ namespace processing
         virtual void line(float x1, float y1, float x2, float y2) = 0;
         virtual void triangle(float x1, float y1, float x2, float y2, float x3, float y3) = 0;
         virtual void point(float x, float y) = 0;
+        virtual void image(const Texture& texture, float left, float top, float width, float height);
     };
 
-    std::unique_ptr<Graphics> createGraphics(uint32_t width, uint32_t height);
+    struct ClientGraphics : public Graphics
+    {
+        virtual const Texture& getTexture() const = 0;
+    };
+
+    std::unique_ptr<ClientGraphics> createGraphics(uint32_t width, uint32_t height);
+    Graphics& getGraphics();
+
+    void pushGraphics(std::shared_ptr<Graphics> graphics);
+    void popGraphics();
 
     void pushState();
     void popState();

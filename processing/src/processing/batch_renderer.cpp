@@ -123,6 +123,11 @@ namespace processing
         glDeleteProgram(m_defaultShaderProgramId.value);
     }
 
+    rect2f BatchRenderer::getViewport()
+    {
+        return m_projectionDetails.viewport;
+    }
+
     void BatchRenderer::beginDraw(const ProjectionDetails& details)
     {
         m_projectionDetails = details;
