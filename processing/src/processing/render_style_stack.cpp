@@ -35,6 +35,7 @@ namespace processing
 
     void render_style_stack_reset(RenderStyleStack& stack)
     {
+        stack.renderStyles[0] = render_style_default();
         stack.currentStyleIndex = 0;
     }
 

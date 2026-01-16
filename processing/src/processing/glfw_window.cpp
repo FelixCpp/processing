@@ -1,3 +1,4 @@
+#include "processing/window.hpp"
 #include <processing/graphics_context.hpp>
 #include <GLFW/glfw3.h>
 #include <processing/processing.hpp>
@@ -149,7 +150,6 @@ namespace processing
     uint2 WindowImplGLFW::getSize()
     {
         int width, height;
-        printf("Here: %p", m_window);
         glfwGetWindowSize(m_window, &width, &height);
         return uint2{static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
     }
@@ -170,6 +170,21 @@ namespace processing
         glfwGetCursorPos(m_window, &mx, &my);
         return {static_cast<int32_t>(mx), static_cast<int32_t>(my)};
     }
+
+    uint2 WindowImplGLFW::getFramebufferSize()
+    {
+        int width, height;
+        glfwGetFramebufferSize(m_window, &width, &height);
+        return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+    }
+
+    float2 WindowImplGLFW::getContentScale()
+    {
+        float scaleX, scaleY;
+        glfwGetWindowContentScale(m_window, &scaleX, &scaleY);
+        return {scaleX, scaleY};
+    }
+
     std::optional<Event> WindowImplGLFW::pollEvent()
     {
         if (m_events.empty())

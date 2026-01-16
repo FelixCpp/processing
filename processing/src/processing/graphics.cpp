@@ -2,6 +2,8 @@
 #include "processing/render_style_stack.hpp"
 #include <processing/graphics.hpp>
 #include <processing/shape_builder.hpp>
+#include <processing/batch_renderer.hpp>
+#include <stdexcept>
 
 namespace processing
 {
@@ -9,77 +11,72 @@ namespace processing
     inline static constexpr float MAX_DEPTH = 1.0f;
     inline static constexpr float DEPTH_INCREMENT = (MAX_DEPTH - MIN_DEPTH) / 20'000.0f;
 
-    GraphicsImpl::GraphicsImpl(std::unique_ptr<RenderTarget> renderTarget, std::shared_ptr<Renderer> renderer) : m_renderTarget(std::move(renderTarget)), m_renderer(std::move(renderer))
+    Graphics::Graphics(const uint2 size) : m_renderTarget(std::make_unique<MainRenderTarget>(rect2u{0, 0, size.x, size.y})), m_renderer(BatchRenderer::create()), m_renderStyles(render_style_stack_create()), m_windowSize(size)
     {
     }
 
-    void GraphicsImpl::resize(const uint2 size)
+    void Graphics::beginDraw(const FrameSpecification& specification)
     {
-        m_projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(size.x), static_cast<float>(size.y), MIN_DEPTH, MAX_DEPTH);
-    }
+        m_windowSize = specification.windowSize;
 
-    void GraphicsImpl::beginDraw()
-    {
-        const ProjectionDetails details = {
-            .projectionMatrix = m_projectionMatrix,
+        m_renderTarget->setViewport(rect2u{0, 0, specification.framebufferSize.x, specification.framebufferSize.y});
+        m_renderTarget->activate();
+        m_renderer->beginDraw({
+            .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(specification.windowSize.x), static_cast<float>(specification.windowSize.y), MIN_DEPTH, MAX_DEPTH),
             .viewMatrix = matrix4x4_identity(),
-        };
-
-        m_renderer->beginDraw(details);
-        m_renderTarget->beginDraw();
+        });
         render_style_stack_reset(m_renderStyles);
         m_currentDepth = MIN_DEPTH;
     }
 
-    void GraphicsImpl::endDraw()
+    void Graphics::endDraw()
     {
-        m_renderTarget->endDraw();
         m_renderer->endDraw();
     }
 
-    rect2f GraphicsImpl::getViewport()
+    rect2f Graphics::getViewport()
     {
-        return m_renderTarget->getViewport();
+        return rect2f{0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y)};
     }
 
-    void GraphicsImpl::strokeJoin(const StrokeJoin lineJoin)
+    void Graphics::strokeJoin(const StrokeJoin lineJoin)
     {
         RenderStyle& style = render_style_stack_peek(m_renderStyles);
         style.strokeJoin = lineJoin;
     }
 
-    void GraphicsImpl::strokeCap(const StrokeCap strokeCap)
+    void Graphics::strokeCap(const StrokeCap strokeCap)
     {
         RenderStyle& style = render_style_stack_peek(m_renderStyles);
         style.strokeCap = strokeCap;
     }
 
-    void GraphicsImpl::pushState()
+    void Graphics::pushState()
     {
         render_style_stack_push(m_renderStyles, peekState());
     }
 
-    void GraphicsImpl::popState()
+    void Graphics::popState()
     {
         render_style_stack_pop(m_renderStyles);
     }
 
-    RenderStyle& GraphicsImpl::peekState()
+    RenderStyle& Graphics::peekState()
     {
         return render_style_stack_peek(m_renderStyles);
     }
 
-    void GraphicsImpl::background(int red, int green, int blue, int alpha)
+    void Graphics::background(int red, int green, int blue, int alpha)
     {
         background(color(red, green, blue, alpha));
     }
 
-    void GraphicsImpl::background(int grey, int alpha)
+    void Graphics::background(int grey, int alpha)
     {
         background(color(grey, grey, grey, alpha));
     }
 
-    void GraphicsImpl::background(color_t color)
+    void Graphics::background(color_t color)
     {
         const rect2f viewport = getViewport();
         const Contour rect_contour = contour_rect_fill(viewport.left, viewport.top, viewport.width, viewport.height);
@@ -91,65 +88,65 @@ namespace processing
         });
     }
 
-    void GraphicsImpl::fill(int red, int green, int blue, int alpha)
+    void Graphics::fill(int red, int green, int blue, int alpha)
     {
         fill(color(red, green, blue, alpha));
     }
 
-    void GraphicsImpl::fill(int grey, int alpha)
+    void Graphics::fill(int grey, int alpha)
     {
         fill(color(grey, alpha));
     }
 
-    void GraphicsImpl::fill(color_t color)
+    void Graphics::fill(color_t color)
     {
         RenderStyle& style = peekState();
         style.fillColor = color;
         style.isFillEnabled = true;
     }
 
-    void GraphicsImpl::noFill()
+    void Graphics::noFill()
     {
         RenderStyle& style = peekState();
         style.isFillEnabled = false;
     }
 
-    void GraphicsImpl::stroke(int red, int green, int blue, int alpha)
+    void Graphics::stroke(int red, int green, int blue, int alpha)
     {
         stroke(color(red, green, blue, alpha));
     }
 
-    void GraphicsImpl::stroke(int grey, int alpha)
+    void Graphics::stroke(int grey, int alpha)
     {
         stroke(color(grey, alpha));
     }
 
-    void GraphicsImpl::stroke(color_t color)
+    void Graphics::stroke(color_t color)
     {
         RenderStyle& style = peekState();
         style.strokeColor = color;
         style.isStrokeEnabled = true;
     }
 
-    void GraphicsImpl::noStroke()
+    void Graphics::noStroke()
     {
         RenderStyle& style = peekState();
         style.isStrokeEnabled = false;
     }
 
-    void GraphicsImpl::strokeWeight(float strokeWeight)
+    void Graphics::strokeWeight(float strokeWeight)
     {
         RenderStyle& style = peekState();
         style.strokeWeight = strokeWeight;
     }
 
-    void GraphicsImpl::rectMode(RectMode rectMode)
+    void Graphics::rectMode(RectMode rectMode)
     {
         RenderStyle& style = peekState();
         style.rectMode = rectMode;
     }
 
-    void GraphicsImpl::rect(float left, float top, float width, float height)
+    void Graphics::rect(float left, float top, float width, float height)
     {
         const RenderStyle& style = render_style_stack_peek(m_renderStyles);
         const rect2f rectMode = style.rectMode(left, top, width, height);
@@ -177,12 +174,12 @@ namespace processing
         }
     }
 
-    void GraphicsImpl::square(float left, float top, float size)
+    void Graphics::square(float left, float top, float size)
     {
         rect(left, top, size, size);
     }
 
-    void GraphicsImpl::ellipse(float centerX, float centerY, float radiusX, float radiusY)
+    void Graphics::ellipse(float centerX, float centerY, float radiusX, float radiusY)
     {
         const RenderStyle& style = render_style_stack_peek(m_renderStyles);
 
@@ -209,12 +206,12 @@ namespace processing
         }
     }
 
-    void GraphicsImpl::circle(float centerX, float centerY, float radius)
+    void Graphics::circle(float centerX, float centerY, float radius)
     {
         ellipse(centerX, centerY, radius, radius);
     }
 
-    void GraphicsImpl::line(float x1, float y1, float x2, float y2)
+    void Graphics::line(float x1, float y1, float x2, float y2)
     {
         const RenderStyle& style = render_style_stack_peek(m_renderStyles);
         const Contour contour = contour_line(x1, y1, x2, y2, style.strokeWeight, style.strokeCap);
@@ -226,7 +223,7 @@ namespace processing
         });
     }
 
-    void GraphicsImpl::triangle(float x1, float y1, float x2, float y2, float x3, float y3)
+    void Graphics::triangle(float x1, float y1, float x2, float y2, float x3, float y3)
     {
         const RenderStyle& style = render_style_stack_peek(m_renderStyles);
 
@@ -253,7 +250,7 @@ namespace processing
         }
     }
 
-    void GraphicsImpl::point(float x, float y)
+    void Graphics::point(float x, float y)
     {
         const RenderStyle& style = render_style_stack_peek(m_renderStyles);
         const Contour contour = contour_ellipse_fill(x, y, style.strokeWeight, style.strokeWeight, 16);
@@ -265,7 +262,7 @@ namespace processing
         });
     }
 
-    float GraphicsImpl::getNextDepth()
+    float Graphics::getNextDepth()
     {
         float value = m_currentDepth;
         m_currentDepth += DEPTH_INCREMENT;

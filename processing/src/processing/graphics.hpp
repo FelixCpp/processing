@@ -8,65 +8,63 @@
 
 namespace processing
 {
-    struct ActivatableGraphics : Graphics
+    struct FrameSpecification
     {
-        virtual ~ActivatableGraphics() = default;
-        virtual void beginDraw() = 0;
-        virtual void endDraw() = 0;
+        uint2 windowSize;
+        uint2 framebufferSize;
     };
 
-    class GraphicsImpl : public ActivatableGraphics
+    class Graphics
     {
     public:
-        explicit GraphicsImpl(std::unique_ptr<RenderTarget> rendertarget, std::shared_ptr<Renderer> renderer);
+        explicit Graphics(uint2 size);
 
-        void resize(uint2 size);
+        void beginDraw(const FrameSpecification& specification);
+        void endDraw();
 
-        void beginDraw() override;
-        void endDraw() override;
-        rect2f getViewport() override;
+        rect2f getViewport();
 
-        void strokeJoin(StrokeJoin strokeJoin) override;
-        void strokeCap(StrokeCap strokeCap) override;
+        void strokeJoin(StrokeJoin strokeJoin);
+        void strokeCap(StrokeCap strokeCap);
 
-        void pushState() override;
-        void popState() override;
+        void pushState();
+        void popState();
         RenderStyle& peekState();
 
-        void background(int red, int green, int blue, int alpha = 255) override;
-        void background(int grey, int alpha = 255) override;
-        void background(color_t color) override;
+        void background(int red, int green, int blue, int alpha = 255);
+        void background(int grey, int alpha = 255);
+        void background(color_t color);
 
-        void fill(int red, int green, int blue, int alpha = 255) override;
-        void fill(int grey, int alpha = 255) override;
-        void fill(color_t color) override;
-        void noFill() override;
+        void fill(int red, int green, int blue, int alpha = 255);
+        void fill(int grey, int alpha = 255);
+        void fill(color_t color);
+        void noFill();
 
-        void stroke(int red, int green, int blue, int alpha = 255) override;
-        void stroke(int grey, int alpha = 255) override;
-        void stroke(color_t color) override;
-        void noStroke() override;
+        void stroke(int red, int green, int blue, int alpha = 255);
+        void stroke(int grey, int alpha = 255);
+        void stroke(color_t color);
+        void noStroke();
 
-        void strokeWeight(float strokeWeight) override;
-        void rectMode(RectMode rectMode) override;
+        void strokeWeight(float strokeWeight);
+        void rectMode(RectMode rectMode);
 
-        void rect(float left, float top, float width, float height) override;
-        void square(float left, float top, float size) override;
-        void ellipse(float centerX, float centerY, float radiusX, float radiusY) override;
-        void circle(float centerX, float centerY, float radius) override;
-        void line(float x1, float y1, float x2, float y2) override;
-        void triangle(float x1, float y1, float x2, float y2, float x3, float y3) override;
-        void point(float x, float y) override;
+        void rect(float left, float top, float width, float height);
+        void square(float left, float top, float size);
+        void ellipse(float centerX, float centerY, float radiusX, float radiusY);
+        void circle(float centerX, float centerY, float radius);
+        void line(float x1, float y1, float x2, float y2);
+        void triangle(float x1, float y1, float x2, float y2, float x3, float y3);
+        void point(float x, float y);
 
     private:
         float getNextDepth();
 
-        std::unique_ptr<RenderTarget> m_renderTarget;
-        std::shared_ptr<Renderer> m_renderer;
+        std::unique_ptr<MainRenderTarget> m_renderTarget;
+        std::unique_ptr<Renderer> m_renderer;
         RenderStyleStack m_renderStyles;
         float m_currentDepth;
 
-        matrix4x4 m_projectionMatrix;
+        uint2 m_windowSize;
     };
 } // namespace processing
 

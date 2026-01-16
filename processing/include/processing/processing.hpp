@@ -41,6 +41,9 @@ namespace processing
         constexpr value2(T x, T y);
         constexpr explicit value2(T scalar);
 
+        template <typename U>
+        constexpr explicit value2(const value2<U>& other);
+
         T x, y;
     };
 
@@ -332,8 +335,6 @@ namespace processing
         StrokeCapStyle start;
         StrokeCapStyle end;
 
-        // constexpr StrokeCap(StrokeCapStyle start, StrokeCapStyle end);
-
         static const StrokeCap butt;
         static const StrokeCap square;
         static const StrokeCap round;
@@ -348,46 +349,6 @@ namespace processing
 
 namespace processing
 {
-    struct Graphics
-    {
-        virtual ~Graphics() = default;
-
-        virtual rect2f getViewport() = 0;
-
-        virtual void pushState() = 0;
-        virtual void popState() = 0;
-
-        virtual void strokeJoin(StrokeJoin strokeJoin) = 0;
-        virtual void strokeCap(StrokeCap strokeCap) = 0;
-
-        virtual void background(int red, int green, int blue, int alpha = 255) = 0;
-        virtual void background(int grey, int alpha = 255) = 0;
-        virtual void background(color_t color) = 0;
-
-        virtual void fill(int red, int green, int blue, int alpha = 255) = 0;
-        virtual void fill(int grey, int alpha = 255) = 0;
-        virtual void fill(color_t color) = 0;
-        virtual void noFill() = 0;
-
-        virtual void stroke(int red, int green, int blue, int alpha = 255) = 0;
-        virtual void stroke(int grey, int alpha = 255) = 0;
-        virtual void stroke(color_t color) = 0;
-        virtual void noStroke() = 0;
-
-        virtual void strokeWeight(float strokeWeight) = 0;
-        virtual void rectMode(RectMode rectMode) = 0;
-
-        virtual void rect(float left, float top, float width, float height) = 0;
-        virtual void square(float left, float top, float size) = 0;
-        virtual void ellipse(float centerX, float centerY, float radiusX, float radiusY) = 0;
-        virtual void circle(float centerX, float centerY, float radius) = 0;
-        virtual void line(float x1, float y1, float x2, float y2) = 0;
-        virtual void triangle(float x1, float y1, float x2, float y2, float x3, float y3) = 0;
-        virtual void point(float x, float y) = 0;
-    };
-
-    std::unique_ptr<Graphics> createGraphics(uint32_t width, uint32_t height);
-
     void pushState();
     void popState();
 

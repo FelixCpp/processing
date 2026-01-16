@@ -25,6 +25,8 @@ namespace processing
         std::string getTitle() override;
 
         int2 getMousePosition() override;
+        uint2 getFramebufferSize() override;
+        float2 getContentScale() override;
 
         std::optional<Event> pollEvent() override;
 

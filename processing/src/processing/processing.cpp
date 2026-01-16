@@ -81,9 +81,6 @@ namespace processing
 namespace processing
 {
     // clang-format off
-    std::unique_ptr<Graphics> createGraphics(std::shared_ptr<RenderTarget> renderTarget) { return std::make_unique<GraphicsImpl>(renderTarget, s_data.renderer); }
-    std::unique_ptr<Graphics> createGraphics(uint32_t width, uint32_t height) { return std::make_unique<GraphicsImpl>(OffscreenRenderTarget::create({ width, height }), s_data.renderer); }
-
     void pushState() { s_data.graphics->pushState(); }
     void popState() { s_data.graphics->popState(); }
 
@@ -123,9 +120,7 @@ void launch()
 {
     s_data.window = createWindow(1280, 720, "Processing");
     s_data.context = createContext(*s_data.window);
-    s_data.mainRenderTarget = std::make_shared<MainRenderTarget>(rect2u{0, 0, 1280, 720});
-    s_data.renderer = BatchRenderer::create();
-    s_data.graphics = createGraphics(s_data.mainRenderTarget);
+    s_data.graphics = std::make_unique<Graphics>(uint2{1280, 720});
     s_data.sketch = createSketch();
 
     s_data.sketch->setup();
@@ -138,21 +133,17 @@ void launch()
             {
                 close();
             }
-
-            if (event->type == Event::framebuffer_resized)
-            {
-                s_data.mainRenderTarget->setViewport(rect2u{0, 0, event->size.width, event->size.height});
-            }
-
-            if (event->type == Event::window_resized)
-            {
-                s_data.graphics->
-            }
         }
 
         if (not s_data.isMainLoopPaused or s_data.userRequestedRedraw)
         {
-            s_data.graphics->beginDraw();
+            const uint2 framebufferSize = s_data.window->getFramebufferSize();
+            const uint2 windowSize = s_data.window->getSize();
+
+            s_data.graphics->beginDraw({
+                .windowSize = windowSize,
+                .framebufferSize = framebufferSize,
+            });
             s_data.sketch->draw();
             s_data.graphics->endDraw();
 

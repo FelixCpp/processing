@@ -21,6 +21,8 @@ namespace processing
         virtual std::string getTitle() = 0;
 
         virtual int2 getMousePosition() = 0;
+        virtual uint2 getFramebufferSize() = 0;
+        virtual float2 getContentScale() = 0;
 
         virtual std::optional<Event> pollEvent() = 0;
     };

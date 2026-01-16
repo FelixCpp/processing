@@ -7,6 +7,7 @@ namespace processing
     template <typename T> constexpr value2<T>::value2() : x(T{}), y(T{}) { }
     template <typename T> constexpr value2<T>::value2(T x, T y) : x(x), y(y) { }
     template <typename T> constexpr value2<T>::value2(T scalar) : x(scalar), y(scalar) { }
+    template <typename T> template <typename U> constexpr value2<T>::value2(const value2<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)) { }
 
     template <typename T> constexpr value2<T> operator+(const value2<T>& lhs, const value2<T>& rhs) { return { lhs.x + rhs.x, lhs.y + rhs.y }; }
     template <typename T> constexpr value2<T> operator-(const value2<T>& lhs, const value2<T>& rhs) { return { lhs.x - rhs.x, lhs.y - rhs.y }; }
