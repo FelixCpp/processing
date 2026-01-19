@@ -1,6 +1,7 @@
 #ifndef _PROCESSING_INCLUDE_PROCESSING_INL_
 #define _PROCESSING_INCLUDE_PROCESSING_INL_
 
+#include <cmath>
 namespace processing
 {
     // clang-format off
@@ -8,6 +9,46 @@ namespace processing
     template <typename T> constexpr value2<T>::value2(T x, T y) : x(x), y(y) { }
     template <typename T> constexpr value2<T>::value2(T scalar) : x(scalar), y(scalar) { }
     template <typename T> template <typename U> constexpr value2<T>::value2(const value2<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)) { }
+
+    template <typename T>
+    T value2_length(const value2<T>& value)
+    {
+        return std::hypot(value.x, value.y);
+    }
+
+    template <typename T>
+    constexpr T value2_dot(const value2<T>& lhs, const value2<T>& rhs)
+    {
+        return lhs.x * rhs.x + lhs.y * rhs.y;
+    }
+
+    template <typename T>
+    constexpr T value2_length_squared(const value2<T>& value)
+    {
+        return value.x * value.x + value.y * value.y;
+    }
+
+    template <typename T>
+    constexpr value2<T> value2_perpendicular(const value2<T>& value)
+    {
+        return { value.y, -value.x };
+    }
+
+    template <typename T>
+    value2<T> value2_normalized(const value2<T>& value)
+    {
+        const T length = value2_length(value);
+        if (length != static_cast<T>(0)) {
+            return { static_cast<T>(value.x / length), static_cast<T>(value.y / length) };
+        }
+        return value;
+    }
+
+    template <typename T>
+    void value2_normalize(value2<T>& value)
+    {
+        return value = value2_normalized(value);
+    }
 
     template <typename T> constexpr value2<T> operator+(const value2<T>& lhs, const value2<T>& rhs) { return { lhs.x + rhs.x, lhs.y + rhs.y }; }
     template <typename T> constexpr value2<T> operator-(const value2<T>& lhs, const value2<T>& rhs) { return { lhs.x - rhs.x, lhs.y - rhs.y }; }
@@ -119,6 +160,7 @@ namespace processing
     template <typename T> constexpr rect2<T>::rect2() : left(T{}), top(T{}), width(T{}), height(T{}) {}
     template <typename T> constexpr rect2<T>::rect2(T left, T top, T width, T height) : left(left), top(top), width(width), height(height) {}
     template <typename T> template <typename U> constexpr rect2<T>::rect2(const rect2<U>& other): left(static_cast<T>(other.left)), top(static_cast<T>(other.top)), width(static_cast<T>(other.width)), height(static_cast<T>(other.height)) {}
+    template <typename T> constexpr value2<T> rect2<T>::center() const { return { left + width / 2, top + height / 2 }; }
     template <typename T> constexpr T rect2<T>::right() const { return left + width; }
     template <typename T> constexpr T rect2<T>::bottom() const { return top + height; }
     template <typename T> constexpr bool operator == (const rect2<T>& lhs, const rect2<T>& rhs) { return lhs.left == rhs.left and lhs.top == rhs.top and lhs.width == rhs.width and lhs.height == rhs.height; }

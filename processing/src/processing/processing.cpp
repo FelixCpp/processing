@@ -76,6 +76,38 @@ namespace processing
             return rect2f(x1 - width * 0.5f, y1 - height * 0.5f, width, height);
         };
     }
+
+    EllipseMode ellipse_mode_ltwh()
+    {
+        return [](float x1, float y1, float x2, float y2)
+        {
+            return rect2f(x1, y1, x2, y2);
+        };
+    }
+
+    EllipseMode ellipse_mode_ltrb()
+    {
+        return [](float x1, float y1, float x2, float y2)
+        {
+            return rect2f(x1, y1, x2 - x1, y2 - y1);
+        };
+    }
+
+    EllipseMode ellipse_mode_center_radius()
+    {
+        return [](float x1, float y1, float x2, float y2)
+        {
+            return rect2f(x1 - x2, y1 - y2, x2 * 2.0f, y2 * 2.0f);
+        };
+    }
+
+    EllipseMode ellipse_mode_center_diameter()
+    {
+        return [](float x1, float y1, float x2, float y2)
+        {
+            return rect2f(x1 - x2 * 0.5f, y1 - y2 * 0.5f, x2, y2);
+        };
+    }
 } // namespace processing
 
 namespace processing
@@ -105,6 +137,7 @@ namespace processing
 
     void strokeWeight(float strokeWeight) { s_data.graphics->strokeWeight(strokeWeight); }
     void rectMode(RectMode rectMode) { s_data.graphics->rectMode(rectMode);}
+    void ellipseMode(EllipseMode ellipseMode) { s_data.graphics->ellipseMode(ellipseMode);}
 
     void rect(float left, float top, float width, float height) { s_data.graphics->rect(left, top, width, height); }
     void square(float left, float top, float size) { s_data.graphics->square(left, top, size); }

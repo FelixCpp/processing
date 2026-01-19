@@ -47,6 +47,7 @@ namespace processing
 
         void strokeWeight(float strokeWeight);
         void rectMode(RectMode rectMode);
+        void ellipseMode(EllipseMode ellipseMode);
 
         void rect(float left, float top, float width, float height);
         void square(float left, float top, float size);

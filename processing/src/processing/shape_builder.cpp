@@ -7,28 +7,52 @@ namespace processing
 {
     inline static constexpr float PI = std::numbers::pi_v<float>;
 
-    // Generiert Stroke-Geometrie aus einer geschlossenen Kontur
     static Contour contour_stroke_from_path(const std::vector<float2>& path, float strokeWeight, StrokeJoin strokeJoin)
     {
+        // Early out if there are not enough points for us to compute a proper result
+        if (path.size() < 2)
+        {
+            return {};
+        }
+
+        const float halfStrokeWeight = strokeWeight * 0.5f;
         std::vector<float2> positions;
         std::vector<float2> texcoords;
         std::vector<uint32_t> indices;
 
-        const float half_stroke_weight = strokeWeight * 0.5f;
+        for (size_t i = 0; i < path.size(); ++i)
+        {
+            const float2 current = path[i];
+            const float2 next = path[(i + 1) % path.size()];
+
+            const float2 direction = value2_normalized(next - current);
+            const float2 offset = value2_perpendicular(direction) * halfStrokeWeight;
+
+            positions.emplace_back(current - offset);
+            positions.emplace_back(current + offset);
+            positions.emplace_back(next - offset);
+            positions.emplace_back(next + offset);
+
+            texcoords.emplace_back(0.0f, 0.0f);
+            texcoords.emplace_back(0.0f, 0.0f);
+            texcoords.emplace_back(0.0f, 0.0f);
+            texcoords.emplace_back(0.0f, 0.0f);
+        }
 
         for (size_t i = 0; i < path.size(); ++i)
         {
-            const size_t next_index = (i + 1) % path.size();
-            const float2 p1 = path[i];
-            const float2 p2 = path[next_index];
-            const float2 diff = p2 - p1;
-            // const float length = value2_length(diff);
+            indices.emplace_back(i * 4 + 0);
+            indices.emplace_back(i * 4 + 1);
+            indices.emplace_back(i * 4 + 2);
+            indices.emplace_back(i * 4 + 2);
+            indices.emplace_back(i * 4 + 1);
+            indices.emplace_back(i * 4 + 3);
         }
 
         return {
             .positions = std::move(positions),
             .texcoords = std::move(texcoords),
-            .indices = std::move(indices),
+            .indices = std::move(indices)
         };
     }
 } // namespace processing

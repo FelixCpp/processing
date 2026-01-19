@@ -15,6 +15,7 @@ namespace processing
         StrokeJoin strokeJoin;
         StrokeCap strokeCap;
         RectMode rectMode;
+        EllipseMode ellipseMode;
     };
 
     RenderStyle render_style_default();

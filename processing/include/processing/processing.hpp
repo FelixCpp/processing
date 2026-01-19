@@ -2,6 +2,7 @@
 #define _PROCESSING_INCLUDE_LIBRARY_HPP_
 
 #include <cstdint>
+#include <cmath>
 #include <string>
 #include <memory>
 #include <array>
@@ -49,7 +50,11 @@ namespace processing
 
     // clang-format off
     template <typename T> T value2_length(const value2<T>& value);
-    template <typename T> constexpr T value2_lengthSquared(const value2<T>& value);
+    template <typename T> constexpr T value2_length_squared(const value2<T>& value);
+    template <typename T> constexpr T value2_dot(const value2<T>& lhs, const value2<T>& rhs);
+    template <typename T> constexpr value2<T> value2_perpendicular(const value2<T>& value);
+    template <typename T> value2<T> value2_normalized(const value2<T>& value);
+    template <typename T> void value2_normalize(value2<T>& value);
 
     template <typename T> constexpr value2<T> operator+(const value2<T>& lhs, const value2<T>& rhs);
     template <typename T> constexpr value2<T> operator-(const value2<T>& lhs, const value2<T>& rhs);
@@ -134,6 +139,8 @@ namespace processing
 
         template <typename U>
         constexpr rect2(const rect2<U>& other);
+
+        constexpr value2<T> center() const;
 
         constexpr T right() const;
         constexpr T bottom() const;
@@ -345,6 +352,12 @@ namespace processing
     RectMode rect_mode_ltrb();
     RectMode rect_mode_center_size();
 
+    using EllipseMode = rect2f (*)(float, float, float, float);
+    EllipseMode ellipse_mode_ltwh();
+    EllipseMode ellipse_mode_ltrb();
+    EllipseMode ellipse_mode_center_radius();
+    EllipseMode ellipse_mode_center_diameter();
+
 } // namespace processing
 
 namespace processing
@@ -373,6 +386,7 @@ namespace processing
 
     void strokeWeight(float strokeWeight);
     void rectMode(RectMode rectMode);
+    void ellipseMode(EllipseMode ellipseMode);
 
     void rect(float left, float top, float width, float height);
     void square(float left, float top, float size);

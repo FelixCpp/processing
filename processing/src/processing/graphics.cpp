@@ -3,7 +3,6 @@
 #include <processing/graphics.hpp>
 #include <processing/shape_builder.hpp>
 #include <processing/batch_renderer.hpp>
-#include <stdexcept>
 
 namespace processing
 {
@@ -146,14 +145,20 @@ namespace processing
         style.rectMode = rectMode;
     }
 
-    void Graphics::rect(float left, float top, float width, float height)
+    void Graphics::ellipseMode(EllipseMode ellipseMode)
+    {
+        RenderStyle& style = peekState();
+        style.ellipseMode = ellipseMode;
+    }
+
+    void Graphics::rect(float x1, float y1, float x2, float y2)
     {
         const RenderStyle& style = render_style_stack_peek(m_renderStyles);
-        const rect2f rectMode = style.rectMode(left, top, width, height);
+        const rect2f rectMode = style.rectMode(x1, y1, x2, y2);
 
         if (style.isFillEnabled)
         {
-            const Contour contour = contour_rect_fill(left, top, width, height);
+            const Contour contour = contour_rect_fill(rectMode.left, rectMode.top, rectMode.width, rectMode.height);
             const Shape shape = shape_from_contour(contour, style.fillColor, getNextDepth());
 
             m_renderer->submit({
@@ -164,7 +169,7 @@ namespace processing
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_rect_stroke(left, top, width, height, style.strokeWeight, style.strokeJoin);
+            const Contour contour = contour_rect_stroke(rectMode.left, rectMode.top, rectMode.width, rectMode.height, style.strokeWeight, style.strokeJoin);
             const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
 
             m_renderer->submit({
@@ -179,13 +184,15 @@ namespace processing
         rect(left, top, size, size);
     }
 
-    void Graphics::ellipse(float centerX, float centerY, float radiusX, float radiusY)
+    void Graphics::ellipse(float x1, float y1, float x2, float y2)
     {
         const RenderStyle& style = render_style_stack_peek(m_renderStyles);
+        const rect2f boundary = style.ellipseMode(x1, y1, x2, y2);
+        const float2 center = boundary.center();
 
         if (style.isFillEnabled)
         {
-            const Contour contour = contour_ellipse_fill(centerX, centerY, radiusX, radiusY, 32);
+            const Contour contour = contour_ellipse_fill(center.x, center.y, boundary.width * 0.5f, boundary.height * 0.5f, 32);
             const Shape shape = shape_from_contour(contour, style.fillColor, getNextDepth());
 
             m_renderer->submit({
@@ -196,7 +203,7 @@ namespace processing
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_ellipse_stroke(centerX, centerY, radiusX, radiusY, style.strokeWeight, 32, style.strokeJoin);
+            const Contour contour = contour_ellipse_stroke(center.x, center.y, boundary.width * 0.5f, boundary.height * 0.5f, style.strokeWeight, 32, style.strokeJoin);
             const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
 
             m_renderer->submit({
