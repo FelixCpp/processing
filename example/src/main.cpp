@@ -3,6 +3,7 @@ using namespace processing;
 
 struct DemoApp : Sketch
 {
+    Texture texture = loadTexture("images/test3.png");
 
     virtual void setup() override
     {
@@ -10,15 +11,9 @@ struct DemoApp : Sketch
 
     virtual void draw() override
     {
-        const int2 mouse = getMousePosition();
-
-        background(51, 51, 51);
-        fill(255, 0, 0);
-        strokeWeight(35.0f);
-        strokeJoin(StrokeJoin::bevel);
-        stroke(0, 255, 0);
-        ellipseMode(ellipse_mode_ltrb());
-        ellipse(100.0f, 100.0f, mouse.x, mouse.y);
+        background(255);
+        // imageTint(255, 0, 0);
+        image(texture, 100.0f, 100.0f, 300.0f, 300.0f, 0.0f, 0.0f, texture.getSize().x, texture.getSize().y);
     }
 
     virtual void destroy() override

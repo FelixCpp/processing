@@ -112,6 +112,29 @@ namespace processing
 
 namespace processing
 {
+    ImageSourceMode image_source_mode_ltwh_normalized()
+    {
+        return [](uint2, float x1, float y1, float x2, float y2)
+        {
+            return rect2f(x1, y1, x2, y2);
+        };
+    }
+
+    ImageSourceMode image_source_mode_ltwh_coordinates()
+    {
+        return [](uint2 size, float x1, float y1, float x2, float y2)
+        {
+            const float sourceLeft = x1 / static_cast<float>(size.x);
+            const float sourceTop = y1 / static_cast<float>(size.y);
+            const float sourceWidth = x2 / static_cast<float>(size.x);
+            const float sourceHeight = y2 / static_cast<float>(size.y);
+            return rect2f(sourceLeft, sourceTop, sourceWidth, sourceHeight);
+        };
+    }
+} // namespace processing
+
+namespace processing
+{
     // clang-format off
     void pushState() { s_data.graphics->pushState(); }
     void popState() { s_data.graphics->popState(); }
@@ -135,6 +158,12 @@ namespace processing
     void strkoe(color_t color) { s_data.graphics->stroke(color); }
     void noStroke() { s_data.graphics->noStroke(); }
 
+    void imageMode(RectMode imageMode) { s_data.graphics->imageMode(imageMode); }
+    void imageSourceMode(ImageSourceMode imageSourceMode) { s_data.graphics->imageSourceMode(imageSourceMode); }
+    void imageTint(int red, int green, int blue, int alpha) { s_data.graphics->imageTint(red, green, blue, alpha); }
+    void imageTint(int grey, int alpha) { s_data.graphics->imageTint(grey, alpha); }
+    void imageTint(color_t color) { s_data.graphics->imageTint(color); }
+
     void strokeWeight(float strokeWeight) { s_data.graphics->strokeWeight(strokeWeight); }
     void rectMode(RectMode rectMode) { s_data.graphics->rectMode(rectMode);}
     void ellipseMode(EllipseMode ellipseMode) { s_data.graphics->ellipseMode(ellipseMode);}
@@ -146,6 +175,9 @@ namespace processing
     void line(float x1, float y1, float x2, float y2) { s_data.graphics->line(x1, y1, x2, y2); }
     void triangle(float x1, float y1, float x2, float y2, float x3, float y3) { s_data.graphics->triangle(x1, y1, x2, y2, x3, y3); }
     void point(float x, float y) { s_data.graphics->point(x, y); }
+    void image(const Texture &texture, float x1, float y1) { s_data.graphics->image(texture, x1, y1); }
+    void image(const Texture &texture, float x1, float y1, float x2, float y2) { s_data.graphics->image(texture, x1, y1, x2, y2); }
+    void image(const Texture &texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2) { s_data.graphics->image(texture, x1, y1, x2, y2, sx1, sy1, sx2, sy2); }
     // clang-format on
 } // namespace processing
 

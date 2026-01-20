@@ -16,6 +16,9 @@ namespace processing
         StrokeCap strokeCap;
         RectMode rectMode;
         EllipseMode ellipseMode;
+        RectMode imageMode;
+        ImageSourceMode imageSourceMode;
+        color_t imageTint;
     };
 
     RenderStyle render_style_default();

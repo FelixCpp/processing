@@ -1,4 +1,5 @@
 #include "processing/processing.hpp"
+#include "processing/render_style.hpp"
 #include "processing/render_style_stack.hpp"
 #include <processing/graphics.hpp>
 #include <processing/shape_builder.hpp>
@@ -131,6 +132,34 @@ namespace processing
     {
         RenderStyle& style = peekState();
         style.isStrokeEnabled = false;
+    }
+
+    void Graphics::imageMode(RectMode imageMode)
+    {
+        RenderStyle& style = peekState();
+        style.imageMode = imageMode;
+    }
+
+    void Graphics::imageSourceMode(ImageSourceMode imageSourceMode)
+    {
+        RenderStyle& style = peekState();
+        style.imageSourceMode = imageSourceMode;
+    }
+
+    void Graphics::Graphics::imageTint(int red, int green, int blue, int alpha)
+    {
+        imageTint(color(red, green, blue, alpha));
+    }
+
+    void Graphics::Graphics::imageTint(int grey, int alpha)
+    {
+        imageTint(color(grey, alpha));
+    }
+
+    void Graphics::Graphics::imageTint(color_t color)
+    {
+        RenderStyle& style = peekState();
+        style.imageTint = color;
     }
 
     void Graphics::strokeWeight(float strokeWeight)
@@ -266,6 +295,29 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
+        });
+    }
+
+    void Graphics::image(const Texture& texture, float x1, float y1)
+    {
+    }
+
+    void Graphics::image(const Texture& texture, float x1, float y1, float x2, float y2)
+    {
+    }
+
+    void Graphics::image(const Texture& texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2)
+    {
+        const RenderStyle& style = peekState();
+        const rect2f boundary = style.imageMode(x1, y1, x2, y2);
+        const rect2f sourceRect = style.imageSourceMode(texture.getSize(), sx1, sy1, sx2, sy2);
+        const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, sourceRect.left, sourceRect.top, sourceRect.width, sourceRect.height);
+        const Shape shape = shape_from_contour(contour, style.imageTint, getNextDepth());
+
+        m_renderer->submit({
+            .vertices = shape.vertices,
+            .indices = shape.indices,
+            .textureId = texture.getResourceId(),
         });
     }
 

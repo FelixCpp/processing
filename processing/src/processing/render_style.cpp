@@ -1,3 +1,4 @@
+#include "processing/processing.hpp"
 #include <processing/render_style.hpp>
 
 namespace processing
@@ -14,6 +15,9 @@ namespace processing
             .strokeCap = StrokeCap::round,
             .rectMode = rect_mode_ltwh(),
             .ellipseMode = ellipse_mode_center_radius(),
+            .imageMode = rect_mode_ltwh(),
+            .imageSourceMode = image_source_mode_ltwh_coordinates(),
+            .imageTint = color(255, 255, 255),
         };
     }
 } // namespace processing

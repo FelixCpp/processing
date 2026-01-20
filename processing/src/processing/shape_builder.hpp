@@ -33,6 +33,7 @@ namespace processing
     Contour contour_triangle_stroke(float x1, float y1, float x2, float y2, float x3, float y3, float strokeWeight, StrokeJoin strokeJoin);
 
     Contour contour_line(float x1, float y1, float x2, float y2, float strokeWeight, StrokeCap strokeCap);
+    Contour contour_image(float left, float top, float width, float height, float sourceLeft, float sourceTop, float sourceWidth, float sourceHeight);
 } // namespace processing
 
 #endif // _PROCESSING_INCLUDE_SHAPE_BUILDER_HPP_

@@ -27,6 +27,9 @@ namespace processing
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
 
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
         return std::unique_ptr<GraphicsContextImplGLFW>(new GraphicsContextImplGLFW(handle, true));
     }
 

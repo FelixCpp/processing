@@ -45,6 +45,12 @@ namespace processing
         void stroke(color_t color);
         void noStroke();
 
+        void imageMode(RectMode imageMode);
+        void imageSourceMode(ImageSourceMode imageSourceMode);
+        void imageTint(int red, int green, int blue, int alpha = 255);
+        void imageTint(int grey, int alpha = 255);
+        void imageTint(color_t color);
+
         void strokeWeight(float strokeWeight);
         void rectMode(RectMode rectMode);
         void ellipseMode(EllipseMode ellipseMode);
@@ -56,6 +62,9 @@ namespace processing
         void line(float x1, float y1, float x2, float y2);
         void triangle(float x1, float y1, float x2, float y2, float x3, float y3);
         void point(float x, float y);
+        void image(const Texture& texture, float x1, float y1);
+        void image(const Texture& texture, float x1, float y1, float x2, float y2);
+        void image(const Texture& texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2);
 
     private:
         float getNextDepth();

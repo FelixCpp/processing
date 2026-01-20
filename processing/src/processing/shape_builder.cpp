@@ -203,4 +203,37 @@ namespace processing
     {
         return Contour{};
     }
+
+    Contour contour_image(float left, float top, float width, float height, float sourceLeft, float sourceTop, float sourceWidth, float sourceHeight)
+    {
+        Contour contour;
+
+        {
+            const float right = left + width;
+            const float bottom = top + height;
+
+            contour.positions = {
+                {left, top},
+                {right, top},
+                {right, bottom},
+                {left, bottom},
+            };
+        }
+
+        {
+            const float sourceRight = sourceLeft + sourceWidth;
+            const float sourceBottom = sourceTop + sourceHeight;
+
+            contour.texcoords = {
+                {sourceLeft, sourceTop},
+                {sourceRight, sourceTop},
+                {sourceRight, sourceBottom},
+                {sourceLeft, sourceBottom},
+            };
+        }
+
+        contour.indices = {0, 1, 2, 2, 3, 0};
+
+        return contour;
+    }
 } // namespace processing
