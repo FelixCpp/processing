@@ -48,8 +48,6 @@ namespace processing
                 error(std::format("Failed to load image \"{}\"", path));
             }
 
-            printf("Size: %dx%d", width, height);
-
             TextureId id = {.value = 0};
             glGenTextures(1, &id.value);
             glBindTexture(GL_TEXTURE_2D, id.value);

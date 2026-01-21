@@ -26,7 +26,7 @@ BreakInheritanceList: BeforeColon
 AlwaysBreakAfterReturnType: None
 
 # Control flow
-AllowShortIfStatementsOnASingleLine: Never
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Never
 AllowShortCaseLabelsOnASingleLine: false

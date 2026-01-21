@@ -4,7 +4,6 @@
 #include <processing/processing.hpp>
 
 #include <vector>
-#include <unordered_map>
 
 #include <glad/gl.h>
 
@@ -14,6 +13,7 @@ namespace processing
     {
         ShaderProgramId shaderProgramId;
         TextureId textureId;
+        BlendMode blendMode;
 
         bool operator==(const BatchKey& other) const;
     };
@@ -25,6 +25,7 @@ namespace processing
 
     struct Batch
     {
+        BatchKey key;
         size_t indexStart;
         size_t indexCount;
     };
@@ -44,6 +45,8 @@ namespace processing
     private:
         explicit BatchRenderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, GLuint defaultShaderProgramId, GLuint whiteTextureId);
 
+        void activate(const BlendMode& blendMode);
+
         GLuint m_vertexArrayId;
         GLuint m_vertexBufferId;
         GLuint m_elementBufferId;
@@ -53,7 +56,7 @@ namespace processing
         std::vector<Vertex> m_vertices;
         std::vector<uint32_t> m_indices;
 
-        std::unordered_map<BatchKey, Batch, BatchKeyHash> m_batches;
+        std::vector<Batch> m_batches;
 
         ProjectionDetails m_projectionDetails;
     };

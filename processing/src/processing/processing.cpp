@@ -71,9 +71,7 @@ namespace processing
     {
         return [](float x1, float y1, float x2, float y2)
         {
-            const float width = x2 - x1;
-            const float height = y2 - y1;
-            return rect2f(x1 - width * 0.5f, y1 - height * 0.5f, width, height);
+            return rect2f(x1 - x2 * 0.5f, y1 - y2 * 0.5f, x2, y2);
         };
     }
 
@@ -143,6 +141,7 @@ namespace processing
 
     void strokeJoin(StrokeJoin strokeJoin) { s_data.graphics->strokeJoin(strokeJoin); }
     void strokeCap(StrokeCap strokeCap) { s_data.graphics->strokeCap(strokeCap); }
+    void blendMode(const BlendMode& blendMode) { s_data.graphics->blendMode(blendMode); }
 
     void background(int red, int green, int blue, int alpha) { s_data.graphics->background(red, green, blue, alpha); }
     void background(int grey, int alpha) { s_data.graphics->background(grey, alpha); }
@@ -198,6 +197,8 @@ void launch()
             {
                 close();
             }
+
+            s_data.sketch->event(*event);
         }
 
         if (not s_data.isMainLoopPaused or s_data.userRequestedRedraw)

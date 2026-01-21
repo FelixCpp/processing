@@ -1,4 +1,3 @@
-#include "processing/processing.hpp"
 #include "processing/render_style.hpp"
 #include "processing/render_style_stack.hpp"
 #include <processing/graphics.hpp>
@@ -66,6 +65,12 @@ namespace processing
         return render_style_stack_peek(m_renderStyles);
     }
 
+    void Graphics::blendMode(const BlendMode& blendMode)
+    {
+        RenderStyle& style = peekState();
+        style.blendMode = blendMode;
+    }
+
     void Graphics::background(int red, int green, int blue, int alpha)
     {
         background(color(red, green, blue, alpha));
@@ -85,6 +90,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
+            .blendMode = BlendMode::alpha,
         });
     }
 
@@ -193,6 +199,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .blendMode = style.blendMode,
             });
         }
 
@@ -204,6 +211,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .blendMode = style.blendMode,
             });
         }
     }
@@ -227,6 +235,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .blendMode = style.blendMode,
             });
         }
 
@@ -238,6 +247,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .blendMode = style.blendMode,
             });
         }
     }
@@ -256,6 +266,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
+            .blendMode = style.blendMode,
         });
     }
 
@@ -271,6 +282,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .blendMode = style.blendMode,
             });
         }
 
@@ -282,6 +294,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .blendMode = style.blendMode,
             });
         }
     }
@@ -295,6 +308,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
+            .blendMode = style.blendMode,
         });
     }
 
@@ -318,6 +332,7 @@ namespace processing
             .vertices = shape.vertices,
             .indices = shape.indices,
             .textureId = texture.getResourceId(),
+            .blendMode = style.blendMode,
         });
     }
 

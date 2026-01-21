@@ -1,4 +1,3 @@
-#include "processing/processing.hpp"
 #include <processing/render_style.hpp>
 
 namespace processing
@@ -18,6 +17,7 @@ namespace processing
             .imageMode = rect_mode_ltwh(),
             .imageSourceMode = image_source_mode_ltwh_coordinates(),
             .imageTint = color(255, 255, 255),
+            .blendMode = BlendMode::alpha,
         };
     }
 } // namespace processing

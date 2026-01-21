@@ -4,14 +4,70 @@ namespace processing
 {
     bool BatchKey::operator==(const BatchKey& other) const
     {
-        return shaderProgramId == other.shaderProgramId and textureId == other.textureId;
+        return shaderProgramId == other.shaderProgramId and textureId == other.textureId and blendMode == other.blendMode;
     }
 
     size_t BatchKeyHash::operator()(const BatchKey& key) const
     {
         size_t h1 = std::hash<GLuint>{}(key.shaderProgramId.value);
         size_t h2 = std::hash<GLuint>{}(key.textureId.value);
-        return h1 ^ (h2 << 1);
+
+        size_t h3 = std::hash<int>{}(static_cast<int>(key.blendMode.colorSrcFactor));
+        size_t h4 = std::hash<int>{}(static_cast<int>(key.blendMode.colorDstFactor));
+        size_t h5 = std::hash<int>{}(static_cast<int>(key.blendMode.colorEquation));
+        size_t h6 = std::hash<int>{}(static_cast<int>(key.blendMode.alphaSrcFactor));
+        size_t h7 = std::hash<int>{}(static_cast<int>(key.blendMode.alphaDstFactor));
+        size_t h8 = std::hash<int>{}(static_cast<int>(key.blendMode.alphaEquation));
+
+        return h1 ^ (h2 << 1) ^ (h3 << 2) ^ (h4 << 3) ^ (h5 << 4) ^
+               (h6 << 5) ^ (h7 << 6) ^ (h8 << 7);
+    }
+} // namespace processing
+
+namespace processing
+{
+    inline static constexpr GLenum convertBlendFactor(const BlendMode::Factor factor)
+    {
+        switch (factor)
+        {
+        case BlendMode::Factor::zero:
+            return GL_ZERO;
+        case BlendMode::Factor::one:
+            return GL_ONE;
+        case BlendMode::Factor::srcColor:
+            return GL_SRC_COLOR;
+        case BlendMode::Factor::oneMinusSrcColor:
+            return GL_ONE_MINUS_SRC_COLOR;
+        case BlendMode::Factor::dstColor:
+            return GL_DST_COLOR;
+        case BlendMode::Factor::oneMinusDstColor:
+            return GL_ONE_MINUS_DST_COLOR;
+        case BlendMode::Factor::srcAlpha:
+            return GL_SRC_ALPHA;
+        case BlendMode::Factor::oneMinusSrcAlpha:
+            return GL_ONE_MINUS_SRC_ALPHA;
+        case BlendMode::Factor::dstAlpha:
+            return GL_DST_ALPHA;
+        case BlendMode::Factor::oneMinusDstAlpha:
+            return GL_ONE_MINUS_DST_ALPHA;
+        }
+    }
+
+    inline static constexpr GLenum convertEquation(const BlendMode::Equation equation)
+    {
+        switch (equation)
+        {
+        case BlendMode::Equation::add:
+            return GL_FUNC_ADD;
+        case BlendMode::Equation::subtract:
+            return GL_FUNC_SUBTRACT;
+        case BlendMode::Equation::reverseSubtract:
+            return GL_FUNC_REVERSE_SUBTRACT;
+        case BlendMode::Equation::min:
+            return GL_MIN;
+        case BlendMode::Equation::max:
+            return GL_MAX;
+        }
     }
 } // namespace processing
 
@@ -53,6 +109,8 @@ namespace processing
 
         void main()
         {
+            // float alpha = texture(u_TextureSampler, v_TexCoord).a;
+            // o_Color = vec4(v_TexCoord.xy, 0.0, alpha);
             o_Color = texture(u_TextureSampler, v_TexCoord) * v_Color;
         }
     )";
@@ -127,8 +185,9 @@ namespace processing
     {
         m_projectionDetails = details;
 
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // glClear(GL_DEPTH_BUFFER_BIT);
     }
 
     void BatchRenderer::endDraw()
@@ -146,6 +205,7 @@ namespace processing
         const BatchKey key{
             .shaderProgramId = submission.shaderProgramId.value_or(m_defaultShaderProgramId),
             .textureId = submission.textureId.value_or(m_whiteTextureId),
+            .blendMode = submission.blendMode.value_or(BlendMode::alpha),
         };
 
         const size_t vertexOffset = m_vertices.size();
@@ -158,27 +218,24 @@ namespace processing
             m_indices.push_back(index + static_cast<uint32_t>(vertexOffset));
         }
 
-        const auto itr = m_batches.find(key);
-        if (itr != m_batches.end())
+        if (not m_batches.empty())
         {
-            Batch& batch = itr->second;
-            size_t expectedStart = batch.indexStart + batch.indexCount;
+            Batch& lastBatch = m_batches.back();
+            const bool hasSameKey = lastBatch.key == key;
+            const bool isContinuous = lastBatch.indexStart + lastBatch.indexCount == indexStart;
 
-            if (expectedStart == indexStart)
+            if (hasSameKey and isContinuous)
             {
-                batch.indexCount += submission.indices.size();
-            }
-            else
-            {
-                batch.indexStart = indexStart;
-                batch.indexCount = submission.indices.size();
+                lastBatch.indexCount += submission.indices.size();
+                return;
             }
         }
-        else
-        {
-            // Neuer Batch
-            m_batches.emplace(std::make_pair(key, Batch{.indexStart = indexStart, .indexCount = submission.indices.size()}));
-        }
+
+        m_batches.push_back(Batch{
+            .key = key,
+            .indexStart = indexStart,
+            .indexCount = submission.indices.size(),
+        });
     }
 
     void BatchRenderer::flush()
@@ -187,6 +244,10 @@ namespace processing
         {
             return;
         }
+
+        glEnable(GL_BLEND);
+        glEnable(GL_TEXTURE);
+        glDisable(GL_DEPTH_TEST);
 
         glBindBuffer(GL_ARRAY_BUFFER, m_vertexBufferId);
         glBufferSubData(GL_ARRAY_BUFFER, 0, m_vertices.size() * sizeof(Vertex), m_vertices.data());
@@ -198,10 +259,14 @@ namespace processing
 
         auto currentShader = ShaderProgramId{.value = 0};
         auto currentTexture = TextureId{.value = 0};
+        auto currentBlendMode = BlendMode::alpha;
+        bool isFirstRun = true;
 
-        for (const auto& [key, batch] : m_batches)
+        for (const Batch& batch : m_batches)
         {
-            if (key.shaderProgramId != currentShader)
+            const BatchKey& key = batch.key;
+
+            if (isFirstRun or key.shaderProgramId != currentShader)
             {
                 currentShader = key.shaderProgramId;
                 glUseProgram(currentShader.value);
@@ -210,19 +275,32 @@ namespace processing
                 glUniform1i(glGetUniformLocation(currentShader.value, "u_TextureSampler"), 0);
             }
 
-            if (key.textureId != currentTexture)
+            if (isFirstRun or key.textureId != currentTexture)
             {
                 currentTexture = key.textureId;
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, currentTexture.value);
             }
 
+            if (isFirstRun or key.blendMode != currentBlendMode)
+            {
+                currentBlendMode = key.blendMode;
+                activate(currentBlendMode);
+            }
+
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(batch.indexCount), GL_UNSIGNED_INT, (void*)(batch.indexStart * sizeof(uint32_t)));
+            isFirstRun = false;
         }
 
         m_batches.clear();
         m_vertices.clear();
         m_indices.clear();
+    }
+
+    void BatchRenderer::activate(const BlendMode& blendMode)
+    {
+        glBlendFuncSeparate(convertBlendFactor(blendMode.colorSrcFactor), convertBlendFactor(blendMode.colorDstFactor), convertBlendFactor(blendMode.alphaSrcFactor), convertBlendFactor(blendMode.alphaDstFactor));
+        glBlendEquationSeparate(convertEquation(blendMode.colorEquation), convertEquation(blendMode.alphaEquation));
     }
 
     BatchRenderer::BatchRenderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, GLuint defaultShaderProgramId, GLuint whiteTextureId)

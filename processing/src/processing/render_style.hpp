@@ -19,6 +19,7 @@ namespace processing
         RectMode imageMode;
         ImageSourceMode imageSourceMode;
         color_t imageTint;
+        BlendMode blendMode;
     };
 
     RenderStyle render_style_default();
