@@ -23,6 +23,7 @@ add_library(processing STATIC
     src/processing/render_style.cpp
     src/processing/render_style_stack.cpp
     src/processing/render_targets.cpp
+    src/processing/shader.cpp
     src/processing/batch_renderer.cpp
     src/processing/shape_builder.cpp
     src/processing/texture.cpp

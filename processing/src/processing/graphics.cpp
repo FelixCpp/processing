@@ -1,4 +1,3 @@
-#include "processing/matrix_stack.hpp"
 #include <processing/graphics.hpp>
 #include <processing/shape_builder.hpp>
 #include <processing/batch_renderer.hpp>
@@ -8,6 +7,16 @@ namespace processing
     inline static constexpr float MIN_DEPTH = -1.0f;
     inline static constexpr float MAX_DEPTH = 1.0f;
     inline static constexpr float DEPTH_INCREMENT = (MAX_DEPTH - MIN_DEPTH) / 20'000.0f;
+
+    std::optional<ShaderProgramId> getShaderProgramId(const RenderStyle& style)
+    {
+        if (style.shaderProgram != nullptr)
+        {
+            return style.shaderProgram->getShaderProgramId();
+        }
+
+        return {};
+    }
 
     Graphics::Graphics(const uint2 size) : m_renderTarget(std::make_unique<MainRenderTarget>(rect2u{0, 0, size.x, size.y})), m_renderer(BatchRenderer::create()), m_renderStyles(render_style_stack_create()), m_windowSize(size), m_metrics(matrix_stack_create())
     {
@@ -140,8 +149,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderProgramI
-                .blendMode = BlendMode::alpha,
+            .blendMode = BlendMode::alpha,
         });
     }
 
@@ -251,6 +259,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .shaderProgramId = getShaderProgramId(style),
                 .blendMode = style.blendMode,
             });
         }
@@ -263,6 +272,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .shaderProgramId = getShaderProgramId(style),
                 .blendMode = style.blendMode,
             });
         }
@@ -288,6 +298,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .shaderProgramId = getShaderProgramId(style),
                 .blendMode = style.blendMode,
             });
         }
@@ -300,6 +311,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .shaderProgramId = getShaderProgramId(style),
                 .blendMode = style.blendMode,
             });
         }
@@ -320,6 +332,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
+            .shaderProgramId = getShaderProgramId(style),
             .blendMode = style.blendMode,
         });
     }
@@ -337,6 +350,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .shaderProgramId = getShaderProgramId(style),
                 .blendMode = style.blendMode,
             });
         }
@@ -349,6 +363,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
+                .shaderProgramId = getShaderProgramId(style),
                 .blendMode = style.blendMode,
             });
         }
@@ -364,6 +379,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
+            .shaderProgramId = getShaderProgramId(style),
             .blendMode = style.blendMode,
         });
     }
@@ -385,6 +401,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
+            .shaderProgramId = getShaderProgramId(style),
             .textureId = texture.getResourceId(),
             .blendMode = style.blendMode,
         });
@@ -402,6 +419,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
+            .shaderProgramId = getShaderProgramId(style),
             .textureId = texture.getResourceId(),
             .blendMode = style.blendMode,
         });

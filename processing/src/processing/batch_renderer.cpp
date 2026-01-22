@@ -87,11 +87,11 @@ namespace processing
         out vec4 v_Color;
 
         uniform mat4 u_ProjectionMatrix;
-        uniform mat4 u_ViewMatrix;
+        // uniform mat4 u_ViewMatrix;
 
         void main()
         {
-            gl_Position = u_ProjectionMatrix * u_ViewMatrix * vec4(a_Position, 1.0);
+            gl_Position = u_ProjectionMatrix * vec4(a_Position, 1.0);
             v_TexCoord = a_TexCoord;
             v_Color = a_Color;
         }
@@ -270,8 +270,11 @@ namespace processing
             {
                 currentShader = key.shaderProgramId;
                 glUseProgram(currentShader.value);
-                glUniformMatrix4fv(glGetUniformLocation(currentShader.value, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
-                glUniformMatrix4fv(glGetUniformLocation(currentShader.value, "u_ViewMatrix"), 1, GL_FALSE, m_projectionDetails.viewMatrix.data.data());
+                GLint proj = glGetUniformLocation(currentShader.value, "u_ProjectionMatrix");
+                glProgramUniformMatrix4fv(currentShader.value, proj, 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
+                // GLint view = glGetUniformLocation(currentShader.value, "u_ViewMatrix");
+                // glUniformMatrix4fv(proj, 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
+                // glUniformMatrix4fv(view, 1, GL_FALSE, m_projectionDetails.viewMatrix.data.data());
                 glUniform1i(glGetUniformLocation(currentShader.value, "u_TextureSampler"), 0);
             }
 

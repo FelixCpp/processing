@@ -4,6 +4,8 @@
 #include <processing/processing.hpp>
 
 #include <vector>
+#include <unordered_map>
+#include <string>
 
 #include <glad/gl.h>
 
@@ -30,6 +32,22 @@ namespace processing
         size_t indexCount;
     };
 
+    // class UniformUploader
+    // {
+    // private:
+    //     using UniformBucketIndex = size_t;
+    //     using UniformName = std::string;
+    //     using UniformLocation = GLint;
+    //
+    // public:
+    //
+    //     UniformLocation getUniformLocation(ShaderProgramId shaderProgramId, UniformName)
+    //
+    // private:
+    //     std::vector<std::unordered_map<UniformName, UniformLocation>> m_uniformCache;
+    //     std::unordered_map<ShaderProgramId, UniformBucketIndex> m_bucketIndices;
+    // };
+
     class BatchRenderer : public Renderer
     {
     public:
@@ -52,6 +70,8 @@ namespace processing
         GLuint m_elementBufferId;
         ShaderProgramId m_defaultShaderProgramId;
         TextureId m_whiteTextureId;
+
+        // UniformUploader m_uniformUploader;
 
         std::vector<Vertex> m_vertices;
         std::vector<uint32_t> m_indices;
