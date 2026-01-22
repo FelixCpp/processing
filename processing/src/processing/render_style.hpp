@@ -3,6 +3,8 @@
 
 #include <processing/processing.hpp>
 
+#include <processing/matrix_stack.hpp>
+
 namespace processing
 {
     struct RenderStyle

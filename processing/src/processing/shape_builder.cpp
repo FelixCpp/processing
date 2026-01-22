@@ -1,12 +1,9 @@
 #include <processing/shape_builder.hpp>
 #include <cassert>
 #include <cmath>
-#include <numbers>
 
 namespace processing
 {
-    inline static constexpr float PI = std::numbers::pi_v<float>;
-
     static Contour contour_stroke_from_path(const std::vector<float2>& path, float strokeWeight, StrokeJoin strokeJoin)
     {
         // Early out if there are not enough points for us to compute a proper result
@@ -69,7 +66,7 @@ namespace processing
         };
     }
 
-    Shape shape_from_contour(const Contour& contour, color_t color, float depth)
+    Shape shape_from_contour(const Contour& contour, const matrix4x4& transform, color_t color, float depth)
     {
         assert(contour.positions.size() == contour.texcoords.size() and "Contour must contain the same number of positions as texcoords");
 
@@ -80,7 +77,7 @@ namespace processing
         for (size_t i = 0; i < contour.positions.size(); ++i)
         {
             shape.vertices.push_back(Vertex{
-                .position = float3(contour.positions[i], depth),
+                .position = matrix4x4_transform_point(transform, float3(contour.positions[i], depth)),
                 .texcoord = contour.texcoords[i],
                 .color = float4_from_color(color),
             });
@@ -121,6 +118,37 @@ namespace processing
             {right, top},
             {right, bottom},
             {left, bottom},
+        };
+
+        return contour_stroke_from_path(positions, strokeWeight, strokeJoin);
+    }
+
+    Contour contour_quad_fill(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4)
+    {
+        return {
+            .positions = {
+                {x1, y1},
+                {x2, y2},
+                {x3, y3},
+                {x4, y4},
+            },
+            .texcoords = {
+                {0.0f, 0.0f},
+                {1.0f, 0.0f},
+                {1.0f, 1.0f},
+                {0.0f, 1.0f},
+            },
+            .indices = {0, 1, 2, 2, 3, 0}
+        };
+    }
+
+    Contour contour_quad_stroke(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float strokeWeight, StrokeJoin strokeJoin)
+    {
+        const std::vector<float2> positions = {
+            {x1, y1},
+            {x2, y2},
+            {x3, y3},
+            {x4, y4},
         };
 
         return contour_stroke_from_path(positions, strokeWeight, strokeJoin);
@@ -199,9 +227,117 @@ namespace processing
         return contour_stroke_from_path(path, strokeWeight, strokeJoin);
     }
 
+    inline float2 value2_rotated(float2 v, float angle)
+    {
+        const float c = std::cos(angle);
+        const float s = std::sin(angle);
+
+        return float2{
+            v.x * c - v.y * s,
+            v.x * s + v.y * c
+        };
+    }
+
     Contour contour_line(float x1, float y1, float x2, float y2, float strokeWeight, StrokeCap strokeCap)
     {
-        return Contour{};
+        const float2 start = {x1, y1};
+        const float2 end = {x2, y2};
+        const float2 direction = value2_normalized(end - start);
+        const float2 offset = value2_perpendicular(direction) * strokeWeight * 0.5f;
+
+        const float circumference = PI * strokeWeight;
+        const size_t segments = std::max(4, static_cast<int>(circumference / 4.0f));
+
+        std::vector<float2> positions;
+        switch (strokeCap.start)
+        {
+            case StrokeCapStyle::butt:
+            {
+                positions.emplace_back(start - offset);
+                positions.emplace_back(start + offset);
+                break;
+            }
+
+            case StrokeCapStyle::square:
+            {
+                const float2 extend = direction * strokeWeight * 0.5f;
+                positions.emplace_back(start - extend - offset);
+                positions.emplace_back(start - extend + offset);
+                break;
+            }
+
+            case StrokeCapStyle::round:
+            {
+                for (size_t i = 0; i <= segments; ++i)
+                {
+                    float angle = PI * i / segments;
+                    float2 dir = value2_rotated(offset, angle);
+                    positions.emplace_back(start - dir);
+                }
+                break;
+            }
+        }
+
+        const size_t startPositionsCount = positions.size();
+
+        switch (strokeCap.end)
+        {
+            case StrokeCapStyle::butt:
+            {
+                positions.emplace_back(end - offset);
+                positions.emplace_back(end + offset);
+                break;
+            }
+
+            case StrokeCapStyle::square:
+            {
+                const float2 extend = direction * strokeWeight * 0.5f;
+                positions.emplace_back(end + extend - offset);
+                positions.emplace_back(end + extend + offset);
+                break;
+            }
+
+            case StrokeCapStyle::round:
+            {
+                for (size_t i = 0; i <= segments; ++i)
+                {
+                    float angle = PI * i / segments;
+                    float2 dir = value2_rotated(offset, PI - angle);
+                    positions.emplace_back(end + dir);
+                }
+                break;
+            }
+        }
+
+        const size_t endPositionsCount = positions.size() - startPositionsCount;
+        const size_t maxCount = std::max(startPositionsCount, endPositionsCount);
+
+        std::vector<uint32_t> indices;
+        for (size_t i = 0; i < maxCount; ++i)
+        {
+            const size_t left1 = std::min(i, startPositionsCount - 1);
+            const size_t left2 = std::min(i + 1, startPositionsCount - 1);
+            const size_t right1 = startPositionsCount + std::min(i, endPositionsCount - 1);
+            const size_t right2 = startPositionsCount + std::min(i + 1, endPositionsCount - 1);
+
+            // Erstes Dreieck
+            indices.emplace_back(left1);
+            indices.emplace_back(right1);
+            indices.emplace_back(left2);
+
+            // Zweites Dreieck
+            indices.emplace_back(left2);
+            indices.emplace_back(right1);
+            indices.emplace_back(right2);
+        }
+
+        std::vector<float2> texcoords(positions.size());
+
+        return Contour{
+            .positions = std::move(positions),
+            .texcoords = std::move(texcoords),
+            .indices = std::move(indices)
+        };
     }
 
     Contour contour_image(float left, float top, float width, float height, float sourceLeft, float sourceTop, float sourceWidth, float sourceHeight)

@@ -143,6 +143,14 @@ namespace processing
     void strokeCap(StrokeCap strokeCap) { s_data.graphics->strokeCap(strokeCap); }
     void blendMode(const BlendMode& blendMode) { s_data.graphics->blendMode(blendMode); }
 
+    void pushMatrix() { s_data.graphics->pushMatrix(); }
+    void popMatrix() { s_data.graphics->popMatrix(); }
+    void resetMatrix() { s_data.graphics->resetMatrix(); }
+    matrix4x4& peekMatrix() { return s_data.graphics->peekMatrix(); }
+    void translate(float x, float y) { s_data.graphics->translate(x, y); }
+    void scale(float x, float y) { s_data.graphics->scale(x, y); }
+    void rotate(float angle) { s_data.graphics->rotate(angle); }
+
     void background(int red, int green, int blue, int alpha) { s_data.graphics->background(red, green, blue, alpha); }
     void background(int grey, int alpha) { s_data.graphics->background(grey, alpha); }
     void background(color_t color) { s_data.graphics->background(color); }

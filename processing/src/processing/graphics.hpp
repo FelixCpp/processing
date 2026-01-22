@@ -1,6 +1,7 @@
 #ifndef _PROCESSING_INCLUDE_GRAPHICS_HPP_
 #define _PROCESSING_INCLUDE_GRAPHICS_HPP_
 
+#include "processing/matrix_stack.hpp"
 #include <processing/processing.hpp>
 #include <processing/render_targets.hpp>
 #include <processing/render_style.hpp>
@@ -30,6 +31,15 @@ namespace processing
         void pushState();
         void popState();
         RenderStyle& peekState();
+
+        void pushMatrix();
+        void popMatrix();
+        void resetMatrix();
+        matrix4x4& peekMatrix();
+
+        void translate(float x, float y);
+        void scale(float x, float y);
+        void rotate(float angle);
 
         void blendMode(const BlendMode& blendMode);
 
@@ -74,6 +84,7 @@ namespace processing
         std::unique_ptr<MainRenderTarget> m_renderTarget;
         std::unique_ptr<Renderer> m_renderer;
         RenderStyleStack m_renderStyles;
+        MatrixStack m_metrics;
         float m_currentDepth;
 
         uint2 m_windowSize;

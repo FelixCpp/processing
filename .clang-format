@@ -8,6 +8,7 @@ TabWidth: 4
 UseTab: Never
 ContinuationIndentWidth: 4
 ConstructorInitializerIndentWidth: 4
+IndentCaseLabels: true
 
 # Column limit
 ColumnLimit: 0

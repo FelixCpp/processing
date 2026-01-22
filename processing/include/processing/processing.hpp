@@ -10,6 +10,14 @@
 #include <optional>
 #include <string_view>
 #include <filesystem>
+#include <numbers>
+
+namespace processing
+{
+    inline constexpr float PI = std::numbers::pi_v<float>;
+    inline constexpr float TAU = 2.0f * PI;
+    inline constexpr float E = std::numbers::e_v<float>;
+} // namespace processing
 
 namespace processing
 {
@@ -124,10 +132,13 @@ namespace processing
 
     constexpr matrix4x4 matrix4x4_translate(float x, float y, float z);
     constexpr matrix4x4 matrix4x4_scale(float x, float y, float z);
+    constexpr matrix4x4 matrix4x4_multiply(const matrix4x4& lhs, const matrix4x4& rhs);
     constexpr matrix4x4 matrix4x4_orthographic(float left, float top, float width, float height, float near, float far);
 
-    constexpr float3 transformPoint(const matrix4x4& matrix, const float3& point);
-    constexpr float2 transformVector(const matrix4x4& matrix, const float2& vector);
+    constexpr float3 matrix4x4_transform_point(const matrix4x4& matrix, const float3& point);
+    constexpr float2 matrix4x4_transform_vector(const matrix4x4& matrix, const float2& vector);
+
+    matrix4x4 matrix4x4_rotation_z(float angle);
 } // namespace processing
 
 namespace processing
@@ -585,8 +596,16 @@ namespace processing
     void strokeCap(StrokeCap strokeCap);
     void blendMode(const BlendMode& blendMode);
 
+    void pushMatrix();
+    void popMatrix();
+    void resetMatrix();
+    matrix4x4& peekMatrix();
+    void translate(float x, float y);
+    void scale(float x, float y);
+    void rotate(float angle);
+
     void background(int red, int green, int blue, int alpha = 255);
-    void background(int gmey, int alpha = 255);
+    void background(int grey, int alpha = 255);
     void background(color_t color);
 
     void fill(int red, int green, int blue, int alpha = 255);
@@ -748,6 +767,23 @@ namespace processing
         );
     }
 
+    constexpr matrix4x4 matrix4x4_multiply(const matrix4x4 &lhs, const matrix4x4 &rhs)
+    {
+        matrix4x4 result;
+
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                result.data[i * 4 + j] =
+                    lhs.data[i * 4 + 0] * rhs.data[0 * 4 + j] +
+                    lhs.data[i * 4 + 1] * rhs.data[1 * 4 + j] +
+                    lhs.data[i * 4 + 2] * rhs.data[2 * 4 + j] +
+                    lhs.data[i * 4 + 3] * rhs.data[3 * 4 + j];
+            }
+        }
+
+        return result;
+    }
+
     constexpr matrix4x4 matrix4x4_orthographic(float left, float top, float width, float height, float near, float far) {
         const float right = left + width;
         const float bottom = top + height;
@@ -763,7 +799,7 @@ namespace processing
         );
     }
 
-    constexpr float3 transformPoint(const matrix4x4 &matrix, const float3 &point) {
+    constexpr float3 matrix4x4_transform_point(const matrix4x4 &matrix, const float3 &point) {
         return {
             matrix.data[0] * point.x + matrix.data[4] * point.y + matrix.data[8] * point.z + matrix.data[12],
             matrix.data[1] * point.x + matrix.data[5] * point.y + matrix.data[9] * point.z + matrix.data[13],
@@ -771,11 +807,25 @@ namespace processing
         };
     }
 
-    constexpr float2 transformVector(const matrix4x4 &matrix, const float2 &vector) {
+    constexpr float2 matrix4x4_transform_vector(const matrix4x4 &matrix, const float2 &vector) {
         return {
             matrix.data[0] * vector.x + matrix.data[4] * vector.y,
             matrix.data[1] * vector.x + matrix.data[5] * vector.y,
         };
+    }
+
+    inline matrix4x4 matrix4x4_rotation_z(float angle)
+    {
+        const float radians = angle * PI / 180.0f;
+        const float cos = std::cos(radians);
+        const float sin = std::sin(radians);
+
+        return matrix4x4_create(
+            cos, sin, 0.0f, 0.0f,
+            -sin, cos, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f
+        );
     }
     // clang-format on
 } // namespace processing

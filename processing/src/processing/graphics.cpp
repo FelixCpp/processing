@@ -1,5 +1,4 @@
-#include "processing/render_style.hpp"
-#include "processing/render_style_stack.hpp"
+#include "processing/matrix_stack.hpp"
 #include <processing/graphics.hpp>
 #include <processing/shape_builder.hpp>
 #include <processing/batch_renderer.hpp>
@@ -10,7 +9,7 @@ namespace processing
     inline static constexpr float MAX_DEPTH = 1.0f;
     inline static constexpr float DEPTH_INCREMENT = (MAX_DEPTH - MIN_DEPTH) / 20'000.0f;
 
-    Graphics::Graphics(const uint2 size) : m_renderTarget(std::make_unique<MainRenderTarget>(rect2u{0, 0, size.x, size.y})), m_renderer(BatchRenderer::create()), m_renderStyles(render_style_stack_create()), m_windowSize(size)
+    Graphics::Graphics(const uint2 size) : m_renderTarget(std::make_unique<MainRenderTarget>(rect2u{0, 0, size.x, size.y})), m_renderer(BatchRenderer::create()), m_renderStyles(render_style_stack_create()), m_windowSize(size), m_metrics(matrix_stack_create())
     {
     }
 
@@ -25,6 +24,7 @@ namespace processing
             .viewMatrix = matrix4x4_identity(),
         });
         render_style_stack_reset(m_renderStyles);
+        matrix_stack_reset(m_metrics);
         m_currentDepth = MIN_DEPTH;
     }
 
@@ -65,6 +65,44 @@ namespace processing
         return render_style_stack_peek(m_renderStyles);
     }
 
+    void Graphics::pushMatrix()
+    {
+        matrix_stack_push(m_metrics, peekMatrix());
+    }
+
+    void Graphics::popMatrix()
+    {
+        matrix_stack_pop(m_metrics);
+    }
+
+    void Graphics::resetMatrix()
+    {
+        matrix_stack_reset(m_metrics);
+    }
+
+    matrix4x4& Graphics::peekMatrix()
+    {
+        return matrix_stack_peek(m_metrics);
+    }
+
+    void Graphics::translate(const float x, const float y)
+    {
+        matrix4x4& matrix = peekMatrix();
+        matrix = matrix4x4_multiply(matrix4x4_translate(x, y, 0.0f), matrix);
+    }
+
+    void Graphics::scale(const float x, const float y)
+    {
+        matrix4x4& matrix = peekMatrix();
+        matrix = matrix4x4_multiply(matrix4x4_scale(x, y, 1.0f), matrix);
+    }
+
+    void Graphics::rotate(const float angle)
+    {
+        matrix4x4& matrix = peekMatrix();
+        matrix = matrix4x4_multiply(matrix4x4_rotation_z(angle), matrix);
+    }
+
     void Graphics::blendMode(const BlendMode& blendMode)
     {
         RenderStyle& style = peekState();
@@ -84,8 +122,14 @@ namespace processing
     void Graphics::background(color_t color)
     {
         const rect2f viewport = getViewport();
-        const Contour rect_contour = contour_rect_fill(viewport.left, viewport.top, viewport.width, viewport.height);
-        const Shape shape = shape_from_contour(rect_contour, color, getNextDepth());
+        const Contour rect_contour = contour_quad_fill(
+            viewport.left, viewport.top,
+            viewport.left + viewport.width, viewport.top,
+            viewport.left + viewport.width, viewport.top + viewport.height,
+            viewport.left, viewport.top + viewport.height
+        );
+
+        const Shape shape = shape_from_contour(rect_contour, matrix4x4_identity(), color, getNextDepth());
 
         m_renderer->submit({
             .vertices = shape.vertices,
@@ -188,13 +232,14 @@ namespace processing
 
     void Graphics::rect(float x1, float y1, float x2, float y2)
     {
-        const RenderStyle& style = render_style_stack_peek(m_renderStyles);
-        const rect2f rectMode = style.rectMode(x1, y1, x2, y2);
+        const RenderStyle& style = peekState();
+        const matrix4x4& matrix = peekMatrix();
+        const rect2f boundary = style.rectMode(x1, y1, x2, y2);
 
         if (style.isFillEnabled)
         {
-            const Contour contour = contour_rect_fill(rectMode.left, rectMode.top, rectMode.width, rectMode.height);
-            const Shape shape = shape_from_contour(contour, style.fillColor, getNextDepth());
+            const Contour contour = contour_rect_fill(boundary.left, boundary.top, boundary.width, boundary.height);
+            const Shape shape = shape_from_contour(contour, matrix, style.fillColor, getNextDepth());
 
             m_renderer->submit({
                 .vertices = shape.vertices,
@@ -205,8 +250,8 @@ namespace processing
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_rect_stroke(rectMode.left, rectMode.top, rectMode.width, rectMode.height, style.strokeWeight, style.strokeJoin);
-            const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
+            const Contour contour = contour_rect_stroke(boundary.left, boundary.top, boundary.width, boundary.height, style.strokeWeight, style.strokeJoin);
+            const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
             m_renderer->submit({
                 .vertices = shape.vertices,
@@ -223,14 +268,15 @@ namespace processing
 
     void Graphics::ellipse(float x1, float y1, float x2, float y2)
     {
-        const RenderStyle& style = render_style_stack_peek(m_renderStyles);
+        const RenderStyle& style = peekState();
+        const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = style.ellipseMode(x1, y1, x2, y2);
         const float2 center = boundary.center();
 
         if (style.isFillEnabled)
         {
             const Contour contour = contour_ellipse_fill(center.x, center.y, boundary.width * 0.5f, boundary.height * 0.5f, 32);
-            const Shape shape = shape_from_contour(contour, style.fillColor, getNextDepth());
+            const Shape shape = shape_from_contour(contour, matrix, style.fillColor, getNextDepth());
 
             m_renderer->submit({
                 .vertices = shape.vertices,
@@ -242,7 +288,7 @@ namespace processing
         if (style.isStrokeEnabled)
         {
             const Contour contour = contour_ellipse_stroke(center.x, center.y, boundary.width * 0.5f, boundary.height * 0.5f, style.strokeWeight, 32, style.strokeJoin);
-            const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
+            const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
             m_renderer->submit({
                 .vertices = shape.vertices,
@@ -259,9 +305,10 @@ namespace processing
 
     void Graphics::line(float x1, float y1, float x2, float y2)
     {
-        const RenderStyle& style = render_style_stack_peek(m_renderStyles);
+        const RenderStyle& style = peekState();
+        const matrix4x4& matrix = peekMatrix();
         const Contour contour = contour_line(x1, y1, x2, y2, style.strokeWeight, style.strokeCap);
-        const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
+        const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
         m_renderer->submit({
             .vertices = shape.vertices,
@@ -272,12 +319,13 @@ namespace processing
 
     void Graphics::triangle(float x1, float y1, float x2, float y2, float x3, float y3)
     {
-        const RenderStyle& style = render_style_stack_peek(m_renderStyles);
+        const RenderStyle& style = peekState();
+        const matrix4x4& matrix = peekMatrix();
 
         if (style.isFillEnabled)
         {
             const Contour contour = contour_triangle_fill(x1, y1, x2, y2, x3, y3);
-            const Shape shape = shape_from_contour(contour, style.fillColor, getNextDepth());
+            const Shape shape = shape_from_contour(contour, matrix, style.fillColor, getNextDepth());
 
             m_renderer->submit({
                 .vertices = shape.vertices,
@@ -289,7 +337,7 @@ namespace processing
         if (style.isStrokeEnabled)
         {
             const Contour contour = contour_triangle_stroke(x1, y1, x2, y2, x3, y3, style.strokeWeight, style.strokeJoin);
-            const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
+            const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
             m_renderer->submit({
                 .vertices = shape.vertices,
@@ -301,9 +349,10 @@ namespace processing
 
     void Graphics::point(float x, float y)
     {
-        const RenderStyle& style = render_style_stack_peek(m_renderStyles);
+        const RenderStyle& style = peekState();
+        const matrix4x4& matrix = peekMatrix();
         const Contour contour = contour_ellipse_fill(x, y, style.strokeWeight, style.strokeWeight, 16);
-        const Shape shape = shape_from_contour(contour, style.strokeColor, getNextDepth());
+        const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
         m_renderer->submit({
             .vertices = shape.vertices,
@@ -314,19 +363,34 @@ namespace processing
 
     void Graphics::image(const Texture& texture, float x1, float y1)
     {
+        const auto textureSize = float2{texture.getSize()};
+        image(texture, x1, y1, textureSize.x, textureSize.y);
     }
 
     void Graphics::image(const Texture& texture, float x1, float y1, float x2, float y2)
     {
+        const RenderStyle& style = peekState();
+        const matrix4x4& matrix = peekMatrix();
+        const rect2f boundary = style.imageMode(x1, y1, x2, y2);
+        const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, 0.0f, 0.0f, 1.0f, 1.0f);
+        const Shape shape = shape_from_contour(contour, matrix, style.imageTint, getNextDepth());
+
+        m_renderer->submit({
+            .vertices = shape.vertices,
+            .indices = shape.indices,
+            .textureId = texture.getResourceId(),
+            .blendMode = style.blendMode,
+        });
     }
 
     void Graphics::image(const Texture& texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2)
     {
         const RenderStyle& style = peekState();
+        const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = style.imageMode(x1, y1, x2, y2);
         const rect2f sourceRect = style.imageSourceMode(texture.getSize(), sx1, sy1, sx2, sy2);
         const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, sourceRect.left, sourceRect.top, sourceRect.width, sourceRect.height);
-        const Shape shape = shape_from_contour(contour, style.imageTint, getNextDepth());
+        const Shape shape = shape_from_contour(contour, matrix, style.imageTint, getNextDepth());
 
         m_renderer->submit({
             .vertices = shape.vertices,

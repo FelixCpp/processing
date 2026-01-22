@@ -30,26 +30,26 @@ namespace processing
     {
         switch (factor)
         {
-        case BlendMode::Factor::zero:
-            return GL_ZERO;
-        case BlendMode::Factor::one:
-            return GL_ONE;
-        case BlendMode::Factor::srcColor:
-            return GL_SRC_COLOR;
-        case BlendMode::Factor::oneMinusSrcColor:
-            return GL_ONE_MINUS_SRC_COLOR;
-        case BlendMode::Factor::dstColor:
-            return GL_DST_COLOR;
-        case BlendMode::Factor::oneMinusDstColor:
-            return GL_ONE_MINUS_DST_COLOR;
-        case BlendMode::Factor::srcAlpha:
-            return GL_SRC_ALPHA;
-        case BlendMode::Factor::oneMinusSrcAlpha:
-            return GL_ONE_MINUS_SRC_ALPHA;
-        case BlendMode::Factor::dstAlpha:
-            return GL_DST_ALPHA;
-        case BlendMode::Factor::oneMinusDstAlpha:
-            return GL_ONE_MINUS_DST_ALPHA;
+            case BlendMode::Factor::zero:
+                return GL_ZERO;
+            case BlendMode::Factor::one:
+                return GL_ONE;
+            case BlendMode::Factor::srcColor:
+                return GL_SRC_COLOR;
+            case BlendMode::Factor::oneMinusSrcColor:
+                return GL_ONE_MINUS_SRC_COLOR;
+            case BlendMode::Factor::dstColor:
+                return GL_DST_COLOR;
+            case BlendMode::Factor::oneMinusDstColor:
+                return GL_ONE_MINUS_DST_COLOR;
+            case BlendMode::Factor::srcAlpha:
+                return GL_SRC_ALPHA;
+            case BlendMode::Factor::oneMinusSrcAlpha:
+                return GL_ONE_MINUS_SRC_ALPHA;
+            case BlendMode::Factor::dstAlpha:
+                return GL_DST_ALPHA;
+            case BlendMode::Factor::oneMinusDstAlpha:
+                return GL_ONE_MINUS_DST_ALPHA;
         }
     }
 
@@ -57,16 +57,16 @@ namespace processing
     {
         switch (equation)
         {
-        case BlendMode::Equation::add:
-            return GL_FUNC_ADD;
-        case BlendMode::Equation::subtract:
-            return GL_FUNC_SUBTRACT;
-        case BlendMode::Equation::reverseSubtract:
-            return GL_FUNC_REVERSE_SUBTRACT;
-        case BlendMode::Equation::min:
-            return GL_MIN;
-        case BlendMode::Equation::max:
-            return GL_MAX;
+            case BlendMode::Equation::add:
+                return GL_FUNC_ADD;
+            case BlendMode::Equation::subtract:
+                return GL_FUNC_SUBTRACT;
+            case BlendMode::Equation::reverseSubtract:
+                return GL_FUNC_REVERSE_SUBTRACT;
+            case BlendMode::Equation::min:
+                return GL_MIN;
+            case BlendMode::Equation::max:
+                return GL_MAX;
         }
     }
 } // namespace processing
@@ -289,6 +289,7 @@ namespace processing
             }
 
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(batch.indexCount), GL_UNSIGNED_INT, (void*)(batch.indexStart * sizeof(uint32_t)));
+            // glDrawElements(GL_POINTS, static_cast<GLsizei>(batch.indexCount), GL_UNSIGNED_INT, (void*)(batch.indexStart * sizeof(uint32_t)));
             isFirstRun = false;
         }
 

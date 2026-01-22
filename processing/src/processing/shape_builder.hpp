@@ -21,10 +21,13 @@ namespace processing
         std::vector<uint32_t> indices;
     };
 
-    Shape shape_from_contour(const Contour& contour, color_t color, float depth);
+    Shape shape_from_contour(const Contour& contour, const matrix4x4& transform, color_t color, float depth);
 
     Contour contour_rect_fill(float left, float top, float width, float height);
     Contour contour_rect_stroke(float left, float top, float width, float height, float strokeWeight, StrokeJoin strokeJoin);
+
+    Contour contour_quad_fill(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4);
+    Contour contour_quad_stroke(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float strokeWeight, StrokeJoin strokeJoin);
 
     Contour contour_ellipse_fill(float centerX, float centerY, float radiusX, float radiusY, size_t segments);
     Contour contour_ellipse_stroke(float centerX, float centerY, float radiusX, float radiusY, float strokeWeight, size_t segments, StrokeJoin strokeJoin);

@@ -6,7 +6,7 @@ using namespace processing;
 #include <random>
 #include <unordered_set>
 
-struct DemoApp : Sketch
+struct SnakeGame : Sketch
 {
     inline static constexpr uint32_t COLUMNS = 20;
     inline static constexpr uint32_t ROWS = 20;
@@ -168,5 +168,5 @@ struct DemoApp : Sketch
 
 std::unique_ptr<Sketch> processing::createSketch()
 {
-    return std::make_unique<DemoApp>();
+    return std::make_unique<SnakeGame>();
 }
