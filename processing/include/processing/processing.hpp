@@ -470,11 +470,30 @@ namespace processing
     constexpr bool operator==(const ShaderProgramId& lhs, const ShaderProgramId& rhs);
     constexpr bool operator!=(const ShaderProgramId& lhs, const ShaderProgramId& rhs);
 
-    struct ShaderProgram
+    struct ShaderProgramImpl
     {
-        virtual ~ShaderProgram() = default;
+        virtual ~ShaderProgramImpl() = default;
         virtual ShaderProgramId getResourceId() const = 0;
     };
+
+    class ShaderProgram
+    {
+    public:
+        ShaderProgram() = default;
+        explicit ShaderProgram(std::unique_ptr<ShaderProgramImpl> impl);
+
+        ShaderProgram(const ShaderProgram&) = delete;
+        ShaderProgram& operator=(const ShaderProgram&) = delete;
+        ShaderProgram(ShaderProgram&&) = default;
+        ShaderProgram& operator=(ShaderProgram&&) = default;
+
+        ShaderProgramId getShaderProgramId() const;
+
+    private:
+        std::unique_ptr<ShaderProgramImpl> m_impl;
+    };
+
+    ShaderProgram loadShaderFromMemory(std::string_view vertexShaderSource, std::string_view fragmentShaderSource);
 } // namespace processing
 
 namespace processing
@@ -594,7 +613,6 @@ namespace processing
 
     void strokeJoin(StrokeJoin strokeJoin);
     void strokeCap(StrokeCap strokeCap);
-    void blendMode(const BlendMode& blendMode);
 
     void pushMatrix();
     void popMatrix();
@@ -603,6 +621,9 @@ namespace processing
     void translate(float x, float y);
     void scale(float x, float y);
     void rotate(float angle);
+
+    void blendMode(const BlendMode& blendMode);
+    void shader(ShaderProgram* shaderProgram);
 
     void background(int red, int green, int blue, int alpha = 255);
     void background(int grey, int alpha = 255);

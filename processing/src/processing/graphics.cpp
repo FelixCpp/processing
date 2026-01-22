@@ -109,6 +109,12 @@ namespace processing
         style.blendMode = blendMode;
     }
 
+    void Graphics::shader(ShaderProgram* shaderProgram)
+    {
+        RenderStyle& style = peekState();
+        style.shaderProgram = shaderProgram;
+    }
+
     void Graphics::background(int red, int green, int blue, int alpha)
     {
         background(color(red, green, blue, alpha));
@@ -134,7 +140,8 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .blendMode = BlendMode::alpha,
+            .shaderProgramI
+                .blendMode = BlendMode::alpha,
         });
     }
 

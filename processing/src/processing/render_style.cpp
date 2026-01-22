@@ -18,6 +18,7 @@ namespace processing
             .imageSourceMode = image_source_mode_ltwh_coordinates(),
             .imageTint = color(255, 255, 255),
             .blendMode = BlendMode::alpha,
+            .shaderProgram = nullptr,
         };
     }
 } // namespace processing

@@ -35,7 +35,7 @@ namespace processing
 
     void render_style_stack_reset(RenderStyleStack& stack)
     {
-        stack.renderStyles[0] = render_style_default(); // TODO(Felix): Do we really want to do this?
+        // stack.renderStyles[0] = render_style_default(); // TODO(Felix): Do we really want to do this?
         stack.currentStyleIndex = 0;
     }
 

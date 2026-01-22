@@ -141,7 +141,6 @@ namespace processing
 
     void strokeJoin(StrokeJoin strokeJoin) { s_data.graphics->strokeJoin(strokeJoin); }
     void strokeCap(StrokeCap strokeCap) { s_data.graphics->strokeCap(strokeCap); }
-    void blendMode(const BlendMode& blendMode) { s_data.graphics->blendMode(blendMode); }
 
     void pushMatrix() { s_data.graphics->pushMatrix(); }
     void popMatrix() { s_data.graphics->popMatrix(); }
@@ -150,6 +149,9 @@ namespace processing
     void translate(float x, float y) { s_data.graphics->translate(x, y); }
     void scale(float x, float y) { s_data.graphics->scale(x, y); }
     void rotate(float angle) { s_data.graphics->rotate(angle); }
+
+    void blendMode(const BlendMode& blendMode) { s_data.graphics->blendMode(blendMode); }
+    void shader(ShaderProgram *shaderProgram) { s_data.graphics->shader(shaderProgram); }
 
     void background(int red, int green, int blue, int alpha) { s_data.graphics->background(red, green, blue, alpha); }
     void background(int grey, int alpha) { s_data.graphics->background(grey, alpha); }
