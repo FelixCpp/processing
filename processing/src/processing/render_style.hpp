@@ -22,7 +22,7 @@ namespace processing
         ImageSourceMode imageSourceMode;
         color_t imageTint;
         BlendMode blendMode;
-        ShaderProgram* shaderProgram;
+        ShaderHandle shaderHandle;
     };
 
     RenderStyle render_style_default();

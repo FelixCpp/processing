@@ -42,7 +42,8 @@ namespace processing
         void rotate(float angle);
 
         void blendMode(const BlendMode& blendMode);
-        void shader(ShaderProgram* shaderProgram);
+        void shader(ShaderHandle handle);
+        void noShader();
 
         void background(int red, int green, int blue, int alpha = 255);
         void background(int grey, int alpha = 255);

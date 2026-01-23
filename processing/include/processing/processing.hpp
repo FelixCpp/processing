@@ -462,38 +462,16 @@ namespace processing
 
 namespace processing
 {
-    using ShaderProgramId = struct
-    {
-        uint32_t value;
-    };
+    // using ShaderHandle = struct
+    // {
+    //     uint32_t id;
+    // };
 
-    constexpr bool operator==(const ShaderProgramId& lhs, const ShaderProgramId& rhs);
-    constexpr bool operator!=(const ShaderProgramId& lhs, const ShaderProgramId& rhs);
+    using ShaderHandle = uint32_t;
 
-    struct ShaderProgramImpl
-    {
-        virtual ~ShaderProgramImpl() = default;
-        virtual ShaderProgramId getResourceId() const = 0;
-    };
+    inline constexpr ShaderHandle INVALID_SHADER_HANDLE = {0};
 
-    class ShaderProgram
-    {
-    public:
-        ShaderProgram() = default;
-        explicit ShaderProgram(std::unique_ptr<ShaderProgramImpl> impl);
-
-        ShaderProgram(const ShaderProgram&) = delete;
-        ShaderProgram& operator=(const ShaderProgram&) = delete;
-        ShaderProgram(ShaderProgram&&) = default;
-        ShaderProgram& operator=(ShaderProgram&&) = default;
-
-        ShaderProgramId getShaderProgramId() const;
-
-    private:
-        std::unique_ptr<ShaderProgramImpl> m_impl;
-    };
-
-    ShaderProgram loadShaderFromMemory(std::string_view vertexShaderSource, std::string_view fragmentShaderSource);
+    ShaderHandle loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId);
 } // namespace processing
 
 namespace processing
@@ -540,7 +518,7 @@ namespace processing
     {
         std::span<const Vertex> vertices;
         std::span<const uint32_t> indices;
-        std::optional<ShaderProgramId> shaderProgramId;
+        ShaderHandle shaderHandle;
         std::optional<TextureId> textureId;
         std::optional<BlendMode> blendMode;
     };
@@ -623,7 +601,8 @@ namespace processing
     void rotate(float angle);
 
     void blendMode(const BlendMode& blendMode);
-    void shader(ShaderProgram* shaderProgram);
+    void shader(ShaderHandle handle);
+    void noShader();
 
     void background(int red, int green, int blue, int alpha = 255);
     void background(int grey, int alpha = 255);
@@ -862,14 +841,6 @@ namespace processing
     template <typename T> constexpr T rect2<T>::bottom() const { return top + height; }
     template <typename T> constexpr bool operator == (const rect2<T>& lhs, const rect2<T>& rhs) { return lhs.left == rhs.left and lhs.top == rhs.top and lhs.width == rhs.width and lhs.height == rhs.height; }
     template <typename T> constexpr bool operator != (const rect2<T>& lhs, const rect2<T>& rhs) { return lhs.left != rhs.left or lhs.top != rhs.top or lhs.width != rhs.width or lhs.height != rhs.height; }
-    // clang-format on
-} // namespace processing
-
-namespace processing
-{
-    // clang-format off
-    constexpr bool operator == (const ShaderProgramId& lhs, const ShaderProgramId& rhs) { return lhs.value == rhs.value; }
-    constexpr bool operator != (const ShaderProgramId& lhs, const ShaderProgramId& rhs) { return lhs.value != rhs.value; }
     // clang-format on
 } // namespace processing
 

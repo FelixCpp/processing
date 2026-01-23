@@ -151,7 +151,7 @@ namespace processing
     void rotate(float angle) { s_data.graphics->rotate(angle); }
 
     void blendMode(const BlendMode& blendMode) { s_data.graphics->blendMode(blendMode); }
-    void shader(ShaderProgram *shaderProgram) { s_data.graphics->shader(shaderProgram); }
+    void shader(ShaderHandle handle) { s_data.graphics->shader(handle); }
 
     void background(int red, int green, int blue, int alpha) { s_data.graphics->background(red, green, blue, alpha); }
     void background(int grey, int alpha) { s_data.graphics->background(grey, alpha); }
@@ -187,6 +187,8 @@ namespace processing
     void image(const Texture &texture, float x1, float y1) { s_data.graphics->image(texture, x1, y1); }
     void image(const Texture &texture, float x1, float y1, float x2, float y2) { s_data.graphics->image(texture, x1, y1, x2, y2); }
     void image(const Texture &texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2) { s_data.graphics->image(texture, x1, y1, x2, y2, sx1, sy1, sx2, sy2); }
+
+    ShaderHandle loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId) { return s_data.shaderHandleManager.loadShader(vertexShaderSource, fragmentShaderId); }
     // clang-format on
 } // namespace processing
 

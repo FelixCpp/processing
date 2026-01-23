@@ -4,12 +4,12 @@ namespace processing
 {
     bool BatchKey::operator==(const BatchKey& other) const
     {
-        return shaderProgramId == other.shaderProgramId and textureId == other.textureId and blendMode == other.blendMode;
+        return shaderHandle == other.shaderHandle and textureId == other.textureId and blendMode == other.blendMode;
     }
 
     size_t BatchKeyHash::operator()(const BatchKey& key) const
     {
-        size_t h1 = std::hash<GLuint>{}(key.shaderProgramId.value);
+        size_t h1 = std::hash<GLuint>{}(key.shaderHandle);
         size_t h2 = std::hash<GLuint>{}(key.textureId.value);
 
         size_t h3 = std::hash<int>{}(static_cast<int>(key.blendMode.colorSrcFactor));
@@ -178,7 +178,7 @@ namespace processing
         glDeleteBuffers(1, &m_vertexBufferId);
         glDeleteBuffers(1, &m_elementBufferId);
         glDeleteTextures(1, &m_whiteTextureId.value);
-        glDeleteProgram(m_defaultShaderProgramId.value);
+        glDeleteProgram(m_defaultShaderHandle);
     }
 
     void BatchRenderer::beginDraw(const ProjectionDetails& details)
@@ -203,7 +203,7 @@ namespace processing
         }
 
         const BatchKey key{
-            .shaderProgramId = submission.shaderProgramId.value_or(m_defaultShaderProgramId),
+            .shaderHandle = submission.shaderHandle != INVALID_SHADER_HANDLE ? submission.shaderHandle : m_defaultShaderHandle,
             .textureId = submission.textureId.value_or(m_whiteTextureId),
             .blendMode = submission.blendMode.value_or(BlendMode::alpha),
         };
@@ -257,7 +257,7 @@ namespace processing
 
         glBindVertexArray(m_vertexArrayId);
 
-        auto currentShader = ShaderProgramId{.value = 0};
+        ShaderHandle currentShader = m_defaultShaderHandle;
         auto currentTexture = TextureId{.value = 0};
         auto currentBlendMode = BlendMode::alpha;
         bool isFirstRun = true;
@@ -266,16 +266,13 @@ namespace processing
         {
             const BatchKey& key = batch.key;
 
-            if (isFirstRun or key.shaderProgramId != currentShader)
+            if (isFirstRun or key.shaderHandle != currentShader)
             {
-                currentShader = key.shaderProgramId;
-                glUseProgram(currentShader.value);
-                GLint proj = glGetUniformLocation(currentShader.value, "u_ProjectionMatrix");
-                glProgramUniformMatrix4fv(currentShader.value, proj, 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
-                // GLint view = glGetUniformLocation(currentShader.value, "u_ViewMatrix");
-                // glUniformMatrix4fv(proj, 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
-                // glUniformMatrix4fv(view, 1, GL_FALSE, m_projectionDetails.viewMatrix.data.data());
-                glUniform1i(glGetUniformLocation(currentShader.value, "u_TextureSampler"), 0);
+                currentShader = key.shaderHandle;
+                glUseProgram(currentShader);
+                glProgramUniformMatrix4fv(currentShader, glGetUniformLocation(currentShader, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
+                glProgramUniformMatrix4fv(currentShader, glGetUniformLocation(currentShader, "u_ViewMatrix"), 1, GL_FALSE, m_projectionDetails.viewMatrix.data.data());
+                glUniform1i(glGetUniformLocation(currentShader, "u_TextureSampler"), 0);
             }
 
             if (isFirstRun or key.textureId != currentTexture)
@@ -308,7 +305,7 @@ namespace processing
     }
 
     BatchRenderer::BatchRenderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, GLuint defaultShaderProgramId, GLuint whiteTextureId)
-        : m_vertexArrayId(vertexArrayId), m_vertexBufferId(vertexBufferId), m_elementBufferId(elementBufferId), m_defaultShaderProgramId(defaultShaderProgramId), m_whiteTextureId(whiteTextureId)
+        : m_vertexArrayId(vertexArrayId), m_vertexBufferId(vertexBufferId), m_elementBufferId(elementBufferId), m_defaultShaderHandle(defaultShaderProgramId), m_whiteTextureId(whiteTextureId)
     {
         m_vertices.reserve(MAX_VERTICES);
         m_indices.reserve(MAX_INDICES);

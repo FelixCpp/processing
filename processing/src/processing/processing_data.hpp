@@ -1,12 +1,11 @@
 #ifndef _PROCESSING_INCLUDE_LIBRARY_DATA_HPP_
 #define _PROCESSING_INCLUDE_LIBRARY_DATA_HPP_
 
+#include <processing/shader.hpp>
 #include <processing/processing.hpp>
 #include <processing/window.hpp>
 #include <processing/graphics_context.hpp>
 #include <processing/graphics.hpp>
-
-#include <stack>
 
 namespace processing
 {
@@ -18,6 +17,8 @@ namespace processing
 
         bool isMainLoopPaused;
         bool userRequestedRedraw;
+
+        ShaderHandleManager shaderHandleManager;
 
         std::unique_ptr<Window> window;
         std::unique_ptr<GraphicsContext> context;

@@ -30,7 +30,7 @@ inline static constexpr const char* FRAGMENT_SHADER = R"(
 
 struct ShaderTest : Sketch
 {
-    ShaderProgram customShader = loadShaderFromMemory(VERTEX_SHADER, FRAGMENT_SHADER);
+    ShaderHandle customShader = loadShader(VERTEX_SHADER, FRAGMENT_SHADER);
 
     void setup() override
     {
@@ -43,7 +43,7 @@ struct ShaderTest : Sketch
     void draw() override
     {
         background(21, 21, 21);
-        shader(&customShader);
+        shader(customShader);
         rect(100.0f, 100.0f, 300.0f, 300.0f);
         noLoop();
     }
