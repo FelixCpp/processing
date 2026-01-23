@@ -83,6 +83,14 @@ namespace processing
         return shaderProgramId;
     }
 
+    OpenGLShaderHandleManager::~OpenGLShaderHandleManager()
+    {
+        for (const auto& [_, resourceId] : m_resourceIds)
+        {
+            glDeleteProgram(resourceId);
+        }
+    }
+
     Shader OpenGLShaderHandleManager::loadShader(const std::string_view vertexShaderSource, const std::string_view fragmentShaderSource)
     {
         if (const std::optional<GLuint> resourceId = createProgram(vertexShaderSource, fragmentShaderSource))
@@ -105,5 +113,29 @@ namespace processing
 
         warning(std::format("Unknown ShaderProgramId: {}", shaderProgramId));
         return 0;
+    }
+
+    void OpenGLShaderHandleManager::uploadUniform(const Shader id, const std::string_view name, const float x)
+    {
+        const auto resourceId = getResourceId(id);
+        glProgramUniform1f(resourceId, glGetUniformLocation(resourceId, name.data()), x);
+    }
+
+    void OpenGLShaderHandleManager::uploadUniform(Shader id, const std::string_view name, float x, float y)
+    {
+        const auto resourceId = getResourceId(id);
+        glProgramUniform2f(resourceId, glGetUniformLocation(resourceId, name.data()), x, y);
+    }
+
+    void OpenGLShaderHandleManager::uploadUniform(Shader id, const std::string_view name, float x, float y, float z)
+    {
+        const auto resourceId = getResourceId(id);
+        glProgramUniform3f(resourceId, glGetUniformLocation(resourceId, name.data()), x, y, z);
+    }
+
+    void OpenGLShaderHandleManager::uploadUniform(Shader id, const std::string_view name, float x, float y, float z, float w)
+    {
+        const auto resourceId = getResourceId(id);
+        glProgramUniform4f(resourceId, glGetUniformLocation(resourceId, name.data()), x, y, z, w);
     }
 } // namespace processing

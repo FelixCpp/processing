@@ -154,6 +154,10 @@ namespace processing
     void blendMode(const BlendMode& blendMode) { s_data.graphics->blendMode(blendMode); }
     void shader(Shader shaderProgram) { s_data.graphics->shader(shaderProgram); }
     void noShader() { s_data.graphics->noShader(); }
+    void shaderUniform(const std::string_view name, float x) { s_data.graphics->shaderUniform(name, x); }
+    void shaderUniform(const std::string_view name, float x, float y) { s_data.graphics->shaderUniform(name, x, y); }
+    void shaderUniform(const std::string_view name, float x, float y, float z) { s_data.graphics->shaderUniform(name, x, y, z); }
+    void shaderUniform(const std::string_view name, float x, float y, float z, float w) { s_data.graphics->shaderUniform(name, x, y, z, w); }
 
     void background(int red, int green, int blue, int alpha) { s_data.graphics->background(red, green, blue, alpha); }
     void background(int grey, int alpha) { s_data.graphics->background(grey, alpha); }

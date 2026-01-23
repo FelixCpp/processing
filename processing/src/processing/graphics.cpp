@@ -11,6 +11,7 @@ namespace processing
     Graphics::Graphics(const uint2 size, ShaderHandleManager& shaderHandleManager)
         : m_renderTarget(std::make_unique<MainRenderTarget>(rect2u{0, 0, size.x, size.y})),
           m_renderer(BatchRenderer::create(shaderHandleManager)),
+          m_shaderHandleManager(&shaderHandleManager),
           m_renderStyles(render_style_stack_create()),
           m_windowSize(size),
           m_metrics(matrix_stack_create())
@@ -123,6 +124,38 @@ namespace processing
     {
         RenderStyle& style = peekState();
         style.shaderProgramId = std::nullopt;
+    }
+
+    void Graphics::shaderUniform(const std::string_view name, float x)
+    {
+        if (const auto shader = peekState().shaderProgramId)
+        {
+            m_shaderHandleManager->uploadUniform(*shader, name, x);
+        }
+    }
+
+    void Graphics::shaderUniform(const std::string_view name, float x, float y)
+    {
+        if (const auto shader = peekState().shaderProgramId)
+        {
+            m_shaderHandleManager->uploadUniform(*shader, name, x, y);
+        }
+    }
+
+    void Graphics::shaderUniform(const std::string_view name, float x, float y, float z)
+    {
+        if (const auto shader = peekState().shaderProgramId)
+        {
+            m_shaderHandleManager->uploadUniform(*shader, name, x, y, z);
+        }
+    }
+
+    void Graphics::shaderUniform(const std::string_view name, float x, float y, float z, float w)
+    {
+        if (const auto shader = peekState().shaderProgramId)
+        {
+            m_shaderHandleManager->uploadUniform(*shader, name, x, y, z, w);
+        }
     }
 
     void Graphics::background(int red, int green, int blue, int alpha)

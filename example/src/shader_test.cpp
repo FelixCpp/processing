@@ -22,9 +22,12 @@ inline static constexpr const char* FRAGMENT_SHADER = R"(
 
     layout (location = 0) out vec4 o_Color;
 
+    uniform float u_Time;
+
     void main()
     {
-        o_Color = vec4(0.3, 0.4, 0.8, 1.0);
+        float red = sin(u_Time) * 0.5f + 0.5f;
+        o_Color = vec4(red, 0.4, 0.8, 1.0);
     }
 )";
 
@@ -40,14 +43,28 @@ struct ShaderTest : Sketch
     {
     }
 
+    float time = 0.0f;
+
+    void withShader(Shader id, auto lambda)
+    {
+        pushState();
+        shader(id);
+        lambda();
+        popState();
+    }
+
     void draw() override
     {
+        time += 0.1f;
+
         background(21, 21, 21);
-        shader(customShader);
-        rect(100.0f, 100.0f, 300.0f, 300.0f);
-        noShader();
-        rect(400.0f, 100.0f, 300.0f, 300.0f);
-        noLoop();
+        withShader(
+            customShader, [this]()
+            {
+                shaderUniform("u_Time", time);
+                ellipse(getMousePosition().x, getMousePosition().y, 30.0f, 30.0f);
+            }
+        );
     }
 
     virtual void destroy() override

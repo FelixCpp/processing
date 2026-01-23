@@ -44,6 +44,10 @@ namespace processing
         void blendMode(const BlendMode& blendMode);
         void shader(Shader shaderProgram);
         void noShader();
+        void shaderUniform(std::string_view name, float x);
+        void shaderUniform(std::string_view name, float x, float y);
+        void shaderUniform(std::string_view name, float x, float y, float z);
+        void shaderUniform(std::string_view name, float x, float y, float z, float w);
 
         void background(int red, int green, int blue, int alpha = 255);
         void background(int grey, int alpha = 255);
@@ -85,6 +89,7 @@ namespace processing
 
         std::unique_ptr<MainRenderTarget> m_renderTarget;
         std::unique_ptr<Renderer> m_renderer;
+        ShaderHandleManager* m_shaderHandleManager;
         RenderStyleStack m_renderStyles;
         MatrixStack m_metrics;
         float m_currentDepth;

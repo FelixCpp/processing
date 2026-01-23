@@ -469,6 +469,11 @@ namespace processing
         virtual ~ShaderHandleManager() = default;
         virtual Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId) = 0;
         virtual uint32_t getResourceId(Shader id) const = 0;
+
+        virtual void uploadUniform(Shader id, std::string_view name, float x) = 0;
+        virtual void uploadUniform(Shader id, std::string_view name, float x, float y) = 0;
+        virtual void uploadUniform(Shader id, std::string_view name, float x, float y, float z) = 0;
+        virtual void uploadUniform(Shader id, std::string_view name, float x, float y, float z, float w) = 0;
     };
 
     Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId);
@@ -601,8 +606,13 @@ namespace processing
     void rotate(float angle);
 
     void blendMode(const BlendMode& blendMode);
+
     void shader(Shader shaderProgram);
     void noShader();
+    void shaderUniform(std::string_view name, float x);
+    void shaderUniform(std::string_view name, float x, float y);
+    void shaderUniform(std::string_view name, float x, float y, float z);
+    void shaderUniform(std::string_view name, float x, float y, float z, float w);
 
     void background(int red, int green, int blue, int alpha = 255);
     void background(int grey, int alpha = 255);
