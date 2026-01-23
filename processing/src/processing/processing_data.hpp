@@ -18,7 +18,7 @@ namespace processing
         bool isMainLoopPaused;
         bool userRequestedRedraw;
 
-        ShaderHandleManager shaderHandleManager;
+        std::unique_ptr<ShaderHandleManager> shaderHandleManager;
 
         std::unique_ptr<Window> window;
         std::unique_ptr<GraphicsContext> context;

@@ -1,4 +1,5 @@
 #include <processing/processing.hpp>
+#include <processing/processing_data.hpp>
 #include <processing/shader.hpp>
 
 #include <string_view>
@@ -7,6 +8,11 @@
 #include <format>
 
 #include <glad/gl.h>
+
+namespace processing
+{
+    extern ProcessingData s_data;
+}
 
 namespace processing
 {
@@ -25,7 +31,7 @@ namespace processing
                 GLint infoLogLength = 0;
                 glGetShaderiv(vertexShaderId, GL_INFO_LOG_LENGTH, &infoLogLength);
                 std::string buffer(static_cast<size_t>(infoLogLength), '\0');
-                glGetShaderInfoLog(vertexShaderId, buffer.length(), nullptr, buffer.data());
+                glGetShaderInfoLog(vertexShaderId, buffer.length(), &infoLogLength, buffer.data());
                 error(std::format("Failed to compile vertex shader: {}", buffer));
                 return {};
             }
@@ -44,13 +50,13 @@ namespace processing
                 GLint infoLogLength = 0;
                 glGetShaderiv(fragmentShaderId, GL_INFO_LOG_LENGTH, &infoLogLength);
                 std::string buffer(static_cast<size_t>(infoLogLength), '\0');
-                glGetShaderInfoLog(fragmentShaderId, buffer.length(), nullptr, buffer.data());
+                glGetShaderInfoLog(fragmentShaderId, buffer.length(), &infoLogLength, buffer.data());
                 error(std::format("Failed to compile fragment shader: {}", buffer));
                 return {};
             }
         }
 
-        GLuint shaderProgramId = 0;
+        GLuint shaderProgramId = glCreateProgram();
         glAttachShader(shaderProgramId, vertexShaderId);
         glAttachShader(shaderProgramId, fragmentShaderId);
         glLinkProgram(shaderProgramId);
@@ -67,7 +73,7 @@ namespace processing
                 GLint infoLogLength = 0;
                 glGetProgramiv(shaderProgramId, GL_INFO_LOG_LENGTH, &infoLogLength);
                 std::string buffer(static_cast<size_t>(infoLogLength), '\0');
-                glGetProgramInfoLog(shaderProgramId, buffer.length(), nullptr, buffer.data());
+                glGetProgramInfoLog(shaderProgramId, buffer.length(), &infoLogLength, buffer.data());
                 error(std::format("Failed to compile shader program: {}", buffer));
                 glDeleteProgram(shaderProgramId);
                 return {};
@@ -77,51 +83,27 @@ namespace processing
         return shaderProgramId;
     }
 
-    ShaderHandleManager::ShaderHandleManager() : m_nextHandleId(0)
+    Shader OpenGLShaderHandleManager::loadShader(const std::string_view vertexShaderSource, const std::string_view fragmentShaderSource)
     {
-    }
-
-    ShaderHandleManager::~ShaderHandleManager()
-    {
-        for (const auto& [_, entry] : m_entries)
+        if (const std::optional<GLuint> resourceId = createProgram(vertexShaderSource, fragmentShaderSource))
         {
-            glDeleteProgram(entry.shaderProgramId);
-        }
-    }
-
-    ShaderHandle ShaderHandleManager::loadShader(const std::string_view vertexShaderSource, const std::string_view fragmentShaderSource)
-    {
-        if (const auto shaderProgramId = createProgram(vertexShaderSource, fragmentShaderSource))
-        {
-            static const auto hasher = std::hash<std::string_view>{};
-
-            ++m_nextHandleId;
-
-            ShaderHandle handle = {m_nextHandleId};
-
-            m_entries.emplace(
-                handle,
-                ShaderHandleEntry{
-                    .shaderProgramId = *shaderProgramId,
-                    .vertexShaderHash = hasher(vertexShaderSource),
-                    .fragmentShaderHash = hasher(fragmentShaderSource),
-                }
-            );
-
-            return handle;
+            const auto clientId = Shader{++m_nextShaderProgramId};
+            m_resourceIds.insert(std::make_pair(clientId, *resourceId));
+            return clientId;
         }
 
         return INVALID_SHADER_HANDLE;
     }
 
-    GLuint ShaderHandleManager::getResourceId(const ShaderHandle handle) const
+    uint32_t OpenGLShaderHandleManager::getResourceId(const Shader shaderProgramId) const
     {
-        const auto itr = m_entries.find(handle);
-        if (itr != m_entries.end())
+        const auto itr = m_resourceIds.find(shaderProgramId);
+        if (itr != m_resourceIds.end())
         {
-            return itr->second.shaderProgramId;
+            return itr->second;
         }
 
+        warning(std::format("Unknown ShaderProgramId: {}", shaderProgramId));
         return 0;
     }
 } // namespace processing

@@ -8,7 +8,12 @@ namespace processing
     inline static constexpr float MAX_DEPTH = 1.0f;
     inline static constexpr float DEPTH_INCREMENT = (MAX_DEPTH - MIN_DEPTH) / 20'000.0f;
 
-    Graphics::Graphics(const uint2 size) : m_renderTarget(std::make_unique<MainRenderTarget>(rect2u{0, 0, size.x, size.y})), m_renderer(BatchRenderer::create()), m_renderStyles(render_style_stack_create()), m_windowSize(size), m_metrics(matrix_stack_create())
+    Graphics::Graphics(const uint2 size, ShaderHandleManager& shaderHandleManager)
+        : m_renderTarget(std::make_unique<MainRenderTarget>(rect2u{0, 0, size.x, size.y})),
+          m_renderer(BatchRenderer::create(shaderHandleManager)),
+          m_renderStyles(render_style_stack_create()),
+          m_windowSize(size),
+          m_metrics(matrix_stack_create())
     {
     }
 
@@ -108,10 +113,16 @@ namespace processing
         style.blendMode = blendMode;
     }
 
-    void Graphics::shader(ShaderHandle handle)
+    void Graphics::shader(Shader shaderProgram)
     {
         RenderStyle& style = peekState();
-        style.shaderHandle = handle;
+        style.shaderProgramId = shaderProgram;
+    }
+
+    void Graphics::noShader()
+    {
+        RenderStyle& style = peekState();
+        style.shaderProgramId = std::nullopt;
     }
 
     void Graphics::background(int red, int green, int blue, int alpha)
@@ -139,7 +150,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderHandle = INVALID_SHADER_HANDLE,
+            .shaderProgramId = std::nullopt,
             .blendMode = BlendMode::alpha,
         });
     }
@@ -250,7 +261,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderHandle = style.shaderHandle,
+                .shaderProgramId = style.shaderProgramId,
                 .blendMode = style.blendMode,
             });
         }
@@ -263,7 +274,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderHandle = style.shaderHandle,
+                .shaderProgramId = style.shaderProgramId,
                 .blendMode = style.blendMode,
             });
         }
@@ -289,7 +300,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderHandle = style.shaderHandle,
+                .shaderProgramId = style.shaderProgramId,
                 .blendMode = style.blendMode,
             });
         }
@@ -302,7 +313,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderHandle = style.shaderHandle,
+                .shaderProgramId = style.shaderProgramId,
                 .blendMode = style.blendMode,
             });
         }
@@ -323,7 +334,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderHandle = style.shaderHandle,
+            .shaderProgramId = style.shaderProgramId,
             .blendMode = style.blendMode,
         });
     }
@@ -341,7 +352,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderHandle = style.shaderHandle,
+                .shaderProgramId = style.shaderProgramId,
                 .blendMode = style.blendMode,
             });
         }
@@ -354,7 +365,7 @@ namespace processing
             m_renderer->submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderHandle = style.shaderHandle,
+                .shaderProgramId = style.shaderProgramId,
                 .blendMode = style.blendMode,
             });
         }
@@ -370,7 +381,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderHandle = style.shaderHandle,
+            .shaderProgramId = style.shaderProgramId,
             .blendMode = style.blendMode,
         });
     }
@@ -392,7 +403,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderHandle = style.shaderHandle,
+            .shaderProgramId = style.shaderProgramId,
             .textureId = texture.getResourceId(),
             .blendMode = style.blendMode,
         });
@@ -410,7 +421,7 @@ namespace processing
         m_renderer->submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderHandle = style.shaderHandle,
+            .shaderProgramId = style.shaderProgramId,
             .textureId = texture.getResourceId(),
             .blendMode = style.blendMode,
         });

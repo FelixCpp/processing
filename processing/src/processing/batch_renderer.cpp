@@ -1,15 +1,16 @@
+#include "processing/shader.hpp"
 #include <processing/batch_renderer.hpp>
 
 namespace processing
 {
     bool BatchKey::operator==(const BatchKey& other) const
     {
-        return shaderHandle == other.shaderHandle and textureId == other.textureId and blendMode == other.blendMode;
+        return shaderProgramId == other.shaderProgramId and textureId == other.textureId and blendMode == other.blendMode;
     }
 
     size_t BatchKeyHash::operator()(const BatchKey& key) const
     {
-        size_t h1 = std::hash<GLuint>{}(key.shaderHandle);
+        size_t h1 = std::hash<GLuint>{}(key.shaderProgramId);
         size_t h2 = std::hash<GLuint>{}(key.textureId.value);
 
         size_t h3 = std::hash<int>{}(static_cast<int>(key.blendMode.colorSrcFactor));
@@ -115,7 +116,7 @@ namespace processing
         }
     )";
 
-    std::unique_ptr<Renderer> BatchRenderer::create()
+    std::unique_ptr<Renderer> BatchRenderer::create(ShaderHandleManager& shaderHandleManager)
     {
         GLuint vertexArrayId = 0;
         glGenVertexArrays(1, &vertexArrayId);
@@ -140,23 +141,7 @@ namespace processing
 
         glBindVertexArray(0);
 
-        GLuint vertexShaderId = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vertexShaderId, 1, &VERTEX_SHADER, nullptr);
-        glCompileShader(vertexShaderId);
-
-        GLuint fragmentShaderId = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(fragmentShaderId, 1, &FRAGMENT_SHADER, nullptr);
-        glCompileShader(fragmentShaderId);
-
-        GLuint shaderProgramId = glCreateProgram();
-        glAttachShader(shaderProgramId, vertexShaderId);
-        glAttachShader(shaderProgramId, fragmentShaderId);
-        glLinkProgram(shaderProgramId);
-        glValidateProgram(shaderProgramId);
-        glDetachShader(shaderProgramId, vertexShaderId);
-        glDetachShader(shaderProgramId, fragmentShaderId);
-        glDeleteShader(vertexShaderId);
-        glDeleteShader(fragmentShaderId);
+        Shader defaultShaderProgram = shaderHandleManager.loadShader(VERTEX_SHADER, FRAGMENT_SHADER);
 
         GLuint textureId = 0;
         glGenTextures(1, &textureId);
@@ -169,7 +154,7 @@ namespace processing
         uint8_t pixel[] = {255, 255, 255, 255};
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
 
-        return std::unique_ptr<Renderer>(new BatchRenderer(vertexArrayId, vertexBufferId, elementBufferId, shaderProgramId, textureId));
+        return std::unique_ptr<Renderer>(new BatchRenderer(vertexArrayId, vertexBufferId, elementBufferId, std::move(defaultShaderProgram), textureId, shaderHandleManager));
     }
 
     BatchRenderer::~BatchRenderer()
@@ -178,7 +163,6 @@ namespace processing
         glDeleteBuffers(1, &m_vertexBufferId);
         glDeleteBuffers(1, &m_elementBufferId);
         glDeleteTextures(1, &m_whiteTextureId.value);
-        glDeleteProgram(m_defaultShaderHandle);
     }
 
     void BatchRenderer::beginDraw(const ProjectionDetails& details)
@@ -202,8 +186,8 @@ namespace processing
             flush();
         }
 
-        const BatchKey key{
-            .shaderHandle = submission.shaderHandle != INVALID_SHADER_HANDLE ? submission.shaderHandle : m_defaultShaderHandle,
+        const BatchKey key = {
+            .shaderProgramId = submission.shaderProgramId.value_or(m_defaultShaderProgram),
             .textureId = submission.textureId.value_or(m_whiteTextureId),
             .blendMode = submission.blendMode.value_or(BlendMode::alpha),
         };
@@ -257,7 +241,7 @@ namespace processing
 
         glBindVertexArray(m_vertexArrayId);
 
-        ShaderHandle currentShader = m_defaultShaderHandle;
+        Shader currentShaderProgramId = INVALID_SHADER_HANDLE;
         auto currentTexture = TextureId{.value = 0};
         auto currentBlendMode = BlendMode::alpha;
         bool isFirstRun = true;
@@ -266,13 +250,16 @@ namespace processing
         {
             const BatchKey& key = batch.key;
 
-            if (isFirstRun or key.shaderHandle != currentShader)
+            if (isFirstRun or key.shaderProgramId != currentShaderProgramId)
             {
-                currentShader = key.shaderHandle;
-                glUseProgram(currentShader);
-                glProgramUniformMatrix4fv(currentShader, glGetUniformLocation(currentShader, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
-                glProgramUniformMatrix4fv(currentShader, glGetUniformLocation(currentShader, "u_ViewMatrix"), 1, GL_FALSE, m_projectionDetails.viewMatrix.data.data());
-                glUniform1i(glGetUniformLocation(currentShader, "u_TextureSampler"), 0);
+                currentShaderProgramId = key.shaderProgramId;
+
+                const GLuint shaderProgramId = m_shaderHandleManager->getResourceId(currentShaderProgramId);
+
+                glUseProgram(shaderProgramId);
+                glProgramUniformMatrix4fv(shaderProgramId, glGetUniformLocation(shaderProgramId, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
+                glProgramUniformMatrix4fv(shaderProgramId, glGetUniformLocation(shaderProgramId, "u_ViewMatrix"), 1, GL_FALSE, m_projectionDetails.viewMatrix.data.data());
+                glUniform1i(glGetUniformLocation(shaderProgramId, "u_TextureSampler"), 0);
             }
 
             if (isFirstRun or key.textureId != currentTexture)
@@ -289,7 +276,6 @@ namespace processing
             }
 
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(batch.indexCount), GL_UNSIGNED_INT, (void*)(batch.indexStart * sizeof(uint32_t)));
-            // glDrawElements(GL_POINTS, static_cast<GLsizei>(batch.indexCount), GL_UNSIGNED_INT, (void*)(batch.indexStart * sizeof(uint32_t)));
             isFirstRun = false;
         }
 
@@ -304,8 +290,13 @@ namespace processing
         glBlendEquationSeparate(convertEquation(blendMode.colorEquation), convertEquation(blendMode.alphaEquation));
     }
 
-    BatchRenderer::BatchRenderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, GLuint defaultShaderProgramId, GLuint whiteTextureId)
-        : m_vertexArrayId(vertexArrayId), m_vertexBufferId(vertexBufferId), m_elementBufferId(elementBufferId), m_defaultShaderHandle(defaultShaderProgramId), m_whiteTextureId(whiteTextureId)
+    BatchRenderer::BatchRenderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, Shader defaultShaderProgram, GLuint whiteTextureId, ShaderHandleManager& manager)
+        : m_vertexArrayId(vertexArrayId),
+          m_vertexBufferId(vertexBufferId),
+          m_elementBufferId(elementBufferId),
+          m_defaultShaderProgram(defaultShaderProgram),
+          m_whiteTextureId(whiteTextureId),
+          m_shaderHandleManager(&manager)
     {
         m_vertices.reserve(MAX_VERTICES);
         m_indices.reserve(MAX_INDICES);

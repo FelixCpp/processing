@@ -11,7 +11,7 @@ namespace processing
 {
     struct BatchKey
     {
-        ShaderHandle shaderHandle;
+        Shader shaderProgramId;
         TextureId textureId;
         BlendMode blendMode;
 
@@ -33,7 +33,7 @@ namespace processing
     class BatchRenderer : public Renderer
     {
     public:
-        static std::unique_ptr<Renderer> create();
+        static std::unique_ptr<Renderer> create(ShaderHandleManager& manager);
         ~BatchRenderer();
 
         void beginDraw(const ProjectionDetails& details) override;
@@ -43,17 +43,17 @@ namespace processing
         void flush() override;
 
     private:
-        explicit BatchRenderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, GLuint defaultShaderProgramId, GLuint whiteTextureId);
+        explicit BatchRenderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, Shader shaderProgram, GLuint whiteTextureId, ShaderHandleManager& shaderHandleManager);
 
         void activate(const BlendMode& blendMode);
 
         GLuint m_vertexArrayId;
         GLuint m_vertexBufferId;
         GLuint m_elementBufferId;
-        ShaderHandle m_defaultShaderHandle;
+        Shader m_defaultShaderProgram;
         TextureId m_whiteTextureId;
 
-        // UniformUploader m_uniformUploader;
+        ShaderHandleManager* m_shaderHandleManager;
 
         std::vector<Vertex> m_vertices;
         std::vector<uint32_t> m_indices;

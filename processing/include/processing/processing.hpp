@@ -462,16 +462,16 @@ namespace processing
 
 namespace processing
 {
-    // using ShaderHandle = struct
-    // {
-    //     uint32_t id;
-    // };
+    using Shader = uint32_t;
 
-    using ShaderHandle = uint32_t;
+    struct ShaderHandleManager
+    {
+        virtual ~ShaderHandleManager() = default;
+        virtual Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId) = 0;
+        virtual uint32_t getResourceId(Shader id) const = 0;
+    };
 
-    inline constexpr ShaderHandle INVALID_SHADER_HANDLE = {0};
-
-    ShaderHandle loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId);
+    Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId);
 } // namespace processing
 
 namespace processing
@@ -518,7 +518,7 @@ namespace processing
     {
         std::span<const Vertex> vertices;
         std::span<const uint32_t> indices;
-        ShaderHandle shaderHandle;
+        std::optional<Shader> shaderProgramId;
         std::optional<TextureId> textureId;
         std::optional<BlendMode> blendMode;
     };
@@ -601,7 +601,7 @@ namespace processing
     void rotate(float angle);
 
     void blendMode(const BlendMode& blendMode);
-    void shader(ShaderHandle handle);
+    void shader(Shader shaderProgram);
     void noShader();
 
     void background(int red, int green, int blue, int alpha = 255);
@@ -873,13 +873,30 @@ namespace processing
 
 namespace processing
 {
+    // clang-format off
+    inline constexpr Shader INVALID_SHADER_HANDLE = 0;
+    // clang-format on
+} // namespace processing
+
+namespace processing
+{
     constexpr BlendMode::BlendMode(Factor sourceFactor, Factor destinationFactor, Equation blendEquation)
-        : colorSrcFactor(sourceFactor), colorDstFactor(destinationFactor), colorEquation(blendEquation), alphaSrcFactor(sourceFactor), alphaDstFactor(destinationFactor), alphaEquation(blendEquation)
+        : colorSrcFactor(sourceFactor),
+          colorDstFactor(destinationFactor),
+          colorEquation(blendEquation),
+          alphaSrcFactor(sourceFactor),
+          alphaDstFactor(destinationFactor),
+          alphaEquation(blendEquation)
     {
     }
 
     constexpr BlendMode::BlendMode(Factor colorSourceFactor, Factor colorDestinationFactor, Equation colorBlendEquation, Factor alphaSourceFactor, Factor alphaDestinationFactor, Equation alphaBlendEquation)
-        : colorSrcFactor(colorSourceFactor), colorDstFactor(colorDestinationFactor), colorEquation(colorBlendEquation), alphaSrcFactor(alphaSourceFactor), alphaDstFactor(alphaDestinationFactor), alphaEquation(alphaBlendEquation)
+        : colorSrcFactor(colorSourceFactor),
+          colorDstFactor(colorDestinationFactor),
+          colorEquation(colorBlendEquation),
+          alphaSrcFactor(alphaSourceFactor),
+          alphaDstFactor(alphaDestinationFactor),
+          alphaEquation(alphaBlendEquation)
     // : colorSourceFactor(colorSourceFactor), colorDestinationFactor(colorDestinationFactor), colorBlendEquation(colorBlendEquation), alphaSourceFactor(alphaSourceFactor), alphaDestinationFactor(alphaDestinationFactor), alphaBlendEquation(alphaBlendEquation)
     {
     }

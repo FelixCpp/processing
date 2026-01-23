@@ -1,11 +1,11 @@
 #ifndef _PROCESSING_INCLUDE_GRAPHICS_HPP_
 #define _PROCESSING_INCLUDE_GRAPHICS_HPP_
 
-#include "processing/matrix_stack.hpp"
 #include <processing/processing.hpp>
 #include <processing/render_targets.hpp>
 #include <processing/render_style.hpp>
 #include <processing/render_style_stack.hpp>
+#include <processing/matrix_stack.hpp>
 
 namespace processing
 {
@@ -18,7 +18,7 @@ namespace processing
     class Graphics
     {
     public:
-        explicit Graphics(uint2 size);
+        explicit Graphics(uint2 size, ShaderHandleManager& manager);
 
         void beginDraw(const FrameSpecification& specification);
         void endDraw();
@@ -42,7 +42,7 @@ namespace processing
         void rotate(float angle);
 
         void blendMode(const BlendMode& blendMode);
-        void shader(ShaderHandle handle);
+        void shader(Shader shaderProgram);
         void noShader();
 
         void background(int red, int green, int blue, int alpha = 255);

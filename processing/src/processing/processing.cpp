@@ -3,6 +3,7 @@
 #include <processing/processing_data.hpp>
 #include <processing/render_targets.hpp>
 #include <processing/graphics.hpp>
+#include <processing/shader.hpp>
 
 #include <iostream>
 
@@ -151,7 +152,8 @@ namespace processing
     void rotate(float angle) { s_data.graphics->rotate(angle); }
 
     void blendMode(const BlendMode& blendMode) { s_data.graphics->blendMode(blendMode); }
-    void shader(ShaderHandle handle) { s_data.graphics->shader(handle); }
+    void shader(Shader shaderProgram) { s_data.graphics->shader(shaderProgram); }
+    void noShader() { s_data.graphics->noShader(); }
 
     void background(int red, int green, int blue, int alpha) { s_data.graphics->background(red, green, blue, alpha); }
     void background(int grey, int alpha) { s_data.graphics->background(grey, alpha); }
@@ -188,7 +190,7 @@ namespace processing
     void image(const Texture &texture, float x1, float y1, float x2, float y2) { s_data.graphics->image(texture, x1, y1, x2, y2); }
     void image(const Texture &texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2) { s_data.graphics->image(texture, x1, y1, x2, y2, sx1, sy1, sx2, sy2); }
 
-    ShaderHandle loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId) { return s_data.shaderHandleManager.loadShader(vertexShaderSource, fragmentShaderId); }
+    Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId) { return s_data.shaderHandleManager->loadShader(vertexShaderSource, fragmentShaderId); }
     // clang-format on
 } // namespace processing
 
@@ -196,7 +198,8 @@ void launch()
 {
     s_data.window = createWindow(1280, 720, "Processing");
     s_data.context = createContext(*s_data.window);
-    s_data.graphics = std::make_unique<Graphics>(uint2{1280, 720});
+    s_data.shaderHandleManager = std::make_unique<OpenGLShaderHandleManager>();
+    s_data.graphics = std::make_unique<Graphics>(uint2{1280, 720}, *s_data.shaderHandleManager);
     s_data.sketch = createSketch();
 
     s_data.sketch->setup();

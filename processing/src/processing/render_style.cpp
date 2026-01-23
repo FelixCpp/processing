@@ -1,4 +1,3 @@
-#include "processing/shader.hpp"
 #include <processing/render_style.hpp>
 
 namespace processing
@@ -19,7 +18,7 @@ namespace processing
             .imageSourceMode = image_source_mode_ltwh_coordinates(),
             .imageTint = color(255, 255, 255),
             .blendMode = BlendMode::alpha,
-            .shaderHandle = INVALID_SHADER_HANDLE,
+            .shaderProgramId = std::nullopt,
         };
     }
 } // namespace processing

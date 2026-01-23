@@ -3,7 +3,7 @@
 
 #include <processing/processing.hpp>
 
-#include <processing/matrix_stack.hpp>
+#include <optional>
 
 namespace processing
 {
@@ -22,7 +22,7 @@ namespace processing
         ImageSourceMode imageSourceMode;
         color_t imageTint;
         BlendMode blendMode;
-        ShaderHandle shaderHandle;
+        std::optional<Shader> shaderProgramId;
     };
 
     RenderStyle render_style_default();

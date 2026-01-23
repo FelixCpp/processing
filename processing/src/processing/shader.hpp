@@ -10,30 +10,15 @@
 
 namespace processing
 {
-    struct ShaderHandleEntry
-    {
-        GLuint shaderProgramId;
-        std::size_t vertexShaderHash;
-        std::size_t fragmentShaderHash;
-    };
-
-    class ShaderHandleManager
+    class OpenGLShaderHandleManager : public ShaderHandleManager
     {
     public:
-        ShaderHandleManager();
-        ~ShaderHandleManager();
-
-        ShaderHandleManager(const ShaderHandleManager&) = delete;
-        ShaderHandleManager& operator=(const ShaderHandleManager&) = delete;
-        ShaderHandleManager(ShaderHandleManager&&) = default;
-        ShaderHandleManager& operator=(ShaderHandleManager&&) = default;
-
-        ShaderHandle loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderHash);
-        GLuint getResourceId(ShaderHandle handle) const;
+        Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderSource) override;
+        uint32_t getResourceId(Shader shaderProgramId) const override;
 
     private:
-        std::unordered_map<ShaderHandle, ShaderHandleEntry> m_entries;
-        uint32_t m_nextHandleId;
+        std::unordered_map<Shader, uint32_t> m_resourceIds;
+        Shader m_nextShaderProgramId;
     };
 } // namespace processing
 
