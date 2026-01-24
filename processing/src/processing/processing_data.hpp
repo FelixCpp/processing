@@ -19,9 +19,12 @@ namespace processing
         bool userRequestedRedraw;
 
         std::unique_ptr<ShaderHandleManager> shaderHandleManager;
+        std::shared_ptr<DepthProvider> depthProvider;
 
         std::unique_ptr<Window> window;
         std::unique_ptr<GraphicsContext> context;
+        std::unique_ptr<MainRenderTarget> renderTarget;
+        std::shared_ptr<Renderer> renderer;
         std::unique_ptr<Graphics> graphics;
         std::unique_ptr<Sketch> sketch;
     };

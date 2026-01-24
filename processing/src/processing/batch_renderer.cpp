@@ -10,7 +10,7 @@ namespace processing
 
     size_t BatchKeyHash::operator()(const BatchKey& key) const
     {
-        size_t h1 = std::hash<GLuint>{}(key.shaderProgramId);
+        size_t h1 = std::hash<size_t>{}(key.shaderProgramId.id);
         size_t h2 = std::hash<GLuint>{}(key.textureId.value);
 
         size_t h3 = std::hash<int>{}(static_cast<int>(key.blendMode.colorSrcFactor));
@@ -232,6 +232,7 @@ namespace processing
         glEnable(GL_BLEND);
         glEnable(GL_TEXTURE);
         glDisable(GL_DEPTH_TEST);
+        glEnable(GL_MULTISAMPLE);
 
         glBindBuffer(GL_ARRAY_BUFFER, m_vertexBufferId);
         glBufferSubData(GL_ARRAY_BUFFER, 0, m_vertices.size() * sizeof(Vertex), m_vertices.data());

@@ -2,13 +2,19 @@
 
 namespace processing
 {
-    MainRenderTarget::MainRenderTarget(const rect2u viewport) : m_viewport(viewport)
+    MainRenderTarget::MainRenderTarget(const rect2u viewport)
+        : m_viewport(viewport)
     {
     }
 
-    void MainRenderTarget::setViewport(const rect2u viewport)
+    void MainRenderTarget::setViewport(const rect2u& viewport)
     {
         m_viewport = viewport;
+    }
+
+    const rect2u& MainRenderTarget::getViewport() const
+    {
+        return m_viewport;
     }
 
     void MainRenderTarget::activate()

@@ -95,7 +95,7 @@ namespace processing
     {
         if (const std::optional<GLuint> resourceId = createProgram(vertexShaderSource, fragmentShaderSource))
         {
-            const auto clientId = Shader{++m_nextShaderProgramId};
+            const Shader clientId = {.id = ++m_nextShaderProgramId};
             m_resourceIds.insert(std::make_pair(clientId, *resourceId));
             return clientId;
         }
@@ -111,7 +111,7 @@ namespace processing
             return itr->second;
         }
 
-        warning(std::format("Unknown ShaderProgramId: {}", shaderProgramId));
+        warning(std::format("Unknown ShaderProgramId: {}", shaderProgramId.id));
         return 0;
     }
 
@@ -137,5 +137,11 @@ namespace processing
     {
         const auto resourceId = getResourceId(id);
         glProgramUniform4f(resourceId, glGetUniformLocation(resourceId, name.data()), x, y, z, w);
+    }
+
+    size_t OpenGLShaderHandleManager::ShaderHasher::operator()(Shader shader) const
+    {
+        static constexpr std::hash<size_t> hash;
+        return hash(shader.id);
     }
 } // namespace processing

@@ -24,8 +24,13 @@ namespace processing
         void uploadUniform(Shader id, std::string_view name, float x, float y, float z, float w) override;
 
     private:
-        std::unordered_map<Shader, uint32_t> m_resourceIds;
-        Shader m_nextShaderProgramId;
+        struct ShaderHasher
+        {
+            size_t operator()(Shader shader) const;
+        };
+
+        std::unordered_map<Shader, uint32_t, ShaderHasher> m_resourceIds;
+        uint32_t m_nextShaderProgramId;
     };
 } // namespace processing
 

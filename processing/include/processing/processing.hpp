@@ -366,6 +366,25 @@ namespace processing
 
 namespace processing
 {
+    class DepthProvider
+    {
+    public:
+        explicit DepthProvider(float min, float max, float increment);
+
+        float getMinDepth() const;
+        float getMaxDepth() const;
+        float getNextDepth();
+        void reset();
+
+    private:
+        float m_min;
+        float m_max;
+        float m_increment;
+    };
+} // namespace processing
+
+namespace processing
+{
     void setWindowSize(uint32_t width, uint32_t height);
     uint2 getWindowSize();
     void setWindowTitle(std::string_view title);
@@ -462,7 +481,13 @@ namespace processing
 
 namespace processing
 {
-    using Shader = uint32_t;
+    struct Shader
+    {
+        size_t id;
+
+        constexpr bool operator==(const Shader& other) const = default;
+        constexpr bool operator!=(const Shader& other) const = default;
+    };
 
     struct ShaderHandleManager
     {
@@ -884,7 +909,7 @@ namespace processing
 namespace processing
 {
     // clang-format off
-    inline constexpr Shader INVALID_SHADER_HANDLE = 0;
+    inline constexpr Shader INVALID_SHADER_HANDLE = { .id = 0 };
     // clang-format on
 } // namespace processing
 
@@ -907,7 +932,6 @@ namespace processing
           alphaSrcFactor(alphaSourceFactor),
           alphaDstFactor(alphaDestinationFactor),
           alphaEquation(alphaBlendEquation)
-    // : colorSourceFactor(colorSourceFactor), colorDestinationFactor(colorDestinationFactor), colorBlendEquation(colorBlendEquation), alphaSourceFactor(alphaSourceFactor), alphaDestinationFactor(alphaDestinationFactor), alphaBlendEquation(alphaBlendEquation)
     {
     }
 

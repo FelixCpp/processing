@@ -11,7 +11,8 @@ namespace processing
     {
     public:
         explicit MainRenderTarget(rect2u viewport);
-        void setViewport(rect2u viewport);
+        void setViewport(const rect2u& viewport);
+        const rect2u& getViewport() const;
 
         void activate() override;
 

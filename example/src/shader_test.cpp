@@ -250,8 +250,8 @@ inline static constexpr const char* FRAGMENT_SHADER = R"(
       // fragColor = vec4(col.xyz, 1.0);
     //
 
-    vec2 fragCoord = vec2(fragCoord.x, 1.0 - fragCoord.y) * 2.0 - 1.0;
-        vec2 q = fragCoord * 1.5;
+
+        vec2 q = fragCoord * 0.5 - 1.0;
         vec2 p = q;
         vec2 pp = p;
 
@@ -262,11 +262,12 @@ inline static constexpr const char* FRAGMENT_SHADER = R"(
 
 struct ShaderTest : Sketch
 {
-    Shader customShader = loadShader(VERTEX_SHADER, FRAGMENT_SHADER);
+    Shader customShader;
     std::chrono::steady_clock::time_point start;
 
     void setup() override
     {
+        customShader = loadShader(VERTEX_SHADER, FRAGMENT_SHADER);
         start = std::chrono::steady_clock::now();
     }
 
@@ -287,7 +288,7 @@ struct ShaderTest : Sketch
         background(0);
         shader(customShader);
         shaderUniform("iTime", time);
-        shaderUniform("iResolution", 100.0f, 100.0f);
+        shaderUniform("iResolution", 300.0f, 300.0f);
         ellipse(getMousePosition().x, getMousePosition().y, 300.0f, 300.0f);
     }
 

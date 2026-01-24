@@ -185,6 +185,7 @@ namespace processing
         glfwWindowHint(GLFW_CONTEXT_DEBUG, GLFW_TRUE);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+        glfwWindowHint(GLFW_SAMPLES, 4);
 
         GLFWwindow* window = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
         if (window == nullptr)
@@ -352,7 +353,8 @@ namespace processing
         return m_window;
     }
 
-    WindowImplGLFW::WindowImplGLFW(GLFWwindow* window) : m_window(window)
+    WindowImplGLFW::WindowImplGLFW(GLFWwindow* window)
+        : m_window(window)
     {
     }
 } // namespace processing

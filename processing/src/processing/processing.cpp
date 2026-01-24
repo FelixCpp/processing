@@ -138,7 +138,7 @@ namespace processing
     void pushState() { s_data.graphics->pushState(); }
     void popState() { s_data.graphics->popState(); }
 
-    rect2f getViewport() { return s_data.graphics->getViewport(); }
+    rect2f getViewport() { return rect2f{ s_data.renderTarget->getViewport() }; }
 
     void strokeJoin(StrokeJoin strokeJoin) { s_data.graphics->strokeJoin(strokeJoin); }
     void strokeCap(StrokeCap strokeCap) { s_data.graphics->strokeCap(strokeCap); }
@@ -200,10 +200,14 @@ namespace processing
 
 void launch()
 {
+    s_data.depthProvider = std::make_shared<DepthProvider>(-1.0f, 1.0f, 2.0f / 20'000.0f);
+    s_data.shaderHandleManager = std::make_unique<OpenGLShaderHandleManager>();
+
     s_data.window = createWindow(1280, 720, "Processing");
     s_data.context = createContext(*s_data.window);
-    s_data.shaderHandleManager = std::make_unique<OpenGLShaderHandleManager>();
-    s_data.graphics = std::make_unique<Graphics>(uint2{1280, 720}, *s_data.shaderHandleManager);
+    s_data.renderTarget = std::make_unique<MainRenderTarget>(rect2u{0, 0, 1280, 720});
+    s_data.renderer = BatchRenderer::create(*s_data.shaderHandleManager);
+    s_data.graphics = std::make_unique<Graphics>(uint2{1280, 720}, s_data.renderer, s_data.depthProvider, *s_data.shaderHandleManager);
     s_data.sketch = createSketch();
 
     s_data.sketch->setup();
@@ -225,12 +229,22 @@ void launch()
             const uint2 framebufferSize = s_data.window->getFramebufferSize();
             const uint2 windowSize = s_data.window->getSize();
 
+            s_data.renderTarget->setViewport(rect2u{0, 0, framebufferSize.x, framebufferSize.y});
+            s_data.renderTarget->activate();
+
+            s_data.renderer->beginDraw({
+                .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, windowSize.x, windowSize.y, s_data.depthProvider.getMinDepth(), s_data.depthProvider.getMaxDepth()),
+                .viewMatrix = matrix4x4_identity(),
+            });
+
             s_data.graphics->beginDraw({
                 .windowSize = windowSize,
                 .framebufferSize = framebufferSize,
             });
+
             s_data.sketch->draw();
             s_data.graphics->endDraw();
+            s_data.renderer->endDraw();
 
             s_data.context->flush();
 

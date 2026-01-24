@@ -8,9 +8,9 @@ namespace processing
     inline static constexpr float MAX_DEPTH = 1.0f;
     inline static constexpr float DEPTH_INCREMENT = (MAX_DEPTH - MIN_DEPTH) / 20'000.0f;
 
-    Graphics::Graphics(const uint2 size, ShaderHandleManager& shaderHandleManager)
-        : m_renderTarget(std::make_unique<MainRenderTarget>(rect2u{0, 0, size.x, size.y})),
-          m_renderer(BatchRenderer::create(shaderHandleManager)),
+    Graphics::Graphics(const uint2 size, std::shared_ptr<Renderer> renderer, std::shared_ptr<DepthProvider> depthProvider, ShaderHandleManager& shaderHandleManager)
+        : m_renderer(renderer),
+          m_depthProvider(depthProvider),
           m_shaderHandleManager(&shaderHandleManager),
           m_renderStyles(render_style_stack_create()),
           m_windowSize(size),
@@ -22,25 +22,12 @@ namespace processing
     {
         m_windowSize = specification.windowSize;
 
-        m_renderTarget->setViewport(rect2u{0, 0, specification.framebufferSize.x, specification.framebufferSize.y});
-        m_renderTarget->activate();
-        m_renderer->beginDraw({
-            .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(specification.windowSize.x), static_cast<float>(specification.windowSize.y), MIN_DEPTH, MAX_DEPTH),
-            .viewMatrix = matrix4x4_identity(),
-        });
         render_style_stack_reset(m_renderStyles);
         matrix_stack_reset(m_metrics);
-        m_currentDepth = MIN_DEPTH;
     }
 
     void Graphics::endDraw()
     {
-        m_renderer->endDraw();
-    }
-
-    rect2f Graphics::getViewport()
-    {
-        return rect2f{0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y)};
     }
 
     void Graphics::strokeJoin(const StrokeJoin lineJoin)
@@ -170,7 +157,7 @@ namespace processing
 
     void Graphics::background(color_t color)
     {
-        const rect2f viewport = getViewport();
+        const rect2f viewport = rect2f{0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y)};
         const Contour rect_contour = contour_quad_fill(
             viewport.left, viewport.top,
             viewport.left + viewport.width, viewport.top,
@@ -180,7 +167,7 @@ namespace processing
 
         const Shape shape = shape_from_contour(rect_contour, matrix4x4_identity(), color, getNextDepth());
 
-        m_renderer->submit({
+        submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
             .shaderProgramId = std::nullopt,
@@ -291,7 +278,7 @@ namespace processing
             const Contour contour = contour_rect_fill(boundary.left, boundary.top, boundary.width, boundary.height);
             const Shape shape = shape_from_contour(contour, matrix, style.fillColor, getNextDepth());
 
-            m_renderer->submit({
+            submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
                 .shaderProgramId = style.shaderProgramId,
@@ -304,7 +291,7 @@ namespace processing
             const Contour contour = contour_rect_stroke(boundary.left, boundary.top, boundary.width, boundary.height, style.strokeWeight, style.strokeJoin);
             const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
-            m_renderer->submit({
+            submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
                 .shaderProgramId = style.shaderProgramId,
@@ -330,7 +317,7 @@ namespace processing
             const Contour contour = contour_ellipse_fill(center.x, center.y, boundary.width * 0.5f, boundary.height * 0.5f, 32);
             const Shape shape = shape_from_contour(contour, matrix, style.fillColor, getNextDepth());
 
-            m_renderer->submit({
+            submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
                 .shaderProgramId = style.shaderProgramId,
@@ -343,7 +330,7 @@ namespace processing
             const Contour contour = contour_ellipse_stroke(center.x, center.y, boundary.width * 0.5f, boundary.height * 0.5f, style.strokeWeight, 32, style.strokeJoin);
             const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
-            m_renderer->submit({
+            submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
                 .shaderProgramId = style.shaderProgramId,
@@ -364,7 +351,7 @@ namespace processing
         const Contour contour = contour_line(x1, y1, x2, y2, style.strokeWeight, style.strokeCap);
         const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
-        m_renderer->submit({
+        submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
             .shaderProgramId = style.shaderProgramId,
@@ -382,7 +369,7 @@ namespace processing
             const Contour contour = contour_triangle_fill(x1, y1, x2, y2, x3, y3);
             const Shape shape = shape_from_contour(contour, matrix, style.fillColor, getNextDepth());
 
-            m_renderer->submit({
+            submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
                 .shaderProgramId = style.shaderProgramId,
@@ -395,7 +382,7 @@ namespace processing
             const Contour contour = contour_triangle_stroke(x1, y1, x2, y2, x3, y3, style.strokeWeight, style.strokeJoin);
             const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
-            m_renderer->submit({
+            submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
                 .shaderProgramId = style.shaderProgramId,
@@ -411,7 +398,7 @@ namespace processing
         const Contour contour = contour_ellipse_fill(x, y, style.strokeWeight, style.strokeWeight, 16);
         const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
-        m_renderer->submit({
+        submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
             .shaderProgramId = style.shaderProgramId,
@@ -433,7 +420,7 @@ namespace processing
         const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, 0.0f, 0.0f, 1.0f, 1.0f);
         const Shape shape = shape_from_contour(contour, matrix, style.imageTint, getNextDepth());
 
-        m_renderer->submit({
+        submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
             .shaderProgramId = style.shaderProgramId,
@@ -451,7 +438,7 @@ namespace processing
         const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, sourceRect.left, sourceRect.top, sourceRect.width, sourceRect.height);
         const Shape shape = shape_from_contour(contour, matrix, style.imageTint, getNextDepth());
 
-        m_renderer->submit({
+        submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
             .shaderProgramId = style.shaderProgramId,
@@ -462,8 +449,14 @@ namespace processing
 
     float Graphics::getNextDepth()
     {
-        float value = m_currentDepth;
-        m_currentDepth += DEPTH_INCREMENT;
-        return value;
+        return m_depthProvider.lock()->getNextDepth();
+    }
+
+    void Graphics::submit(const RenderingSubmission& submission)
+    {
+        if (const auto renderer = m_renderer.lock())
+        {
+            renderer->submit(submission);
+        }
     }
 } // namespace processing

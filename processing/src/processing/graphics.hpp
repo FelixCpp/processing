@@ -18,12 +18,10 @@ namespace processing
     class Graphics
     {
     public:
-        explicit Graphics(uint2 size, ShaderHandleManager& manager);
+        explicit Graphics(uint2 size, std::shared_ptr<Renderer> renderer, std::shared_ptr<DepthProvider> depthProvider, ShaderHandleManager& manager);
 
         void beginDraw(const FrameSpecification& specification);
         void endDraw();
-
-        rect2f getViewport();
 
         void strokeJoin(StrokeJoin strokeJoin);
         void strokeCap(StrokeCap strokeCap);
@@ -86,13 +84,13 @@ namespace processing
 
     private:
         float getNextDepth();
+        void submit(const RenderingSubmission& submission);
 
-        std::unique_ptr<MainRenderTarget> m_renderTarget;
-        std::unique_ptr<Renderer> m_renderer;
+        std::weak_ptr<Renderer> m_renderer;
+        std::weak_ptr<DepthProvider> m_depthProvider;
         ShaderHandleManager* m_shaderHandleManager;
         RenderStyleStack m_renderStyles;
         MatrixStack m_metrics;
-        float m_currentDepth;
 
         uint2 m_windowSize;
     };
