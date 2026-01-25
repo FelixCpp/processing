@@ -241,22 +241,20 @@ inline static constexpr const char* FRAGMENT_SHADER = R"(
     }
 
     void main() {
-        // vec2 fragCoord = gl_FragCoord.xy
       // vec2 q = fragCoord/RESOLUTION.xy;
       // vec2 p = -1. + 2. * q;
       // vec2 pp = p;
       // p.x *= RESOLUTION.x/RESOLUTION.y;
       // vec3 col = effect(p, pp);
       // fragColor = vec4(col.xyz, 1.0);
-    //
 
-
-        vec2 q = fragCoord * 0.5 - 1.0;
-        vec2 p = q;
+        vec2 q = vec2(fragCoord.x, 1.0 - fragCoord.y);
+        vec2 p = -1.0 + 2.0 * q;
         vec2 pp = p;
+        p.x *= RESOLUTION.x / RESOLUTION.y;
 
-      vec3 col = effect(p, pp);
-      fragColor = vec4(col.xyz, 1.0);
+        vec3 col = effect(p, pp);
+        fragColor = vec4(col.xyz, 1.0);
     }
 )";
 
@@ -283,13 +281,18 @@ struct ShaderTest : Sketch
         start = now;
 
         const float speed = (float)getMousePosition().x / (float)getViewport().width * 5.0f;
-        time += diff.count() * speed;
+        time += diff.count();
+
+        float w = 200.0f;
+        float h = 200.0f;
+
+        customShader.uploadUniform("iTime", time);
+        customShader.uploadUniform("iResolution", w, h);
 
         background(0);
         shader(customShader);
-        shaderUniform("iTime", time);
-        shaderUniform("iResolution", 300.0f, 300.0f);
-        ellipse(getMousePosition().x, getMousePosition().y, 300.0f, 300.0f);
+        noStroke();
+        rect(getMousePosition().x, getMousePosition().y, w, h);
     }
 
     virtual void destroy() override

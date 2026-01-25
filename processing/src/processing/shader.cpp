@@ -1,9 +1,7 @@
 #include <processing/processing.hpp>
-#include <processing/processing_data.hpp>
 #include <processing/shader.hpp>
 
 #include <string_view>
-#include <optional>
 #include <string>
 #include <format>
 
@@ -11,12 +9,50 @@
 
 namespace processing
 {
-    extern ProcessingData s_data;
-}
+    Shader::Shader()
+    {
+    }
+
+    Shader::Shader(const AssetId assetId, std::weak_ptr<ShaderImpl> impl)
+        : m_assetId(assetId),
+          m_impl(impl)
+    {
+    }
+
+    ResourceId Shader::getResourceId() const
+    {
+        return m_impl.lock()->getResourceId();
+    }
+
+    AssetId Shader::getAssetId() const
+    {
+        return m_assetId;
+    }
+
+    void Shader::uploadUniform(const std::string_view name, const float x)
+    {
+        m_impl.lock()->uploadUniform(name, x);
+    }
+
+    void Shader::uploadUniform(const std::string_view name, const float x, const float y)
+    {
+        m_impl.lock()->uploadUniform(name, x, y);
+    }
+
+    void Shader::uploadUniform(const std::string_view name, const float x, const float y, const float z)
+    {
+        m_impl.lock()->uploadUniform(name, x, y, z);
+    }
+
+    void Shader::uploadUniform(const std::string_view name, const float x, const float y, const float z, const float w)
+    {
+        m_impl.lock()->uploadUniform(name, x, y, z, w);
+    }
+} // namespace processing
 
 namespace processing
 {
-    static std::optional<GLuint> createProgram(const std::string_view vertexShaderSource, const std::string_view fragmentShaderSource)
+    std::unique_ptr<ShaderAssetImpl> ShaderAssetImpl::create(std::string_view vertexShaderSource, std::string_view fragmentShaderSource)
     {
         const char* vsSource = vertexShaderSource.data();
         GLuint vertexShaderId = glCreateShader(GL_VERTEX_SHADER);
@@ -80,68 +116,70 @@ namespace processing
             }
         }
 
-        return shaderProgramId;
+        return std::unique_ptr<ShaderAssetImpl>(new ShaderAssetImpl(shaderProgramId));
     }
 
-    OpenGLShaderHandleManager::~OpenGLShaderHandleManager()
+    ShaderAssetImpl::~ShaderAssetImpl()
     {
-        for (const auto& [_, resourceId] : m_resourceIds)
+        glDeleteProgram(m_shaderProgramId);
+    }
+
+    ResourceId ShaderAssetImpl::getResourceId() const
+    {
+        return ResourceId{.value = m_shaderProgramId};
+    }
+
+    void ShaderAssetImpl::uploadUniform(const std::string_view name, const float x)
+    {
+        GLint location = glGetUniformLocation(m_shaderProgramId, name.data());
+        glProgramUniform1f(m_shaderProgramId, location, x);
+    }
+
+    void ShaderAssetImpl::uploadUniform(const std::string_view name, const float x, const float y)
+    {
+        GLint location = glGetUniformLocation(m_shaderProgramId, name.data());
+        glProgramUniform2f(m_shaderProgramId, location, x, y);
+    }
+
+    void ShaderAssetImpl::uploadUniform(const std::string_view name, const float x, const float y, const float z)
+    {
+        GLint location = glGetUniformLocation(m_shaderProgramId, name.data());
+        glProgramUniform3f(m_shaderProgramId, location, x, y, z);
+    }
+
+    void ShaderAssetImpl::uploadUniform(const std::string_view name, const float x, const float y, const float z, const float w)
+    {
+        GLint location = glGetUniformLocation(m_shaderProgramId, name.data());
+        glProgramUniform4f(m_shaderProgramId, location, x, y, z, w);
+    }
+
+    ShaderAssetImpl::ShaderAssetImpl(GLuint resourceId)
+        : m_shaderProgramId(resourceId)
+    {
+    }
+
+} // namespace processing
+
+namespace processing
+{
+    Shader ShaderAssetManager::loadShader(const std::string_view vertexShaderSource, const std::string_view fragmentShaderSource)
+    {
+        if (auto shader = ShaderAssetImpl::create(vertexShaderSource, fragmentShaderSource))
         {
-            glDeleteProgram(resourceId);
+            const auto insertion = m_assets.insert(std::make_pair(m_nextAssetId++, std::move(shader)));
+            return Shader(AssetId{.value = insertion.first->first}, insertion.first->second);
         }
+
+        return Shader();
     }
 
-    Shader OpenGLShaderHandleManager::loadShader(const std::string_view vertexShaderSource, const std::string_view fragmentShaderSource)
+    ShaderImpl& ShaderAssetManager::getAsset(const AssetId assetId)
     {
-        if (const std::optional<GLuint> resourceId = createProgram(vertexShaderSource, fragmentShaderSource))
+        if (const auto itr = m_assets.find(assetId.value); itr != m_assets.end())
         {
-            const Shader clientId = {.id = ++m_nextShaderProgramId};
-            m_resourceIds.insert(std::make_pair(clientId, *resourceId));
-            return clientId;
+            return *itr->second;
         }
 
-        return INVALID_SHADER_HANDLE;
-    }
-
-    uint32_t OpenGLShaderHandleManager::getResourceId(const Shader shaderProgramId) const
-    {
-        const auto itr = m_resourceIds.find(shaderProgramId);
-        if (itr != m_resourceIds.end())
-        {
-            return itr->second;
-        }
-
-        warning(std::format("Unknown ShaderProgramId: {}", shaderProgramId.id));
-        return 0;
-    }
-
-    void OpenGLShaderHandleManager::uploadUniform(const Shader id, const std::string_view name, const float x)
-    {
-        const auto resourceId = getResourceId(id);
-        glProgramUniform1f(resourceId, glGetUniformLocation(resourceId, name.data()), x);
-    }
-
-    void OpenGLShaderHandleManager::uploadUniform(Shader id, const std::string_view name, float x, float y)
-    {
-        const auto resourceId = getResourceId(id);
-        glProgramUniform2f(resourceId, glGetUniformLocation(resourceId, name.data()), x, y);
-    }
-
-    void OpenGLShaderHandleManager::uploadUniform(Shader id, const std::string_view name, float x, float y, float z)
-    {
-        const auto resourceId = getResourceId(id);
-        glProgramUniform3f(resourceId, glGetUniformLocation(resourceId, name.data()), x, y, z);
-    }
-
-    void OpenGLShaderHandleManager::uploadUniform(Shader id, const std::string_view name, float x, float y, float z, float w)
-    {
-        const auto resourceId = getResourceId(id);
-        glProgramUniform4f(resourceId, glGetUniformLocation(resourceId, name.data()), x, y, z, w);
-    }
-
-    size_t OpenGLShaderHandleManager::ShaderHasher::operator()(Shader shader) const
-    {
-        static constexpr std::hash<size_t> hash;
-        return hash(shader.id);
+        throw std::runtime_error("Unknown asset id");
     }
 } // namespace processing

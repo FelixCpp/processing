@@ -1,17 +1,16 @@
-#include "processing/shader.hpp"
 #include <processing/batch_renderer.hpp>
 
 namespace processing
 {
     bool BatchKey::operator==(const BatchKey& other) const
     {
-        return shaderProgramId == other.shaderProgramId and textureId == other.textureId and blendMode == other.blendMode;
+        return shaderResourceId.value == other.shaderResourceId.value and textureResourceId.value == other.textureResourceId.value and blendMode == other.blendMode;
     }
 
     size_t BatchKeyHash::operator()(const BatchKey& key) const
     {
-        size_t h1 = std::hash<size_t>{}(key.shaderProgramId.id);
-        size_t h2 = std::hash<GLuint>{}(key.textureId.value);
+        size_t h1 = std::hash<uint32_t>{}(key.shaderResourceId.value);
+        size_t h2 = std::hash<uint32_t>{}(key.textureResourceId.value);
 
         size_t h3 = std::hash<int>{}(static_cast<int>(key.blendMode.colorSrcFactor));
         size_t h4 = std::hash<int>{}(static_cast<int>(key.blendMode.colorDstFactor));
@@ -88,7 +87,6 @@ namespace processing
         out vec4 v_Color;
 
         uniform mat4 u_ProjectionMatrix;
-        // uniform mat4 u_ViewMatrix;
 
         void main()
         {
@@ -110,13 +108,11 @@ namespace processing
 
         void main()
         {
-            // float alpha = texture(u_TextureSampler, v_TexCoord).a;
-            // o_Color = vec4(v_TexCoord.xy, 0.0, alpha);
             o_Color = texture(u_TextureSampler, v_TexCoord) * v_Color;
         }
     )";
 
-    std::unique_ptr<Renderer> BatchRenderer::create(ShaderHandleManager& shaderHandleManager)
+    std::unique_ptr<Renderer> BatchRenderer::create(ShaderAssetManager& shaderHandleManager, TextureAssetManager& textureAssetManager)
     {
         GLuint vertexArrayId = 0;
         glGenVertexArrays(1, &vertexArrayId);
@@ -141,20 +137,11 @@ namespace processing
 
         glBindVertexArray(0);
 
-        Shader defaultShaderProgram = shaderHandleManager.loadShader(VERTEX_SHADER, FRAGMENT_SHADER);
-
-        GLuint textureId = 0;
-        glGenTextures(1, &textureId);
-        glBindTexture(GL_TEXTURE_2D, textureId);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
         uint8_t pixel[] = {255, 255, 255, 255};
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+        Shader defaultShaderProgram = shaderHandleManager.loadShader(VERTEX_SHADER, FRAGMENT_SHADER);
+        Texture whiteTexture = textureAssetManager.create(1, 1, pixel);
 
-        return std::unique_ptr<Renderer>(new BatchRenderer(vertexArrayId, vertexBufferId, elementBufferId, std::move(defaultShaderProgram), textureId, shaderHandleManager));
+        return std::unique_ptr<Renderer>(new BatchRenderer(vertexArrayId, vertexBufferId, elementBufferId, defaultShaderProgram, whiteTexture));
     }
 
     BatchRenderer::~BatchRenderer()
@@ -162,7 +149,6 @@ namespace processing
         glDeleteVertexArrays(1, &m_vertexArrayId);
         glDeleteBuffers(1, &m_vertexBufferId);
         glDeleteBuffers(1, &m_elementBufferId);
-        glDeleteTextures(1, &m_whiteTextureId.value);
     }
 
     void BatchRenderer::beginDraw(const ProjectionDetails& details)
@@ -187,8 +173,8 @@ namespace processing
         }
 
         const BatchKey key = {
-            .shaderProgramId = submission.shaderProgramId.value_or(m_defaultShaderProgram),
-            .textureId = submission.textureId.value_or(m_whiteTextureId),
+            .shaderResourceId = submission.shaderResourceId.value_or(m_defaultShaderProgram.getResourceId()),
+            .textureResourceId = submission.textureResourceId.value_or(m_whiteTexture.getResourceId()),
             .blendMode = submission.blendMode.value_or(BlendMode::alpha),
         };
 
@@ -242,8 +228,8 @@ namespace processing
 
         glBindVertexArray(m_vertexArrayId);
 
-        Shader currentShaderProgramId = INVALID_SHADER_HANDLE;
-        auto currentTexture = TextureId{.value = 0};
+        ResourceId currentShaderResourceId = m_defaultShaderProgram.getResourceId();
+        ResourceId currentTextureResourceId = m_whiteTexture.getResourceId();
         auto currentBlendMode = BlendMode::alpha;
         bool isFirstRun = true;
 
@@ -251,23 +237,21 @@ namespace processing
         {
             const BatchKey& key = batch.key;
 
-            if (isFirstRun or key.shaderProgramId != currentShaderProgramId)
+            if (isFirstRun or key.shaderResourceId.value != currentShaderResourceId.value)
             {
-                currentShaderProgramId = key.shaderProgramId;
+                currentShaderResourceId = key.shaderResourceId;
 
-                const GLuint shaderProgramId = m_shaderHandleManager->getResourceId(currentShaderProgramId);
-
-                glUseProgram(shaderProgramId);
-                glProgramUniformMatrix4fv(shaderProgramId, glGetUniformLocation(shaderProgramId, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
-                glProgramUniformMatrix4fv(shaderProgramId, glGetUniformLocation(shaderProgramId, "u_ViewMatrix"), 1, GL_FALSE, m_projectionDetails.viewMatrix.data.data());
-                glUniform1i(glGetUniformLocation(shaderProgramId, "u_TextureSampler"), 0);
+                glUseProgram(currentShaderResourceId.value);
+                glProgramUniformMatrix4fv(currentShaderResourceId.value, glGetUniformLocation(currentShaderResourceId.value, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
+                glUniform1i(glGetUniformLocation(currentShaderResourceId.value, "u_TextureSampler"), 0);
             }
 
-            if (isFirstRun or key.textureId != currentTexture)
+            if (isFirstRun or key.textureResourceId.value != currentTextureResourceId.value)
             {
-                currentTexture = key.textureId;
+                currentTextureResourceId = key.textureResourceId;
+
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, currentTexture.value);
+                glBindTexture(GL_TEXTURE_2D, currentTextureResourceId.value);
             }
 
             if (isFirstRun or key.blendMode != currentBlendMode)
@@ -291,13 +275,12 @@ namespace processing
         glBlendEquationSeparate(convertEquation(blendMode.colorEquation), convertEquation(blendMode.alphaEquation));
     }
 
-    BatchRenderer::BatchRenderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, Shader defaultShaderProgram, GLuint whiteTextureId, ShaderHandleManager& manager)
+    BatchRenderer::BatchRenderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, Shader shaderProgram, Texture whiteTexture)
         : m_vertexArrayId(vertexArrayId),
           m_vertexBufferId(vertexBufferId),
           m_elementBufferId(elementBufferId),
-          m_defaultShaderProgram(defaultShaderProgram),
-          m_whiteTextureId(whiteTextureId),
-          m_shaderHandleManager(&manager)
+          m_defaultShaderProgram(shaderProgram),
+          m_whiteTexture(whiteTexture)
     {
         m_vertices.reserve(MAX_VERTICES);
         m_indices.reserve(MAX_INDICES);

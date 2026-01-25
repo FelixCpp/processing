@@ -2,6 +2,7 @@
 #define _PROCESSING_INCLUDE_RENDER_STYLE_HPP_
 
 #include <processing/processing.hpp>
+#include <processing/matrix_stack.hpp>
 
 #include <optional>
 
@@ -22,7 +23,8 @@ namespace processing
         ImageSourceMode imageSourceMode;
         color_t imageTint;
         BlendMode blendMode;
-        std::optional<Shader> shaderProgramId;
+        MatrixStack matrixStack;
+        std::optional<ResourceId> shaderResourceId;
     };
 
     RenderStyle render_style_default();

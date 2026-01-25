@@ -366,25 +366,6 @@ namespace processing
 
 namespace processing
 {
-    class DepthProvider
-    {
-    public:
-        explicit DepthProvider(float min, float max, float increment);
-
-        float getMinDepth() const;
-        float getMaxDepth() const;
-        float getNextDepth();
-        void reset();
-
-    private:
-        float m_min;
-        float m_max;
-        float m_increment;
-    };
-} // namespace processing
-
-namespace processing
-{
     void setWindowSize(uint32_t width, uint32_t height);
     uint2 getWindowSize();
     void setWindowTitle(std::string_view title);
@@ -413,6 +394,8 @@ namespace processing
     {
         virtual ~RenderTarget() = default;
         virtual void activate() = 0;
+        virtual uint2 getSize() const = 0;
+        virtual uint32_t getFramebufferId() const = 0;
     };
 } // namespace processing
 
@@ -481,24 +464,48 @@ namespace processing
 
 namespace processing
 {
-    struct Shader
+    struct ResourceId
     {
-        size_t id;
-
-        constexpr bool operator==(const Shader& other) const = default;
-        constexpr bool operator!=(const Shader& other) const = default;
+        uint32_t value;
     };
 
-    struct ShaderHandleManager
+    struct AssetId
     {
-        virtual ~ShaderHandleManager() = default;
-        virtual Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId) = 0;
-        virtual uint32_t getResourceId(Shader id) const = 0;
+        size_t value;
+    };
+} // namespace processing
 
-        virtual void uploadUniform(Shader id, std::string_view name, float x) = 0;
-        virtual void uploadUniform(Shader id, std::string_view name, float x, float y) = 0;
-        virtual void uploadUniform(Shader id, std::string_view name, float x, float y, float z) = 0;
-        virtual void uploadUniform(Shader id, std::string_view name, float x, float y, float z, float w) = 0;
+namespace processing
+{
+    struct ShaderImpl
+    {
+        virtual ~ShaderImpl() = default;
+
+        virtual ResourceId getResourceId() const = 0;
+
+        virtual void uploadUniform(std::string_view name, float x) = 0;
+        virtual void uploadUniform(std::string_view name, float x, float y) = 0;
+        virtual void uploadUniform(std::string_view name, float x, float y, float z) = 0;
+        virtual void uploadUniform(std::string_view name, float x, float y, float z, float w) = 0;
+    };
+
+    class Shader
+    {
+    public:
+        Shader();
+        explicit Shader(AssetId assetId, std::weak_ptr<ShaderImpl> impl);
+
+        ResourceId getResourceId() const;
+        AssetId getAssetId() const;
+
+        void uploadUniform(std::string_view name, float x);
+        void uploadUniform(std::string_view name, float x, float y);
+        void uploadUniform(std::string_view name, float x, float y, float z);
+        void uploadUniform(std::string_view name, float x, float y, float z, float w);
+
+    private:
+        AssetId m_assetId;
+        std::weak_ptr<ShaderImpl> m_impl;
     };
 
     Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId);
@@ -506,40 +513,62 @@ namespace processing
 
 namespace processing
 {
-    using TextureId = struct
-    {
-        uint32_t value;
-    };
-
-    constexpr bool operator==(const TextureId& lhs, const TextureId& rhs);
-    constexpr bool operator!=(const TextureId& lhs, const TextureId& rhs);
-
     struct TextureImpl
     {
         virtual ~TextureImpl() = default;
         virtual uint2 getSize() const = 0;
-        virtual TextureId getResourceId() const = 0;
+        virtual ResourceId getResourceId() const = 0;
     };
 
     class Texture
     {
     public:
-        Texture() = default;
-        explicit Texture(std::unique_ptr<TextureImpl> impl);
-
-        Texture(const Texture&) = delete;
-        Texture& operator=(const Texture&) = delete;
-        Texture(Texture&&) = default;
-        Texture& operator=(Texture&&) = default;
+        Texture();
+        explicit Texture(AssetId assetId, std::weak_ptr<TextureImpl> impl);
 
         uint2 getSize() const;
-        TextureId getResourceId() const;
+        ResourceId getResourceId() const;
+        AssetId getAssetId() const;
 
     private:
-        std::unique_ptr<TextureImpl> m_impl;
+        AssetId m_assetId;
+        std::weak_ptr<TextureImpl> m_impl;
     };
 
     Texture loadTexture(const std::filesystem::path& filepath);
+    Texture createTexture(uint32_t width, uint32_t height, const uint8_t* data);
+} // namespace processing
+
+namespace processing
+{
+    struct RenderBufferImpl
+    {
+        virtual ~RenderBufferImpl() = default;
+        virtual ResourceId getResourceId() const = 0;
+        virtual const Texture& getTexture() const = 0;
+        virtual uint2 getSize() const = 0;
+        virtual void activate() = 0;
+    };
+
+    class RenderBuffer
+    {
+    public:
+        RenderBuffer();
+        explicit RenderBuffer(AssetId assetId, std::weak_ptr<RenderBufferImpl> impl);
+
+        AssetId getAssetId() const;
+
+        ResourceId getResourceId() const;
+        const Texture& getTexture() const;
+        uint2 getSize() const;
+        void activate();
+
+    private:
+        AssetId m_assetId;
+        std::weak_ptr<RenderBufferImpl> m_impl;
+    };
+
+    RenderBuffer createRenderBuffer(uint32_t width, uint32_t height);
 } // namespace processing
 
 namespace processing
@@ -548,8 +577,8 @@ namespace processing
     {
         std::span<const Vertex> vertices;
         std::span<const uint32_t> indices;
-        std::optional<Shader> shaderProgramId;
-        std::optional<TextureId> textureId;
+        std::optional<ResourceId> shaderResourceId;
+        std::optional<ResourceId> textureResourceId;
         std::optional<BlendMode> blendMode;
     };
 
@@ -619,6 +648,9 @@ namespace processing
 
     rect2f getViewport();
 
+    void renderBuffer(RenderBuffer renderBuffer);
+    void noRenderBuffer();
+
     void strokeJoin(StrokeJoin strokeJoin);
     void strokeCap(StrokeCap strokeCap);
 
@@ -634,10 +666,6 @@ namespace processing
 
     void shader(Shader shaderProgram);
     void noShader();
-    void shaderUniform(std::string_view name, float x);
-    void shaderUniform(std::string_view name, float x, float y);
-    void shaderUniform(std::string_view name, float x, float y, float z);
-    void shaderUniform(std::string_view name, float x, float y, float z, float w);
 
     void background(int red, int green, int blue, int alpha = 255);
     void background(int grey, int alpha = 255);
@@ -882,14 +910,6 @@ namespace processing
 namespace processing
 {
     // clang-format off
-    constexpr bool operator == (const TextureId& lhs, const TextureId& rhs) { return lhs.value == rhs.value; }
-    constexpr bool operator != (const TextureId& lhs, const TextureId& rhs) { return lhs.value != rhs.value; }
-    // clang-format on
-} // namespace processing
-
-namespace processing
-{
-    // clang-format off
     constexpr color_t color(int32_t red, int32_t green, int32_t blue, int32_t alpha) { return color_t{ .value = (uint32_t)(red << 24) | (uint32_t)(green << 16) | (uint32_t)(blue << 8) | (uint32_t)alpha }; }
     constexpr color_t color(int32_t grey, int32_t alpha) { return color(grey, grey, grey, alpha); }
     constexpr int32_t red(color_t color) { return (color.value & 0xFF000000) >> 24; }
@@ -909,7 +929,9 @@ namespace processing
 namespace processing
 {
     // clang-format off
-    inline constexpr Shader INVALID_SHADER_HANDLE = { .id = 0 };
+    // inline constexpr Shader INVALID_SHADER_HANDLE = { .id = 0 };
+    // inline constexpr RenderBuffer INVALID_RENDER_BUFFER = { .id = 0 };
+    // inline constexpr Texture INVALID_TEXTURE = { .id = 0 };
     // clang-format on
 } // namespace processing
 

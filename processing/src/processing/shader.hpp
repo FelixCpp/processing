@@ -10,27 +10,33 @@
 
 namespace processing
 {
-    class OpenGLShaderHandleManager : public ShaderHandleManager
+    class ShaderAssetImpl : public ShaderImpl
     {
     public:
-        ~OpenGLShaderHandleManager() override;
+        static std::unique_ptr<ShaderAssetImpl> create(std::string_view vertexShaderSource, std::string_view fragmentShaderSource);
+        ~ShaderAssetImpl() override;
+        ResourceId getResourceId() const override;
 
-        Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderSource) override;
-        uint32_t getResourceId(Shader shaderProgramId) const override;
-
-        void uploadUniform(Shader id, std::string_view name, float x) override;
-        void uploadUniform(Shader id, std::string_view name, float x, float y) override;
-        void uploadUniform(Shader id, std::string_view name, float x, float y, float z) override;
-        void uploadUniform(Shader id, std::string_view name, float x, float y, float z, float w) override;
+        void uploadUniform(std::string_view name, float x) override;
+        void uploadUniform(std::string_view name, float x, float y) override;
+        void uploadUniform(std::string_view name, float x, float y, float z) override;
+        void uploadUniform(std::string_view name, float x, float y, float z, float w) override;
 
     private:
-        struct ShaderHasher
-        {
-            size_t operator()(Shader shader) const;
-        };
+        explicit ShaderAssetImpl(GLuint shaderProgramId);
 
-        std::unordered_map<Shader, uint32_t, ShaderHasher> m_resourceIds;
-        uint32_t m_nextShaderProgramId;
+        GLuint m_shaderProgramId;
+    };
+
+    class ShaderAssetManager
+    {
+    public:
+        Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderSource);
+        ShaderImpl& getAsset(AssetId assetId);
+
+    private:
+        std::unordered_map<size_t, std::shared_ptr<ShaderImpl>> m_assets;
+        size_t m_nextAssetId;
     };
 } // namespace processing
 

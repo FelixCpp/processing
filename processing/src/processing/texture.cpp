@@ -1,97 +1,115 @@
-#include <processing/processing.hpp>
+#include "processing/batch_renderer.hpp"
+#include <processing/texture.hpp>
 
 #include <glad/gl.h>
 #include <stb/stb_image.h>
 
 #include <format>
+#include <stdexcept>
 
 namespace processing
 {
-    Texture::Texture(std::unique_ptr<TextureImpl> impl) : m_impl(std::move(impl))
+    Texture::Texture()
+    {
+    }
+    Texture::Texture(AssetId assetId, std::weak_ptr<TextureImpl> impl)
+        : m_assetId(assetId),
+          m_impl(impl)
     {
     }
 
     uint2 Texture::getSize() const
     {
-        if (m_impl == nullptr)
-        {
-            return {};
-        }
-
-        return m_impl->getSize();
+        return m_impl.lock()->getSize();
     }
 
-    TextureId Texture::getResourceId() const
+    ResourceId Texture::getResourceId() const
     {
-        if (m_impl == nullptr)
-        {
-            return TextureId{.value = 0};
-        }
+        return m_impl.lock()->getResourceId();
+    }
 
-        return m_impl->getResourceId();
+    AssetId Texture::getAssetId() const
+    {
+        return m_assetId;
     }
 } // namespace processing
 
 namespace processing
 {
-    class OpenGLTextureImpl : public TextureImpl
+    std::unique_ptr<TextureAsset> TextureAsset::create(const uint32_t width, const uint32_t height, const uint8_t* data)
     {
-    public:
-        static std::unique_ptr<OpenGLTextureImpl> fromFile(const std::filesystem::path& filepath)
-        {
-            const std::string path = filepath.string();
+        uint32_t id;
+        glGenTextures(1, &id);
+        glBindTexture(GL_TEXTURE_2D, id);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
-            int width, height, channels;
-            stbi_uc* data = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
-            if (data == nullptr)
-            {
-                error(std::format("Failed to load image \"{}\"", path));
-            }
+        return std::unique_ptr<TextureAsset>(new TextureAsset(id, uint2{width, height}));
+    }
 
-            TextureId id = {.value = 0};
-            glGenTextures(1, &id.value);
-            glBindTexture(GL_TEXTURE_2D, id.value);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    TextureAsset::~TextureAsset()
+    {
+        glDeleteTextures(1, &m_resourceId);
+    }
 
-            stbi_image_free(data);
+    ResourceId TextureAsset::getResourceId() const
+    {
+        return ResourceId{.value = m_resourceId};
+    }
 
-            const uint2 size = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
-            return std::unique_ptr<OpenGLTextureImpl>(new OpenGLTextureImpl(id, size));
-        }
+    uint2 TextureAsset::getSize() const
+    {
+        return m_size;
+    }
 
-        ~OpenGLTextureImpl() override
-        {
-            glDeleteTextures(1, &m_textureId.value);
-        }
-
-        uint2 getSize() const override
-        {
-            return m_size;
-        }
-
-        TextureId getResourceId() const override
-        {
-            return m_textureId;
-        }
-
-    private:
-        explicit OpenGLTextureImpl(const TextureId id, const uint2 size) : m_textureId(id), m_size(size)
-        {
-        }
-
-        TextureId m_textureId;
-        uint2 m_size;
-    };
+    TextureAsset::TextureAsset(const uint32_t resourceId, const uint2 size)
+        : m_resourceId(resourceId),
+          m_size(size)
+    {
+    }
 } // namespace processing
 
 namespace processing
 {
-    Texture loadTexture(const std::filesystem::path& filepath)
+    TextureAssetManager::TextureAssetManager()
+        : m_nextAssetId(1)
     {
-        return Texture(OpenGLTextureImpl::fromFile(filepath));
+    }
+
+    Texture TextureAssetManager::load(const std::filesystem::path& filepath)
+    {
+        const std::string path = filepath.string();
+
+        int width, height, channels;
+        std::unique_ptr<uint8_t, decltype(&stbi_image_free)> data(stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha), &stbi_image_free);
+        if (data == nullptr)
+        {
+            error(std::format("Failed to load image \"{}\"", path));
+        }
+
+        return create(static_cast<uint32_t>(width), static_cast<uint32_t>(height), data.get());
+    }
+
+    Texture TextureAssetManager::create(const uint32_t width, const uint32_t height, const uint8_t* data)
+    {
+        const auto insertion = m_assets.insert(std::make_pair(m_nextAssetId++, TextureAsset::create(width, height, data)));
+        const auto assetId = insertion.first->first;
+
+        return Texture(AssetId{assetId}, insertion.first->second);
+    }
+
+    TextureImpl& TextureAssetManager::getAsset(AssetId assetId)
+    {
+        const auto itr = m_assets.find(assetId.value);
+        if (itr != m_assets.end())
+        {
+            return *itr->second;
+        }
+
+        throw std::runtime_error("Could not find texture with given id");
     }
 } // namespace processing

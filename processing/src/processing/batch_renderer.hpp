@@ -2,6 +2,8 @@
 #define _PROCESSING_INCLUDE_BATCH_RENDERER_HPP_
 
 #include <processing/processing.hpp>
+#include <processing/shader.hpp>
+#include <processing/texture.hpp>
 
 #include <vector>
 
@@ -11,8 +13,8 @@ namespace processing
 {
     struct BatchKey
     {
-        Shader shaderProgramId;
-        TextureId textureId;
+        ResourceId shaderResourceId;
+        ResourceId textureResourceId;
         BlendMode blendMode;
 
         bool operator==(const BatchKey& other) const;
@@ -33,7 +35,7 @@ namespace processing
     class BatchRenderer : public Renderer
     {
     public:
-        static std::unique_ptr<Renderer> create(ShaderHandleManager& manager);
+        static std::unique_ptr<Renderer> create(ShaderAssetManager& shaderHandleManager, TextureAssetManager& textureAssetManager);
         ~BatchRenderer();
 
         void beginDraw(const ProjectionDetails& details) override;
@@ -43,7 +45,13 @@ namespace processing
         void flush() override;
 
     private:
-        explicit BatchRenderer(GLuint vertexArrayId, GLuint vertexBufferId, GLuint elementBufferId, Shader shaderProgram, GLuint whiteTextureId, ShaderHandleManager& shaderHandleManager);
+        explicit BatchRenderer(
+            GLuint vertexArrayId,
+            GLuint vertexBufferId,
+            GLuint elementBufferId,
+            Shader shaderProgram,
+            Texture whiteTexture
+        );
 
         void activate(const BlendMode& blendMode);
 
@@ -51,9 +59,7 @@ namespace processing
         GLuint m_vertexBufferId;
         GLuint m_elementBufferId;
         Shader m_defaultShaderProgram;
-        TextureId m_whiteTextureId;
-
-        ShaderHandleManager* m_shaderHandleManager;
+        Texture m_whiteTexture;
 
         std::vector<Vertex> m_vertices;
         std::vector<uint32_t> m_indices;

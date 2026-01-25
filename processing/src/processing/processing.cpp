@@ -138,7 +138,9 @@ namespace processing
     void pushState() { s_data.graphics->pushState(); }
     void popState() { s_data.graphics->popState(); }
 
-    rect2f getViewport() { return rect2f{ s_data.renderTarget->getViewport() }; }
+    rect2f getViewport() { return rect2f{ s_data.graphics->getViewport() }; }
+    void renderBuffer(RenderBuffer renderBuffer) { s_data.graphics->renderBuffer(renderBuffer); }
+    void noRenderBuffer() { s_data.graphics->noRenderBuffer(); }
 
     void strokeJoin(StrokeJoin strokeJoin) { s_data.graphics->strokeJoin(strokeJoin); }
     void strokeCap(StrokeCap strokeCap) { s_data.graphics->strokeCap(strokeCap); }
@@ -154,10 +156,6 @@ namespace processing
     void blendMode(const BlendMode& blendMode) { s_data.graphics->blendMode(blendMode); }
     void shader(Shader shaderProgram) { s_data.graphics->shader(shaderProgram); }
     void noShader() { s_data.graphics->noShader(); }
-    void shaderUniform(const std::string_view name, float x) { s_data.graphics->shaderUniform(name, x); }
-    void shaderUniform(const std::string_view name, float x, float y) { s_data.graphics->shaderUniform(name, x, y); }
-    void shaderUniform(const std::string_view name, float x, float y, float z) { s_data.graphics->shaderUniform(name, x, y, z); }
-    void shaderUniform(const std::string_view name, float x, float y, float z, float w) { s_data.graphics->shaderUniform(name, x, y, z, w); }
 
     void background(int red, int green, int blue, int alpha) { s_data.graphics->background(red, green, blue, alpha); }
     void background(int grey, int alpha) { s_data.graphics->background(grey, alpha); }
@@ -194,20 +192,22 @@ namespace processing
     void image(const Texture &texture, float x1, float y1, float x2, float y2) { s_data.graphics->image(texture, x1, y1, x2, y2); }
     void image(const Texture &texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2) { s_data.graphics->image(texture, x1, y1, x2, y2, sx1, sy1, sx2, sy2); }
 
-    Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId) { return s_data.shaderHandleManager->loadShader(vertexShaderSource, fragmentShaderId); }
+    Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId) { return s_data.shaderAssetManager->loadShader(vertexShaderSource, fragmentShaderId); }
+    RenderBuffer createRenderBuffer(const uint32_t width, const uint32_t height) { return s_data.renderBufferManager->create(width, height, *s_data.textureAssetManager); }
+    Texture loadTexture(const std::filesystem::path& filepath) { return s_data.textureAssetManager->load(filepath); }
+    Texture createTexture(const uint32_t width, const uint32_t height, const uint8_t* data) { return s_data.textureAssetManager->create(width, height, data); }
     // clang-format on
 } // namespace processing
 
 void launch()
 {
-    s_data.depthProvider = std::make_shared<DepthProvider>(-1.0f, 1.0f, 2.0f / 20'000.0f);
-    s_data.shaderHandleManager = std::make_unique<OpenGLShaderHandleManager>();
+    s_data.shaderAssetManager = std::make_unique<ShaderAssetManager>();
+    s_data.renderBufferManager = std::make_unique<RenderTargetManager>();
+    s_data.textureAssetManager = std::make_unique<TextureAssetManager>();
 
     s_data.window = createWindow(1280, 720, "Processing");
     s_data.context = createContext(*s_data.window);
-    s_data.renderTarget = std::make_unique<MainRenderTarget>(rect2u{0, 0, 1280, 720});
-    s_data.renderer = BatchRenderer::create(*s_data.shaderHandleManager);
-    s_data.graphics = std::make_unique<Graphics>(uint2{1280, 720}, s_data.renderer, s_data.depthProvider, *s_data.shaderHandleManager);
+    s_data.graphics = std::make_unique<Graphics>(uint2{1280, 720}, *s_data.shaderAssetManager, *s_data.renderBufferManager, *s_data.textureAssetManager);
     s_data.sketch = createSketch();
 
     s_data.sketch->setup();
@@ -221,6 +221,7 @@ void launch()
                 close();
             }
 
+            s_data.graphics->event(*event);
             s_data.sketch->event(*event);
         }
 
@@ -229,22 +230,9 @@ void launch()
             const uint2 framebufferSize = s_data.window->getFramebufferSize();
             const uint2 windowSize = s_data.window->getSize();
 
-            s_data.renderTarget->setViewport(rect2u{0, 0, framebufferSize.x, framebufferSize.y});
-            s_data.renderTarget->activate();
-
-            s_data.renderer->beginDraw({
-                .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, windowSize.x, windowSize.y, s_data.depthProvider.getMinDepth(), s_data.depthProvider.getMaxDepth()),
-                .viewMatrix = matrix4x4_identity(),
-            });
-
-            s_data.graphics->beginDraw({
-                .windowSize = windowSize,
-                .framebufferSize = framebufferSize,
-            });
-
+            s_data.graphics->beginDraw();
             s_data.sketch->draw();
             s_data.graphics->endDraw();
-            s_data.renderer->endDraw();
 
             s_data.context->flush();
 

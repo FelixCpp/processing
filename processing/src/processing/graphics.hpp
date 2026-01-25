@@ -6,22 +6,26 @@
 #include <processing/render_style.hpp>
 #include <processing/render_style_stack.hpp>
 #include <processing/matrix_stack.hpp>
+#include <processing/depth_provider.hpp>
+#include <processing/render_buffer.hpp>
+#include <processing/texture.hpp>
+#include <processing/shader.hpp>
 
 namespace processing
 {
-    struct FrameSpecification
-    {
-        uint2 windowSize;
-        uint2 framebufferSize;
-    };
-
     class Graphics
     {
     public:
-        explicit Graphics(uint2 size, std::shared_ptr<Renderer> renderer, std::shared_ptr<DepthProvider> depthProvider, ShaderHandleManager& manager);
+        explicit Graphics(uint2 size, ShaderAssetManager& shaderAssetManager, RenderTargetManager& renderTargetManager, TextureAssetManager& textureAssetManager);
 
-        void beginDraw(const FrameSpecification& specification);
+        void event(const Event& event);
+
+        void beginDraw();
         void endDraw();
+        rect2f getViewport() const;
+
+        void renderBuffer(RenderBuffer renderBuffer);
+        void noRenderBuffer();
 
         void strokeJoin(StrokeJoin strokeJoin);
         void strokeCap(StrokeCap strokeCap);
@@ -40,12 +44,8 @@ namespace processing
         void rotate(float angle);
 
         void blendMode(const BlendMode& blendMode);
-        void shader(Shader shaderProgram);
+        void shader(const Shader& shader);
         void noShader();
-        void shaderUniform(std::string_view name, float x);
-        void shaderUniform(std::string_view name, float x, float y);
-        void shaderUniform(std::string_view name, float x, float y, float z);
-        void shaderUniform(std::string_view name, float x, float y, float z, float w);
 
         void background(int red, int green, int blue, int alpha = 255);
         void background(int grey, int alpha = 255);
@@ -83,14 +83,27 @@ namespace processing
         void image(const Texture& texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2);
 
     private:
+        struct RenderingLayer
+        {
+            DepthProvider depthProvider;
+            RenderBuffer renderBuffer;
+        };
+
         float getNextDepth();
         void submit(const RenderingSubmission& submission);
 
-        std::weak_ptr<Renderer> m_renderer;
-        std::weak_ptr<DepthProvider> m_depthProvider;
-        ShaderHandleManager* m_shaderHandleManager;
+        DepthProvider& getActiveDepthProvider();
+
+        std::unique_ptr<Renderer> m_renderer;
+        RenderTargetManager* m_renderTargetManager;
+        TextureAssetManager* m_textureAssetManager;
         RenderStyleStack m_renderStyles;
-        MatrixStack m_metrics;
+
+        // Core-Layer
+        DepthProvider m_depthProvider;
+        MainRenderTarget m_mainRenderTarget;
+
+        std::unique_ptr<RenderingLayer> m_offscreenLayer;
 
         uint2 m_windowSize;
     };

@@ -18,7 +18,8 @@ namespace processing
             .imageSourceMode = image_source_mode_ltwh_coordinates(),
             .imageTint = color(255, 255, 255),
             .blendMode = BlendMode::alpha,
-            .shaderProgramId = std::nullopt,
+            .matrixStack = matrix_stack_create(),
+            .shaderResourceId = std::nullopt,
         };
     }
 } // namespace processing

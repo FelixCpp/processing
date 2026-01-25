@@ -8,26 +8,90 @@ namespace processing
     inline static constexpr float MAX_DEPTH = 1.0f;
     inline static constexpr float DEPTH_INCREMENT = (MAX_DEPTH - MIN_DEPTH) / 20'000.0f;
 
-    Graphics::Graphics(const uint2 size, std::shared_ptr<Renderer> renderer, std::shared_ptr<DepthProvider> depthProvider, ShaderHandleManager& shaderHandleManager)
-        : m_renderer(renderer),
-          m_depthProvider(depthProvider),
-          m_shaderHandleManager(&shaderHandleManager),
+    Graphics::Graphics(const uint2 size, ShaderAssetManager& shaderAssetManager, RenderTargetManager& renderTargetManager, TextureAssetManager& textureAssetManager)
+        : m_renderer(BatchRenderer::create(shaderAssetManager, textureAssetManager)),
+          m_depthProvider(MIN_DEPTH, MAX_DEPTH, DEPTH_INCREMENT),
+          m_renderTargetManager(&renderTargetManager),
+          m_textureAssetManager(&textureAssetManager),
           m_renderStyles(render_style_stack_create()),
           m_windowSize(size),
-          m_metrics(matrix_stack_create())
+          m_mainRenderTarget(size.x, size.y)
     {
     }
 
-    void Graphics::beginDraw(const FrameSpecification& specification)
+    void Graphics::event(const Event& event)
     {
-        m_windowSize = specification.windowSize;
+        if (event.type == Event::framebuffer_resized)
+        {
+            m_mainRenderTarget.setSize(event.size.width, event.size.height);
+        }
+
+        if (event.type == Event::window_resized)
+        {
+            m_windowSize = {event.size.width, event.size.height};
+        }
+    }
+
+    void Graphics::beginDraw()
+    {
+        m_mainRenderTarget.activate();
+        m_depthProvider.reset();
+
+        m_renderer->beginDraw({
+            .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y), MIN_DEPTH, MAX_DEPTH),
+            .viewMatrix = matrix4x4_identity(),
+        });
 
         render_style_stack_reset(m_renderStyles);
-        matrix_stack_reset(m_metrics);
     }
 
     void Graphics::endDraw()
     {
+        m_renderer->endDraw();
+    }
+
+    rect2f Graphics::getViewport() const
+    {
+        if (m_offscreenLayer != nullptr)
+        {
+            const auto size = float2{m_offscreenLayer->renderBuffer.getSize()};
+            return rect2f{0.0f, 0.0f, size.x, size.y};
+        }
+
+        return rect2f{0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y)};
+    }
+
+    void Graphics::renderBuffer(RenderBuffer renderBuffer)
+    {
+        const auto rboSize = float2{renderBuffer.getSize()};
+
+        m_offscreenLayer = std::make_unique<RenderingLayer>(RenderingLayer{
+            .depthProvider = DepthProvider(MIN_DEPTH, MAX_DEPTH, DEPTH_INCREMENT),
+            .renderBuffer = renderBuffer,
+        });
+
+        m_renderer->flush(); // Flush everything that has been rendered til this point
+        m_renderer->beginDraw({
+            .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, rboSize.x, rboSize.y, MIN_DEPTH, MAX_DEPTH),
+            .viewMatrix = matrix4x4_identity(),
+        });
+
+        renderBuffer.activate();
+    }
+
+    void Graphics::noRenderBuffer()
+    {
+        if (m_offscreenLayer != nullptr)
+        {
+            m_renderer->flush(); // Flush the offscreen layer
+            m_mainRenderTarget.activate();
+            m_renderer->beginDraw({
+                .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y), MIN_DEPTH, MAX_DEPTH),
+                .viewMatrix = matrix4x4_identity(),
+            });
+
+            m_offscreenLayer.reset();
+        }
     }
 
     void Graphics::strokeJoin(const StrokeJoin lineJoin)
@@ -59,22 +123,25 @@ namespace processing
 
     void Graphics::pushMatrix()
     {
-        matrix_stack_push(m_metrics, peekMatrix());
+        RenderStyle& style = peekState();
+        matrix_stack_push(style.matrixStack, peekMatrix());
     }
 
     void Graphics::popMatrix()
     {
-        matrix_stack_pop(m_metrics);
+        RenderStyle& style = peekState();
+        matrix_stack_pop(style.matrixStack);
     }
 
     void Graphics::resetMatrix()
     {
-        matrix_stack_reset(m_metrics);
+        RenderStyle& style = peekState();
+        matrix_stack_reset(style.matrixStack);
     }
 
     matrix4x4& Graphics::peekMatrix()
     {
-        return matrix_stack_peek(m_metrics);
+        return matrix_stack_peek(peekState().matrixStack);
     }
 
     void Graphics::translate(const float x, const float y)
@@ -101,48 +168,16 @@ namespace processing
         style.blendMode = blendMode;
     }
 
-    void Graphics::shader(Shader shaderProgram)
+    void Graphics::shader(const Shader& shaderProgram)
     {
         RenderStyle& style = peekState();
-        style.shaderProgramId = shaderProgram;
+        style.shaderResourceId = shaderProgram.getResourceId();
     }
 
     void Graphics::noShader()
     {
         RenderStyle& style = peekState();
-        style.shaderProgramId = std::nullopt;
-    }
-
-    void Graphics::shaderUniform(const std::string_view name, float x)
-    {
-        if (const auto shader = peekState().shaderProgramId)
-        {
-            m_shaderHandleManager->uploadUniform(*shader, name, x);
-        }
-    }
-
-    void Graphics::shaderUniform(const std::string_view name, float x, float y)
-    {
-        if (const auto shader = peekState().shaderProgramId)
-        {
-            m_shaderHandleManager->uploadUniform(*shader, name, x, y);
-        }
-    }
-
-    void Graphics::shaderUniform(const std::string_view name, float x, float y, float z)
-    {
-        if (const auto shader = peekState().shaderProgramId)
-        {
-            m_shaderHandleManager->uploadUniform(*shader, name, x, y, z);
-        }
-    }
-
-    void Graphics::shaderUniform(const std::string_view name, float x, float y, float z, float w)
-    {
-        if (const auto shader = peekState().shaderProgramId)
-        {
-            m_shaderHandleManager->uploadUniform(*shader, name, x, y, z, w);
-        }
+        style.shaderResourceId = std::nullopt;
     }
 
     void Graphics::background(int red, int green, int blue, int alpha)
@@ -157,7 +192,7 @@ namespace processing
 
     void Graphics::background(color_t color)
     {
-        const rect2f viewport = rect2f{0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y)};
+        const rect2f viewport = getViewport();
         const Contour rect_contour = contour_quad_fill(
             viewport.left, viewport.top,
             viewport.left + viewport.width, viewport.top,
@@ -170,7 +205,7 @@ namespace processing
         submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderProgramId = std::nullopt,
+            .shaderResourceId = std::nullopt,
             .blendMode = BlendMode::alpha,
         });
     }
@@ -281,7 +316,7 @@ namespace processing
             submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderProgramId = style.shaderProgramId,
+                .shaderResourceId = style.shaderResourceId,
                 .blendMode = style.blendMode,
             });
         }
@@ -294,7 +329,7 @@ namespace processing
             submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderProgramId = style.shaderProgramId,
+                .shaderResourceId = style.shaderResourceId,
                 .blendMode = style.blendMode,
             });
         }
@@ -320,7 +355,7 @@ namespace processing
             submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderProgramId = style.shaderProgramId,
+                .shaderResourceId = style.shaderResourceId,
                 .blendMode = style.blendMode,
             });
         }
@@ -333,7 +368,7 @@ namespace processing
             submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderProgramId = style.shaderProgramId,
+                .shaderResourceId = style.shaderResourceId,
                 .blendMode = style.blendMode,
             });
         }
@@ -354,7 +389,7 @@ namespace processing
         submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderProgramId = style.shaderProgramId,
+            .shaderResourceId = style.shaderResourceId,
             .blendMode = style.blendMode,
         });
     }
@@ -372,7 +407,7 @@ namespace processing
             submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderProgramId = style.shaderProgramId,
+                .shaderResourceId = style.shaderResourceId,
                 .blendMode = style.blendMode,
             });
         }
@@ -385,7 +420,7 @@ namespace processing
             submit({
                 .vertices = shape.vertices,
                 .indices = shape.indices,
-                .shaderProgramId = style.shaderProgramId,
+                .shaderResourceId = style.shaderResourceId,
                 .blendMode = style.blendMode,
             });
         }
@@ -401,7 +436,7 @@ namespace processing
         submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderProgramId = style.shaderProgramId,
+            .shaderResourceId = style.shaderResourceId,
             .blendMode = style.blendMode,
         });
     }
@@ -423,8 +458,8 @@ namespace processing
         submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderProgramId = style.shaderProgramId,
-            .textureId = texture.getResourceId(),
+            .shaderResourceId = style.shaderResourceId,
+            .textureResourceId = texture.getResourceId(),
             .blendMode = style.blendMode,
         });
     }
@@ -441,22 +476,19 @@ namespace processing
         submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderProgramId = style.shaderProgramId,
-            .textureId = texture.getResourceId(),
+            .shaderResourceId = style.shaderResourceId,
+            .textureResourceId = texture.getResourceId(),
             .blendMode = style.blendMode,
         });
     }
 
     float Graphics::getNextDepth()
     {
-        return m_depthProvider.lock()->getNextDepth();
+        return m_depthProvider.getNextDepth();
     }
 
     void Graphics::submit(const RenderingSubmission& submission)
     {
-        if (const auto renderer = m_renderer.lock())
-        {
-            renderer->submit(submission);
-        }
+        m_renderer->submit(submission);
     }
 } // namespace processing
