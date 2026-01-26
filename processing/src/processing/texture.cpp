@@ -84,6 +84,8 @@ namespace processing
     {
         const std::string path = filepath.string();
 
+        stbi_set_flip_vertically_on_load(1);
+
         int width, height, channels;
         std::unique_ptr<uint8_t, decltype(&stbi_image_free)> data(stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha), &stbi_image_free);
         if (data == nullptr)

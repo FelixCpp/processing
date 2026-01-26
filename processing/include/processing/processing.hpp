@@ -322,6 +322,7 @@ namespace processing
             window_resized,
             framebuffer_resized,
             mouse_moved,
+            mouse_wheel_scrolled,
             key_pressed,
             key_repeated,
             key_released,
@@ -344,11 +345,18 @@ namespace processing
             KeyCode code;
         };
 
+        struct MouseWheelScrollEvent
+        {
+            double horizontalDelta;
+            double verticalDelta;
+        };
+
         union
         {
             SizeEvent size;
             MouseMoveEvent mouse_move;
             KeyEvent key;
+            MouseWheelScrollEvent mouse_wheel;
         };
     };
 

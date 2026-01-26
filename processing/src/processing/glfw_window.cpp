@@ -264,6 +264,19 @@ namespace processing
             }
         );
 
+        glfwSetScrollCallback(
+            window, [](GLFWwindow* window, double xoffset, double yoffset)
+            {
+                auto* parent = static_cast<WindowImplGLFW*>(glfwGetWindowUserPointer(window));
+
+                Event event;
+                event.type = Event::mouse_wheel_scrolled;
+                event.mouse_wheel.horizontalDelta = xoffset;
+                event.mouse_wheel.verticalDelta = yoffset;
+                parent->m_events.push(event);
+            }
+        );
+
         {
             int fbWidth, fbHeight;
             glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
