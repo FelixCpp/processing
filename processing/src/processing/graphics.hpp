@@ -84,12 +84,6 @@ namespace processing
         void image(const Texture& texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2);
 
     private:
-        struct RenderingLayer
-        {
-            DepthProvider depthProvider;
-            RenderBuffer renderBuffer;
-        };
-
         float getNextDepth();
         void submit(const RenderingSubmission& submission);
 
@@ -102,8 +96,11 @@ namespace processing
 
         // Core-Layer
         DepthProvider m_depthProvider;
+        MainRenderBuffer m_mainRenderBuffer;
 
-        std::unique_ptr<RenderingLayer> m_offscreenLayer;
+        DepthProvider m_tmpDepthProvider;
+        RenderBuffer m_tmpRenderbuffer;
+        bool m_useTmp;
 
         uint2 m_windowSize;
         uint2 m_framebufferSize;

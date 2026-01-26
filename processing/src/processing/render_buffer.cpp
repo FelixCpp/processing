@@ -3,6 +3,29 @@
 
 namespace processing
 {
+    MainRenderBuffer::MainRenderBuffer(const rect2u& viewport)
+        : m_viewport(viewport)
+    {
+    }
+
+    void MainRenderBuffer::setViewport(const rect2u& viewport)
+    {
+        m_viewport = viewport;
+    }
+
+    const rect2u& MainRenderBuffer::getViewport() const
+    {
+        return m_viewport;
+    }
+
+    ResourceId MainRenderBuffer::getResourceId() const
+    {
+        return ResourceId{.value = 0};
+    }
+} // namespace processing
+
+namespace processing
+{
     RenderBuffer::RenderBuffer()
     {
     }
@@ -28,14 +51,9 @@ namespace processing
         return m_impl.lock()->getTexture();
     }
 
-    void RenderBuffer::activate()
+    const rect2u& RenderBuffer::getViewport() const
     {
-        return m_impl.lock()->activate();
-    }
-
-    uint2 RenderBuffer::getSize() const
-    {
-        return m_impl.lock()->getSize();
+        return m_impl.lock()->getViewport();
     }
 } // namespace processing
 
@@ -81,20 +99,14 @@ namespace processing
             return ResourceId{.value = m_framebufferId};
         }
 
+        const rect2u& getViewport() const override
+        {
+            return m_viewport;
+        }
+
         const Texture& getTexture() const override
         {
             return m_renderTexture;
-        }
-
-        uint2 getSize() const override
-        {
-            return m_size;
-        }
-
-        void activate() override
-        {
-            glViewport(0, 0, m_size.x, m_size.y);
-            glBindFramebuffer(GL_FRAMEBUFFER, m_framebufferId);
         }
 
     private:
@@ -102,14 +114,14 @@ namespace processing
             : m_framebufferId(framebufferId),
               m_renderbufferId(renderbufferId),
               m_renderTexture(std::move(renderTexture)),
-              m_size(size)
+              m_viewport(0, 0, size.x, size.y)
         {
         }
 
         GLuint m_framebufferId;
         GLuint m_renderbufferId;
         Texture m_renderTexture;
-        uint2 m_size;
+        rect2u m_viewport;
     };
 } // namespace processing
 

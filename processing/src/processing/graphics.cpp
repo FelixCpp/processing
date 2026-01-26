@@ -14,8 +14,11 @@ namespace processing
           m_renderTargetManager(&renderTargetManager),
           m_textureAssetManager(&textureAssetManager),
           m_renderStyles(render_style_stack_create()),
+          m_mainRenderBuffer(MainRenderBuffer(rect2u{0, 0, size.x, size.y})),
+          m_tmpDepthProvider(DepthProvider(MIN_DEPTH, MAX_DEPTH, DEPTH_INCREMENT)),
           m_windowSize(size),
-          m_framebufferSize(size)
+          m_framebufferSize(size),
+          m_useTmp(false)
     {
     }
 
@@ -24,6 +27,7 @@ namespace processing
         if (event.type == Event::framebuffer_resized)
         {
             m_framebufferSize = uint2{event.size.width, event.size.height};
+            m_mainRenderBuffer.setViewport(rect2u{0, 0, event.size.width, event.size.height});
         }
 
         if (event.type == Event::window_resized)
@@ -37,10 +41,11 @@ namespace processing
         m_depthProvider.reset();
 
         m_renderer->beginDraw(RenderingDetails{
-            .renderbufferResourceId = ResourceId{.value = 0},
-            .renderbufferViewport = rect2u{0, 0, m_framebufferSize.x, m_framebufferSize.y},
+            .renderbufferResourceId = m_mainRenderBuffer.getResourceId(),
+            .renderbufferViewport = m_mainRenderBuffer.getViewport(),
             .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y), MIN_DEPTH, MAX_DEPTH),
         });
+        m_useTmp = false;
 
         render_style_stack_reset(m_renderStyles);
     }
@@ -52,42 +57,41 @@ namespace processing
 
     rect2f Graphics::getViewport() const
     {
-        if (m_offscreenLayer != nullptr)
+        if (m_useTmp)
         {
-            const auto size = float2{m_offscreenLayer->renderBuffer.getSize()};
-            return rect2f{0.0f, 0.0f, size.x, size.y};
+            return rect2f{m_tmpRenderbuffer.getViewport()};
         }
 
         return rect2f{0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y)};
     }
 
-    void Graphics::renderBuffer(RenderBuffer renderBuffer)
+    void Graphics::renderBuffer(RenderBuffer renderbuffer)
     {
-        m_offscreenLayer = std::make_unique<RenderingLayer>(RenderingLayer{
-            .depthProvider = DepthProvider(MIN_DEPTH, MAX_DEPTH, DEPTH_INCREMENT),
-            .renderBuffer = renderBuffer,
-        });
+        m_useTmp = true;
+        m_tmpDepthProvider.reset();
+        m_tmpRenderbuffer = renderbuffer;
 
-        const uint2 rboSize = renderBuffer.getSize();
+        const rect2u& viewport = renderbuffer.getViewport();
+
         m_renderer->activate(RenderingDetails{
-            .renderbufferResourceId = renderBuffer.getResourceId(),
-            .renderbufferViewport = rect2u{0, 0, rboSize.x, rboSize.y},
-            .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(rboSize.x), static_cast<float>(rboSize.y), MIN_DEPTH, MAX_DEPTH),
+            .renderbufferResourceId = renderbuffer.getResourceId(),
+            .renderbufferViewport = renderbuffer.getViewport(),
+            .projectionMatrix = matrix4x4_orthographic(static_cast<float>(viewport.left), static_cast<float>(viewport.top), static_cast<float>(viewport.width), static_cast<float>(viewport.height), MIN_DEPTH, MAX_DEPTH),
         });
     }
 
     void Graphics::noRenderBuffer()
     {
-        if (m_offscreenLayer != nullptr)
+        if (m_useTmp)
         {
             m_renderer->flush(); // Flush the offscreen layer
             m_renderer->beginDraw(RenderingDetails{
-                .renderbufferResourceId = ResourceId{.value = 0},
-                .renderbufferViewport = rect2u{0, 0, m_framebufferSize.x, m_framebufferSize.y},
+                .renderbufferResourceId = m_mainRenderBuffer.getResourceId(),
+                .renderbufferViewport = m_mainRenderBuffer.getViewport(),
                 .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y), MIN_DEPTH, MAX_DEPTH),
             });
 
-            m_offscreenLayer.reset();
+            m_useTmp = true;
         }
     }
 

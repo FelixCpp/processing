@@ -550,20 +550,17 @@ namespace processing
 namespace processing
 {
 
-    struct RenderBufferInterface
+    struct RenderBufferData
     {
-        virtual ~RenderBufferInterface() = default;
+        virtual ~RenderBufferData() = default;
         virtual ResourceId getResourceId() const = 0;
         virtual const rect2u& getViewport() const = 0;
     };
 
-    struct RenderBufferImpl
+    struct RenderBufferImpl : RenderBufferData
     {
         virtual ~RenderBufferImpl() = default;
-        virtual ResourceId getResourceId() const = 0;
         virtual const Texture& getTexture() const = 0;
-        virtual uint2 getSize() const = 0;
-        virtual void activate() = 0;
     };
 
     class RenderBuffer
@@ -576,8 +573,7 @@ namespace processing
 
         ResourceId getResourceId() const;
         const Texture& getTexture() const;
-        uint2 getSize() const;
-        void activate();
+        const rect2u& getViewport() const;
 
     private:
         AssetId m_assetId;

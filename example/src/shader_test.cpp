@@ -57,7 +57,7 @@ void main()
 struct ViewportTestApp : Sketch
 {
     Shader lense = loadShader(VS_SOURCE, LENSE_FS);
-    Texture wallpaper = loadTexture("images/wallpaper.jpg");
+    Texture wallpaper = loadTexture("images/wallpaper2.jpg");
 
     float radius = 150.0f;
 

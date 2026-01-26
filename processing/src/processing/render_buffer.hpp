@@ -12,6 +12,20 @@
 
 namespace processing
 {
+    class MainRenderBuffer : public RenderBufferData
+    {
+    public:
+        explicit MainRenderBuffer(const rect2u& viewport);
+
+        ResourceId getResourceId() const override;
+
+        void setViewport(const rect2u& viewport);
+        const rect2u& getViewport() const override;
+
+    private:
+        rect2u m_viewport;
+    };
+
     class RenderTargetManager
     {
     public:
