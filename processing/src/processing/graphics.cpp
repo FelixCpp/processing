@@ -15,7 +15,7 @@ namespace processing
           m_textureAssetManager(&textureAssetManager),
           m_renderStyles(render_style_stack_create()),
           m_windowSize(size),
-          m_mainRenderTarget(size.x, size.y)
+          m_framebufferSize(size)
     {
     }
 
@@ -23,7 +23,7 @@ namespace processing
     {
         if (event.type == Event::framebuffer_resized)
         {
-            m_mainRenderTarget.setSize(event.size.width, event.size.height);
+            m_framebufferSize = uint2{event.size.width, event.size.height};
         }
 
         if (event.type == Event::window_resized)
@@ -34,12 +34,12 @@ namespace processing
 
     void Graphics::beginDraw()
     {
-        m_mainRenderTarget.activate();
         m_depthProvider.reset();
 
-        m_renderer->beginDraw({
+        m_renderer->beginDraw(RenderingDetails{
+            .renderbufferResourceId = ResourceId{.value = 0},
+            .renderbufferViewport = rect2u{0, 0, m_framebufferSize.x, m_framebufferSize.y},
             .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y), MIN_DEPTH, MAX_DEPTH),
-            .viewMatrix = matrix4x4_identity(),
         });
 
         render_style_stack_reset(m_renderStyles);
@@ -63,20 +63,17 @@ namespace processing
 
     void Graphics::renderBuffer(RenderBuffer renderBuffer)
     {
-        const auto rboSize = float2{renderBuffer.getSize()};
-
         m_offscreenLayer = std::make_unique<RenderingLayer>(RenderingLayer{
             .depthProvider = DepthProvider(MIN_DEPTH, MAX_DEPTH, DEPTH_INCREMENT),
             .renderBuffer = renderBuffer,
         });
 
-        m_renderer->flush(); // Flush everything that has been rendered til this point
-        m_renderer->beginDraw({
-            .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, rboSize.x, rboSize.y, MIN_DEPTH, MAX_DEPTH),
-            .viewMatrix = matrix4x4_identity(),
+        const uint2 rboSize = renderBuffer.getSize();
+        m_renderer->activate(RenderingDetails{
+            .renderbufferResourceId = renderBuffer.getResourceId(),
+            .renderbufferViewport = rect2u{0, 0, rboSize.x, rboSize.y},
+            .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(rboSize.x), static_cast<float>(rboSize.y), MIN_DEPTH, MAX_DEPTH),
         });
-
-        renderBuffer.activate();
     }
 
     void Graphics::noRenderBuffer()
@@ -84,10 +81,10 @@ namespace processing
         if (m_offscreenLayer != nullptr)
         {
             m_renderer->flush(); // Flush the offscreen layer
-            m_mainRenderTarget.activate();
-            m_renderer->beginDraw({
+            m_renderer->beginDraw(RenderingDetails{
+                .renderbufferResourceId = ResourceId{.value = 0},
+                .renderbufferViewport = rect2u{0, 0, m_framebufferSize.x, m_framebufferSize.y},
                 .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y), MIN_DEPTH, MAX_DEPTH),
-                .viewMatrix = matrix4x4_identity(),
             });
 
             m_offscreenLayer.reset();

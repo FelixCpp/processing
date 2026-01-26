@@ -549,6 +549,14 @@ namespace processing
 
 namespace processing
 {
+
+    struct RenderBufferInterface
+    {
+        virtual ~RenderBufferInterface() = default;
+        virtual ResourceId getResourceId() const = 0;
+        virtual const rect2u& getViewport() const = 0;
+    };
+
     struct RenderBufferImpl
     {
         virtual ~RenderBufferImpl() = default;
@@ -590,16 +598,18 @@ namespace processing
         std::optional<BlendMode> blendMode;
     };
 
-    struct ProjectionDetails
+    struct RenderingDetails
     {
+        ResourceId renderbufferResourceId;
+        rect2u renderbufferViewport;
         matrix4x4 projectionMatrix;
-        matrix4x4 viewMatrix;
     };
 
     struct Renderer
     {
         virtual ~Renderer() = default;
-        virtual void beginDraw(const ProjectionDetails& details) = 0;
+        virtual void activate(const RenderingDetails& renderingDetails) = 0;
+        virtual void beginDraw(const RenderingDetails& renderingDetails) = 0;
         virtual void endDraw() = 0;
         virtual void submit(const RenderingSubmission& submission) = 0;
         virtual void flush() = 0;

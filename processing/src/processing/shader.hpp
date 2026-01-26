@@ -10,24 +10,6 @@
 
 namespace processing
 {
-    class ShaderAssetImpl : public ShaderImpl
-    {
-    public:
-        static std::unique_ptr<ShaderAssetImpl> create(std::string_view vertexShaderSource, std::string_view fragmentShaderSource);
-        ~ShaderAssetImpl() override;
-        ResourceId getResourceId() const override;
-
-        void uploadUniform(std::string_view name, float x) override;
-        void uploadUniform(std::string_view name, float x, float y) override;
-        void uploadUniform(std::string_view name, float x, float y, float z) override;
-        void uploadUniform(std::string_view name, float x, float y, float z, float w) override;
-
-    private:
-        explicit ShaderAssetImpl(GLuint shaderProgramId);
-
-        GLuint m_shaderProgramId;
-    };
-
     class ShaderAssetManager
     {
     public:

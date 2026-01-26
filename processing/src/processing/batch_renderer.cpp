@@ -151,13 +151,20 @@ namespace processing
         glDeleteBuffers(1, &m_elementBufferId);
     }
 
-    void BatchRenderer::beginDraw(const ProjectionDetails& details)
+    void BatchRenderer::activate(const RenderingDetails& renderingDetails)
     {
-        m_projectionDetails = details;
+        flush();
 
-        glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        // glClear(GL_DEPTH_BUFFER_BIT);
+        glViewport(renderingDetails.renderbufferViewport.left, renderingDetails.renderbufferViewport.top, renderingDetails.renderbufferViewport.width, renderingDetails.renderbufferViewport.height);
+        glBindFramebuffer(GL_FRAMEBUFFER, renderingDetails.renderbufferResourceId.value);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        m_projectionMatrix = renderingDetails.projectionMatrix;
+    }
+
+    void BatchRenderer::beginDraw(const RenderingDetails& renderingDetails)
+    {
+        activate(renderingDetails);
     }
 
     void BatchRenderer::endDraw()
@@ -242,7 +249,7 @@ namespace processing
                 currentShaderResourceId = key.shaderResourceId;
 
                 glUseProgram(currentShaderResourceId.value);
-                glProgramUniformMatrix4fv(currentShaderResourceId.value, glGetUniformLocation(currentShaderResourceId.value, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionDetails.projectionMatrix.data.data());
+                glProgramUniformMatrix4fv(currentShaderResourceId.value, glGetUniformLocation(currentShaderResourceId.value, "u_ProjectionMatrix"), 1, GL_FALSE, m_projectionMatrix.data.data());
                 glUniform1i(glGetUniformLocation(currentShaderResourceId.value, "u_TextureSampler"), 0);
             }
 
@@ -280,7 +287,8 @@ namespace processing
           m_vertexBufferId(vertexBufferId),
           m_elementBufferId(elementBufferId),
           m_defaultShaderProgram(shaderProgram),
-          m_whiteTexture(whiteTexture)
+          m_whiteTexture(whiteTexture),
+          m_projectionMatrix(matrix4x4_identity())
     {
         m_vertices.reserve(MAX_VERTICES);
         m_indices.reserve(MAX_INDICES);

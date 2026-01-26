@@ -102,11 +102,11 @@ namespace processing
 
         // Core-Layer
         DepthProvider m_depthProvider;
-        MainRenderTarget m_mainRenderTarget;
 
         std::unique_ptr<RenderingLayer> m_offscreenLayer;
 
         uint2 m_windowSize;
+        uint2 m_framebufferSize;
     };
 } // namespace processing
 

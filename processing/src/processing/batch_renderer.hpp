@@ -38,7 +38,9 @@ namespace processing
         static std::unique_ptr<Renderer> create(ShaderAssetManager& shaderHandleManager, TextureAssetManager& textureAssetManager);
         ~BatchRenderer();
 
-        void beginDraw(const ProjectionDetails& details) override;
+        void activate(const RenderingDetails& renderingDetails) override;
+
+        void beginDraw(const RenderingDetails& renderingDetails) override;
         void endDraw() override;
 
         void submit(const RenderingSubmission& submission) override;
@@ -66,7 +68,7 @@ namespace processing
 
         std::vector<Batch> m_batches;
 
-        ProjectionDetails m_projectionDetails;
+        matrix4x4 m_projectionMatrix;
     };
 } // namespace processing
 
