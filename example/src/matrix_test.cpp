@@ -19,9 +19,11 @@ struct MatrixTest : Sketch
         strokeWeight(3.0f);
         stroke(48, 34, 24);
 
+        pushState();
         background(51);
         translate(size.x * 0.5f, size.y);
         branch(100.0f);
+        popState();
     }
 
     void branch(float length)
@@ -40,7 +42,7 @@ struct MatrixTest : Sketch
 
         line(0.0f, 0.0f, 0.0f, -length);
 
-        const float rotation = (float)getMousePosition().x / getViewport().size.x * 40.0f + 10.0f;
+        const float rotation = (float)getMousePosition().x / getViewport().size.x * 60.0f + 10.0f;
 
         pushMatrix();
         translate(0.0f, -length);
@@ -51,7 +53,7 @@ struct MatrixTest : Sketch
         pushMatrix();
         translate(0.0f, -length);
         rotate(-rotation);
-        branch(length * 0.77f);
+        branch(length * 0.75f);
         popMatrix();
     }
 

@@ -91,7 +91,7 @@ struct SnakeGame : Sketch
         }
 
         // Draw background
-        blendMode(BlendMode::screen);
+        blendMode(BlendMode::opaque);
         imageTint(51);
         for (uint32_t row = 0; row < ROWS; ++row)
         {
@@ -104,7 +104,7 @@ struct SnakeGame : Sketch
         }
 
         // Draw food
-        imageTint(0, 255, 0, 100);
+        imageTint(0, 255, 0);
         for (size_t i = 0; i < foodSpots.size(); ++i)
         {
             const float px = static_cast<float>(foodSpots[i].x) * cellWidth;

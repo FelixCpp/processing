@@ -16,9 +16,7 @@ namespace processing
           m_renderStyles(render_style_stack_create()),
           m_mainRenderBuffer(MainRenderBuffer(rect2u{0, 0, size.x, size.y})),
           m_tmpDepthProvider(DepthProvider(MIN_DEPTH, MAX_DEPTH, DEPTH_INCREMENT)),
-          m_windowSize(size),
-          m_framebufferSize(size),
-          m_useTmp(false)
+          m_windowSize(size)
     {
     }
 
@@ -26,7 +24,6 @@ namespace processing
     {
         if (event.type == Event::framebuffer_resized)
         {
-            m_framebufferSize = uint2{event.size.width, event.size.height};
             m_mainRenderBuffer.setViewport(rect2u{0, 0, event.size.width, event.size.height});
         }
 
@@ -38,14 +35,13 @@ namespace processing
 
     void Graphics::beginDraw()
     {
+        m_tmpRenderbuffer.reset();
         m_depthProvider.reset();
-
         m_renderer->beginDraw(RenderingDetails{
             .renderbufferResourceId = m_mainRenderBuffer.getResourceId(),
             .renderbufferViewport = m_mainRenderBuffer.getViewport(),
             .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y), MIN_DEPTH, MAX_DEPTH),
         });
-        m_useTmp = false;
 
         render_style_stack_reset(m_renderStyles);
     }
@@ -57,9 +53,9 @@ namespace processing
 
     rect2f Graphics::getViewport() const
     {
-        if (m_useTmp)
+        if (m_tmpRenderbuffer.has_value())
         {
-            return rect2f{m_tmpRenderbuffer.getViewport()};
+            return rect2f{m_tmpRenderbuffer->getViewport()};
         }
 
         return rect2f{0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y)};
@@ -67,7 +63,6 @@ namespace processing
 
     void Graphics::renderBuffer(RenderBuffer renderbuffer)
     {
-        m_useTmp = true;
         m_tmpDepthProvider.reset();
         m_tmpRenderbuffer = renderbuffer;
 
@@ -82,7 +77,7 @@ namespace processing
 
     void Graphics::noRenderBuffer()
     {
-        if (m_useTmp)
+        if (m_tmpRenderbuffer.has_value())
         {
             m_renderer->flush(); // Flush the offscreen layer
             m_renderer->beginDraw(RenderingDetails{
@@ -90,8 +85,6 @@ namespace processing
                 .renderbufferViewport = m_mainRenderBuffer.getViewport(),
                 .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y), MIN_DEPTH, MAX_DEPTH),
             });
-
-            m_useTmp = true;
         }
     }
 

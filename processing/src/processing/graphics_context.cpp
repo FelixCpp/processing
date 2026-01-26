@@ -4,7 +4,6 @@
 
 namespace processing
 {
-
     std::unique_ptr<GraphicsContext> createContext(Window& window)
     {
         if (WindowImplGLFW* impl = dynamic_cast<WindowImplGLFW*>(&window))

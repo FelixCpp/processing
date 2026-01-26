@@ -99,11 +99,9 @@ namespace processing
         MainRenderBuffer m_mainRenderBuffer;
 
         DepthProvider m_tmpDepthProvider;
-        RenderBuffer m_tmpRenderbuffer;
-        bool m_useTmp;
+        std::optional<RenderBuffer> m_tmpRenderbuffer;
 
         uint2 m_windowSize;
-        uint2 m_framebufferSize;
     };
 } // namespace processing
 

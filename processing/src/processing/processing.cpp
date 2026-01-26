@@ -242,7 +242,6 @@ void launch()
     }
 
     s_data.sketch->destroy();
-    s_data = {};
 }
 
 int main()

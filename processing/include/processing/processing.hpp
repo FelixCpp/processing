@@ -549,7 +549,6 @@ namespace processing
 
 namespace processing
 {
-
     struct RenderBufferData
     {
         virtual ~RenderBufferData() = default;
