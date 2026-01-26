@@ -157,6 +157,7 @@ namespace processing
     void shader(Shader shaderProgram) { s_data.graphics->shader(shaderProgram); }
     void noShader() { s_data.graphics->noShader(); }
 
+    void background(const Texture& texture) { s_data.graphics->background(texture); }
     void background(int red, int green, int blue, int alpha) { s_data.graphics->background(red, green, blue, alpha); }
     void background(int grey, int alpha) { s_data.graphics->background(grey, alpha); }
     void background(color_t color) { s_data.graphics->background(color); }

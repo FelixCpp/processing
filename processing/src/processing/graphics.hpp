@@ -47,6 +47,7 @@ namespace processing
         void shader(const Shader& shader);
         void noShader();
 
+        void background(const Texture& texture);
         void background(int red, int green, int blue, int alpha = 255);
         void background(int grey, int alpha = 255);
         void background(color_t color);

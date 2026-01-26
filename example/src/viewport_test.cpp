@@ -101,7 +101,9 @@ struct ViewportTestApp : Sketch
         lense.uploadUniform("u_OutlineWidth", 15.0f);
 
         shader(lense);
-        image(wallpaper, 0.0f, 0.0f, getViewport().width, getViewport().height);
+        background(wallpaper);
+
+        // image(wallpaper, 0.0f, 0.0f, getViewport().width, getViewport().height);
         noShader();
     }
 

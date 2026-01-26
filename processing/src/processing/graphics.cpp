@@ -180,6 +180,26 @@ namespace processing
         style.shaderResourceId = std::nullopt;
     }
 
+    void Graphics::background(const Texture& texture)
+    {
+        const RenderStyle& style = peekState();
+        const rect2f viewport = getViewport();
+        const Contour rect_contour = contour_image(
+            viewport.left, viewport.top, viewport.width, viewport.height,
+            0.0f, 0.0f, 1.0f, 1.0f
+        );
+
+        const Shape shape = shape_from_contour(rect_contour, matrix4x4_identity(), style.imageTint, getNextDepth());
+
+        submit({
+            .vertices = shape.vertices,
+            .indices = shape.indices,
+            .shaderResourceId = style.shaderResourceId,
+            .textureResourceId = texture.getResourceId(),
+            .blendMode = BlendMode::alpha,
+        });
+    }
+
     void Graphics::background(int red, int green, int blue, int alpha)
     {
         background(color(red, green, blue, alpha));
@@ -192,6 +212,7 @@ namespace processing
 
     void Graphics::background(color_t color)
     {
+        const RenderStyle& style = peekState();
         const rect2f viewport = getViewport();
         const Contour rect_contour = contour_quad_fill(
             viewport.left, viewport.top,
@@ -205,7 +226,7 @@ namespace processing
         submit({
             .vertices = shape.vertices,
             .indices = shape.indices,
-            .shaderResourceId = std::nullopt,
+            .shaderResourceId = style.shaderResourceId,
             .blendMode = BlendMode::alpha,
         });
     }
