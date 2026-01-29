@@ -21,7 +21,7 @@ namespace processing
         bool userRequestedRedraw;
 
         std::unique_ptr<ShaderAssetManager> shaderAssetManager;
-        std::unique_ptr<RenderTargetManager> renderBufferManager;
+        std::unique_ptr<RenderbufferManager> renderbufferManager;
         std::unique_ptr<TextureAssetManager> textureAssetManager;
 
         std::unique_ptr<Window> window;

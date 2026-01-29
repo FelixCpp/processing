@@ -1,42 +1,19 @@
-#ifndef _PROCESSING_INCLUDE_BATCH_RENDERER_HPP_
-#define _PROCESSING_INCLUDE_BATCH_RENDERER_HPP_
+#ifndef _PROCESSING_INCLUDE_DEFAULT_RENDERER_HPP_
+#define _PROCESSING_INCLUDE_DEFAULT_RENDERER_HPP_
 
 #include <processing/processing.hpp>
 #include <processing/shader.hpp>
 #include <processing/texture.hpp>
 
-#include <vector>
-
 #include <glad/gl.h>
 
 namespace processing
 {
-    struct BatchKey
-    {
-        ResourceId shaderResourceId;
-        ResourceId textureResourceId;
-        BlendMode blendMode;
-
-        bool operator==(const BatchKey& other) const;
-    };
-
-    struct BatchKeyHash
-    {
-        size_t operator()(const BatchKey& key) const;
-    };
-
-    struct Batch
-    {
-        BatchKey key;
-        size_t indexStart;
-        size_t indexCount;
-    };
-
-    class BatchRenderer : public Renderer
+    class DefaultRenderer : public Renderer
     {
     public:
-        static std::unique_ptr<Renderer> create(ShaderAssetManager& shaderHandleManager, TextureAssetManager& textureAssetManager);
-        ~BatchRenderer();
+        static std::unique_ptr<DefaultRenderer> create(ShaderAssetManager& shaderHandleManager, TextureAssetManager& textureAssetManager);
+        ~DefaultRenderer();
 
         void activate(const RenderingDetails& renderingDetails) override;
 
@@ -47,7 +24,7 @@ namespace processing
         void flush() override;
 
     private:
-        explicit BatchRenderer(
+        explicit DefaultRenderer(
             GLuint vertexArrayId,
             GLuint vertexBufferId,
             GLuint elementBufferId,
@@ -62,14 +39,8 @@ namespace processing
         GLuint m_elementBufferId;
         Shader m_defaultShaderProgram;
         Texture m_whiteTexture;
-
-        std::vector<Vertex> m_vertices;
-        std::vector<uint32_t> m_indices;
-
-        std::vector<Batch> m_batches;
-
         matrix4x4 m_projectionMatrix;
     };
 } // namespace processing
 
-#endif // _PROCESSING_INCLUDE_BATCH_RENDERER_HPP_
+#endif // _PROCESSING_INCLUDE_DEFAULT_RENDERER_HPP_

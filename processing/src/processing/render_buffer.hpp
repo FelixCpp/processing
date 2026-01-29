@@ -12,10 +12,10 @@
 
 namespace processing
 {
-    class MainRenderBuffer : public RenderBufferData
+    class MainRenderbuffer : public RenderbufferData
     {
     public:
-        explicit MainRenderBuffer(const rect2u& viewport);
+        explicit MainRenderbuffer(const rect2u& viewport);
 
         ResourceId getResourceId() const override;
 
@@ -26,16 +26,16 @@ namespace processing
         rect2u m_viewport;
     };
 
-    class RenderTargetManager
+    class RenderbufferManager
     {
     public:
-        RenderTargetManager();
+        RenderbufferManager();
 
-        RenderBuffer create(uint32_t width, uint32_t height, TextureAssetManager& textureAssetManager);
-        RenderBufferImpl& getAsset(AssetId assetId);
+        Renderbuffer create(uint32_t width, uint32_t height, TextureAssetManager& textureAssetManager);
+        RenderbufferImpl& getAsset(AssetId assetId);
 
     private:
-        std::unordered_map<size_t, std::shared_ptr<RenderBufferImpl>> m_assets;
+        std::unordered_map<size_t, std::shared_ptr<RenderbufferImpl>> m_assets;
         size_t m_nextAssetId;
     };
 } // namespace processing

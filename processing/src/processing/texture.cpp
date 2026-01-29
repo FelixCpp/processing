@@ -1,4 +1,3 @@
-#include "processing/batch_renderer.hpp"
 #include <processing/texture.hpp>
 
 #include <glad/gl.h>
@@ -12,10 +11,31 @@ namespace processing
     Texture::Texture()
     {
     }
+
     Texture::Texture(AssetId assetId, std::weak_ptr<TextureImpl> impl)
         : m_assetId(assetId),
           m_impl(impl)
     {
+    }
+
+    void Texture::setFilterMode(FilterMode mode)
+    {
+        m_impl.lock()->setFilterMode(mode);
+    }
+
+    FilterMode Texture::getFilterMode() const
+    {
+        return m_impl.lock()->getFilterMode();
+    }
+
+    void Texture::setExtendMode(ExtendMode mode)
+    {
+        m_impl.lock()->setExtendMode(mode);
+    }
+
+    ExtendMode Texture::getExtendMode() const
+    {
+        return m_impl.lock()->getExtendMode();
     }
 
     uint2 Texture::getSize() const
@@ -36,41 +56,110 @@ namespace processing
 
 namespace processing
 {
-    std::unique_ptr<TextureAsset> TextureAsset::create(const uint32_t width, const uint32_t height, const uint8_t* data)
+    class TextureAsset : public TextureImpl
     {
-        uint32_t id;
-        glGenTextures(1, &id);
-        glBindTexture(GL_TEXTURE_2D, id);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        glBindTexture(GL_TEXTURE_2D, 0);
+    public:
+        static std::unique_ptr<TextureAsset> create(const uint32_t width, const uint32_t height, const uint8_t* data)
+        {
+            uint32_t id;
+            glGenTextures(1, &id);
+            glBindTexture(GL_TEXTURE_2D, id);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            glBindTexture(GL_TEXTURE_2D, 0);
 
-        return std::unique_ptr<TextureAsset>(new TextureAsset(id, uint2{width, height}));
-    }
+            return std::unique_ptr<TextureAsset>(new TextureAsset(id, uint2{width, height}, FilterMode::linear, ExtendMode::clamp));
+        }
 
-    TextureAsset::~TextureAsset()
-    {
-        glDeleteTextures(1, &m_resourceId);
-    }
+        ~TextureAsset()
+        {
+            glDeleteTextures(1, &m_resourceId);
+        }
 
-    ResourceId TextureAsset::getResourceId() const
-    {
-        return ResourceId{.value = m_resourceId};
-    }
+        void setExtendMode(const ExtendMode mode)
+        {
+            if (m_extendMode != mode)
+            {
+                const auto convert = [](ExtendModeType type)
+                {
+                    switch (type)
+                    {
+                        case ExtendModeType::clamp:
+                            return GL_CLAMP_TO_EDGE;
+                        case ExtendModeType::repeat:
+                            return GL_REPEAT;
+                        case ExtendModeType::mirror:
+                            return GL_MIRRORED_REPEAT;
+                    }
+                };
 
-    uint2 TextureAsset::getSize() const
-    {
-        return m_size;
-    }
+                glBindTexture(GL_TEXTURE_2D, m_resourceId);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, convert(mode.s));
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, convert(mode.t));
+                m_extendMode = mode;
+            }
+        }
 
-    TextureAsset::TextureAsset(const uint32_t resourceId, const uint2 size)
-        : m_resourceId(resourceId),
-          m_size(size)
-    {
-    }
+        ExtendMode getExtendMode() const
+        {
+            return m_extendMode;
+        }
+
+        void setFilterMode(const FilterMode mode)
+        {
+            if (m_filterMode != mode)
+            {
+                const auto convert = [](FilterModeType type)
+                {
+                    switch (type)
+                    {
+                        case FilterModeType::nearest:
+                            return GL_NEAREST;
+                        case FilterModeType::linear:
+                            return GL_LINEAR;
+                    }
+                };
+
+                glBindTexture(GL_TEXTURE_2D, m_resourceId);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, convert(mode.mag));
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, convert(mode.min));
+                m_filterMode = mode;
+            }
+        }
+
+        FilterMode getFilterMode() const
+        {
+            return m_filterMode;
+        }
+
+        ResourceId getResourceId() const
+        {
+            return ResourceId{.value = m_resourceId};
+        }
+
+        uint2 getSize() const
+        {
+            return m_size;
+        }
+
+    private:
+        TextureAsset(const uint32_t resourceId, const uint2 size, const FilterMode filterMode, const ExtendMode extendMode)
+            : m_resourceId(resourceId),
+              m_size(size),
+              m_filterMode(filterMode),
+              m_extendMode(extendMode)
+        {
+        }
+
+        uint32_t m_resourceId;
+        uint2 m_size;
+        FilterMode m_filterMode;
+        ExtendMode m_extendMode;
+    };
+
 } // namespace processing
 
 namespace processing

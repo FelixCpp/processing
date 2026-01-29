@@ -10,6 +10,6 @@ add_subdirectory(
   ${CMAKE_CURRENT_BINARY_DIR}/processing/
 )
 
-add_executable(example src/matrix_test.cpp)
+add_executable(example src/renderer_test.cpp)
 
 target_link_libraries(example PRIVATE processing)

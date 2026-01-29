@@ -1,6 +1,6 @@
 #include <processing/graphics.hpp>
 #include <processing/shape_builder.hpp>
-#include <processing/batch_renderer.hpp>
+#include <processing/default_renderer.hpp>
 
 namespace processing
 {
@@ -8,13 +8,13 @@ namespace processing
     inline static constexpr float MAX_DEPTH = 1.0f;
     inline static constexpr float DEPTH_INCREMENT = (MAX_DEPTH - MIN_DEPTH) / 20'000.0f;
 
-    Graphics::Graphics(const uint2 size, ShaderAssetManager& shaderAssetManager, RenderTargetManager& renderTargetManager, TextureAssetManager& textureAssetManager)
-        : m_renderer(BatchRenderer::create(shaderAssetManager, textureAssetManager)),
+    Graphics::Graphics(const uint2 size, ShaderAssetManager& shaderAssetManager, RenderbufferManager& renderTargetManager, TextureAssetManager& textureAssetManager)
+        : m_renderer(DefaultRenderer::create(shaderAssetManager, textureAssetManager)),
           m_depthProvider(MIN_DEPTH, MAX_DEPTH, DEPTH_INCREMENT),
           m_renderTargetManager(&renderTargetManager),
           m_textureAssetManager(&textureAssetManager),
           m_renderStyles(render_style_stack_create()),
-          m_mainRenderBuffer(MainRenderBuffer(rect2u{0, 0, size.x, size.y})),
+          m_mainRenderbuffer(MainRenderbuffer(rect2u{0, 0, size.x, size.y})),
           m_tmpDepthProvider(DepthProvider(MIN_DEPTH, MAX_DEPTH, DEPTH_INCREMENT)),
           m_windowSize(size)
     {
@@ -24,7 +24,7 @@ namespace processing
     {
         if (event.type == Event::framebuffer_resized)
         {
-            m_mainRenderBuffer.setViewport(rect2u{0, 0, event.size.width, event.size.height});
+            m_mainRenderbuffer.setViewport(rect2u{0, 0, event.size.width, event.size.height});
         }
 
         if (event.type == Event::window_resized)
@@ -38,8 +38,8 @@ namespace processing
         m_tmpRenderbuffer.reset();
         m_depthProvider.reset();
         m_renderer->beginDraw(RenderingDetails{
-            .renderbufferResourceId = m_mainRenderBuffer.getResourceId(),
-            .renderbufferViewport = m_mainRenderBuffer.getViewport(),
+            .renderbufferResourceId = m_mainRenderbuffer.getResourceId(),
+            .renderbufferViewport = m_mainRenderbuffer.getViewport(),
             .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y), MIN_DEPTH, MAX_DEPTH),
         });
 
@@ -61,7 +61,7 @@ namespace processing
         return rect2f{0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y)};
     }
 
-    void Graphics::renderBuffer(RenderBuffer renderbuffer)
+    void Graphics::renderbuffer(Renderbuffer renderbuffer)
     {
         m_tmpDepthProvider.reset();
         m_tmpRenderbuffer = renderbuffer;
@@ -75,14 +75,14 @@ namespace processing
         });
     }
 
-    void Graphics::noRenderBuffer()
+    void Graphics::noRenderbuffer()
     {
         if (m_tmpRenderbuffer.has_value())
         {
             m_renderer->flush(); // Flush the offscreen layer
             m_renderer->beginDraw(RenderingDetails{
-                .renderbufferResourceId = m_mainRenderBuffer.getResourceId(),
-                .renderbufferViewport = m_mainRenderBuffer.getViewport(),
+                .renderbufferResourceId = m_mainRenderbuffer.getResourceId(),
+                .renderbufferViewport = m_mainRenderbuffer.getViewport(),
                 .projectionMatrix = matrix4x4_orthographic(0.0f, 0.0f, static_cast<float>(m_windowSize.x), static_cast<float>(m_windowSize.y), MIN_DEPTH, MAX_DEPTH),
             });
         }

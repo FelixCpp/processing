@@ -521,9 +521,58 @@ namespace processing
 
 namespace processing
 {
+    enum class ExtendModeType
+    {
+        clamp,
+        repeat,
+        mirror,
+    };
+
+    struct ExtendMode
+    {
+        ExtendModeType s;
+        ExtendModeType t;
+
+        constexpr bool operator==(const ExtendMode& other) const = default;
+        constexpr bool operator!=(const ExtendMode& other) const = default;
+
+        static const ExtendMode clamp;
+        static const ExtendMode repeat;
+        static const ExtendMode mirror;
+    };
+
+    inline constexpr ExtendMode ExtendMode::clamp = {.s = ExtendModeType::clamp, .t = ExtendModeType::clamp};
+    inline constexpr ExtendMode ExtendMode::repeat = {.s = ExtendModeType::repeat, .t = ExtendModeType::repeat};
+    inline constexpr ExtendMode ExtendMode::mirror = {.s = ExtendModeType::mirror, .t = ExtendModeType::mirror};
+
+    enum class FilterModeType
+    {
+        nearest,
+        linear,
+    };
+
+    struct FilterMode
+    {
+        FilterModeType min;
+        FilterModeType mag;
+
+        constexpr bool operator==(const FilterMode& other) const = default;
+        constexpr bool operator!=(const FilterMode& other) const = default;
+
+        static const FilterMode nearest;
+        static const FilterMode linear;
+    };
+
+    inline constexpr FilterMode FilterMode::nearest = {.min = FilterModeType::nearest, .mag = FilterModeType::nearest};
+    inline constexpr FilterMode FilterMode::linear = {.min = FilterModeType::linear, .mag = FilterModeType::linear};
+
     struct TextureImpl
     {
         virtual ~TextureImpl() = default;
+        virtual void setFilterMode(FilterMode mode) = 0;
+        virtual FilterMode getFilterMode() const = 0;
+        virtual void setExtendMode(ExtendMode mode) = 0;
+        virtual ExtendMode getExtendMode() const = 0;
         virtual uint2 getSize() const = 0;
         virtual ResourceId getResourceId() const = 0;
     };
@@ -533,6 +582,11 @@ namespace processing
     public:
         Texture();
         explicit Texture(AssetId assetId, std::weak_ptr<TextureImpl> impl);
+
+        void setFilterMode(FilterMode mode);
+        FilterMode getFilterMode() const;
+        void setExtendMode(ExtendMode mode);
+        ExtendMode getExtendMode() const;
 
         uint2 getSize() const;
         ResourceId getResourceId() const;
@@ -549,24 +603,24 @@ namespace processing
 
 namespace processing
 {
-    struct RenderBufferData
+    struct RenderbufferData
     {
-        virtual ~RenderBufferData() = default;
+        virtual ~RenderbufferData() = default;
         virtual ResourceId getResourceId() const = 0;
         virtual const rect2u& getViewport() const = 0;
     };
 
-    struct RenderBufferImpl : RenderBufferData
+    struct RenderbufferImpl : RenderbufferData
     {
-        virtual ~RenderBufferImpl() = default;
+        virtual ~RenderbufferImpl() = default;
         virtual const Texture& getTexture() const = 0;
     };
 
-    class RenderBuffer
+    class Renderbuffer
     {
     public:
-        RenderBuffer();
-        explicit RenderBuffer(AssetId assetId, std::weak_ptr<RenderBufferImpl> impl);
+        Renderbuffer();
+        explicit Renderbuffer(AssetId assetId, std::weak_ptr<RenderbufferImpl> impl);
 
         AssetId getAssetId() const;
 
@@ -576,10 +630,10 @@ namespace processing
 
     private:
         AssetId m_assetId;
-        std::weak_ptr<RenderBufferImpl> m_impl;
+        std::weak_ptr<RenderbufferImpl> m_impl;
     };
 
-    RenderBuffer createRenderBuffer(uint32_t width, uint32_t height);
+    Renderbuffer createRenderbuffer(uint32_t width, uint32_t height);
 } // namespace processing
 
 namespace processing
@@ -590,7 +644,7 @@ namespace processing
         std::span<const uint32_t> indices;
         std::optional<ResourceId> shaderResourceId;
         std::optional<ResourceId> textureResourceId;
-        std::optional<BlendMode> blendMode;
+        BlendMode blendMode;
     };
 
     struct RenderingDetails
@@ -651,7 +705,6 @@ namespace processing
     using ImageSourceMode = rect2f (*)(uint2, float, float, float, float);
     ImageSourceMode image_source_mode_ltwh_normalized();
     ImageSourceMode image_source_mode_ltwh_coordinates();
-
 } // namespace processing
 
 namespace processing
@@ -661,8 +714,8 @@ namespace processing
 
     rect2f getViewport();
 
-    void renderBuffer(RenderBuffer renderBuffer);
-    void noRenderBuffer();
+    void renderbuffer(Renderbuffer renderBuffer);
+    void noRenderbuffer();
 
     void strokeJoin(StrokeJoin strokeJoin);
     void strokeCap(StrokeCap strokeCap);

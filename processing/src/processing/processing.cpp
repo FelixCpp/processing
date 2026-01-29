@@ -1,4 +1,3 @@
-#include <processing/batch_renderer.hpp>
 #include <processing/processing.hpp>
 #include <processing/processing_data.hpp>
 #include <processing/render_targets.hpp>
@@ -139,8 +138,8 @@ namespace processing
     void popState() { s_data.graphics->popState(); }
 
     rect2f getViewport() { return rect2f{ s_data.graphics->getViewport() }; }
-    void renderBuffer(RenderBuffer renderBuffer) { s_data.graphics->renderBuffer(renderBuffer); }
-    void noRenderBuffer() { s_data.graphics->noRenderBuffer(); }
+    void renderbuffer(Renderbuffer renderBuffer) { s_data.graphics->renderbuffer(renderBuffer); }
+    void noRenderbuffer() { s_data.graphics->noRenderbuffer(); }
 
     void strokeJoin(StrokeJoin strokeJoin) { s_data.graphics->strokeJoin(strokeJoin); }
     void strokeCap(StrokeCap strokeCap) { s_data.graphics->strokeCap(strokeCap); }
@@ -194,7 +193,7 @@ namespace processing
     void image(const Texture &texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2) { s_data.graphics->image(texture, x1, y1, x2, y2, sx1, sy1, sx2, sy2); }
 
     Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId) { return s_data.shaderAssetManager->loadShader(vertexShaderSource, fragmentShaderId); }
-    RenderBuffer createRenderBuffer(const uint32_t width, const uint32_t height) { return s_data.renderBufferManager->create(width, height, *s_data.textureAssetManager); }
+    Renderbuffer createRenderbuffer(const uint32_t width, const uint32_t height) { return s_data.renderbufferManager->create(width, height, *s_data.textureAssetManager); }
     Texture loadTexture(const std::filesystem::path& filepath) { return s_data.textureAssetManager->load(filepath); }
     Texture createTexture(const uint32_t width, const uint32_t height, const uint8_t* data) { return s_data.textureAssetManager->create(width, height, data); }
     // clang-format on
@@ -203,12 +202,12 @@ namespace processing
 void launch()
 {
     s_data.shaderAssetManager = std::make_unique<ShaderAssetManager>();
-    s_data.renderBufferManager = std::make_unique<RenderTargetManager>();
+    s_data.renderbufferManager = std::make_unique<RenderbufferManager>();
     s_data.textureAssetManager = std::make_unique<TextureAssetManager>();
 
     s_data.window = createWindow(1280, 720, "Processing");
     s_data.context = createContext(*s_data.window);
-    s_data.graphics = std::make_unique<Graphics>(uint2{1280, 720}, *s_data.shaderAssetManager, *s_data.renderBufferManager, *s_data.textureAssetManager);
+    s_data.graphics = std::make_unique<Graphics>(uint2{1280, 720}, *s_data.shaderAssetManager, *s_data.renderbufferManager, *s_data.textureAssetManager);
     s_data.sketch = createSketch();
 
     s_data.sketch->setup();

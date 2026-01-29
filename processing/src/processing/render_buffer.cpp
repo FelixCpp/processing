@@ -3,22 +3,22 @@
 
 namespace processing
 {
-    MainRenderBuffer::MainRenderBuffer(const rect2u& viewport)
+    MainRenderbuffer::MainRenderbuffer(const rect2u& viewport)
         : m_viewport(viewport)
     {
     }
 
-    void MainRenderBuffer::setViewport(const rect2u& viewport)
+    void MainRenderbuffer::setViewport(const rect2u& viewport)
     {
         m_viewport = viewport;
     }
 
-    const rect2u& MainRenderBuffer::getViewport() const
+    const rect2u& MainRenderbuffer::getViewport() const
     {
         return m_viewport;
     }
 
-    ResourceId MainRenderBuffer::getResourceId() const
+    ResourceId MainRenderbuffer::getResourceId() const
     {
         return ResourceId{.value = 0};
     }
@@ -26,32 +26,32 @@ namespace processing
 
 namespace processing
 {
-    RenderBuffer::RenderBuffer()
+    Renderbuffer::Renderbuffer()
     {
     }
 
-    RenderBuffer::RenderBuffer(const AssetId assetId, std::weak_ptr<RenderBufferImpl> impl)
+    Renderbuffer::Renderbuffer(const AssetId assetId, std::weak_ptr<RenderbufferImpl> impl)
         : m_assetId(assetId),
           m_impl(impl)
     {
     }
 
-    AssetId RenderBuffer::getAssetId() const
+    AssetId Renderbuffer::getAssetId() const
     {
         return m_assetId;
     }
 
-    ResourceId RenderBuffer::getResourceId() const
+    ResourceId Renderbuffer::getResourceId() const
     {
         return m_impl.lock()->getResourceId();
     }
 
-    const Texture& RenderBuffer::getTexture() const
+    const Texture& Renderbuffer::getTexture() const
     {
         return m_impl.lock()->getTexture();
     }
 
-    const rect2u& RenderBuffer::getViewport() const
+    const rect2u& Renderbuffer::getViewport() const
     {
         return m_impl.lock()->getViewport();
     }
@@ -59,10 +59,10 @@ namespace processing
 
 namespace processing
 {
-    class RenderBufferAsset : public RenderBufferImpl
+    class RenderbufferAsset : public RenderbufferImpl
     {
     public:
-        static std::unique_ptr<RenderBufferAsset> create(uint32_t width, uint32_t height, TextureAssetManager& textureAssetManager)
+        static std::unique_ptr<RenderbufferAsset> create(uint32_t width, uint32_t height, TextureAssetManager& textureAssetManager)
         {
             GLuint framebufferId = 0;
             glGenFramebuffers(1, &framebufferId);
@@ -91,7 +91,7 @@ namespace processing
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-            return std::unique_ptr<RenderBufferAsset>(new RenderBufferAsset(framebufferId, std::move(renderTexture), renderbufferId, uint2{width, height}));
+            return std::unique_ptr<RenderbufferAsset>(new RenderbufferAsset(framebufferId, std::move(renderTexture), renderbufferId, uint2{width, height}));
         }
 
         ResourceId getResourceId() const override
@@ -110,7 +110,7 @@ namespace processing
         }
 
     private:
-        explicit RenderBufferAsset(GLuint framebufferId, Texture renderTexture, GLuint renderbufferId, uint2 size)
+        explicit RenderbufferAsset(GLuint framebufferId, Texture renderTexture, GLuint renderbufferId, uint2 size)
             : m_framebufferId(framebufferId),
               m_renderbufferId(renderbufferId),
               m_renderTexture(std::move(renderTexture)),
@@ -127,24 +127,24 @@ namespace processing
 
 namespace processing
 {
-    RenderTargetManager::RenderTargetManager()
+    RenderbufferManager::RenderbufferManager()
         : m_nextAssetId(1)
     {
     }
 
-    RenderBuffer RenderTargetManager::create(const uint32_t width, const uint32_t height, TextureAssetManager& textureAssetManager)
+    Renderbuffer RenderbufferManager::create(const uint32_t width, const uint32_t height, TextureAssetManager& textureAssetManager)
     {
-        if (auto renderbuffer = RenderBufferAsset::create(width, height, textureAssetManager))
+        if (auto renderbuffer = RenderbufferAsset::create(width, height, textureAssetManager))
         {
             const auto insertion = m_assets.insert(std::make_pair(m_nextAssetId++, std::move(renderbuffer)));
-            return RenderBuffer(AssetId{.value = insertion.first->first}, insertion.first->second);
+            return Renderbuffer(AssetId{.value = insertion.first->first}, insertion.first->second);
         }
 
         error("Failed to create offscreen render buffer resource");
-        return RenderBuffer();
+        return Renderbuffer();
     }
 
-    RenderBufferImpl& RenderTargetManager::getAsset(AssetId assetId)
+    RenderbufferImpl& RenderbufferManager::getAsset(AssetId assetId)
     {
         if (const auto itr = m_assets.find(assetId.value); itr != m_assets.end())
         {

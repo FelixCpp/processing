@@ -366,13 +366,6 @@ namespace processing
                 {sourceRight, sourceTop},
                 {sourceLeft, sourceTop},
             };
-
-            // contour.texcoords = {
-            // {sourceLeft, sourceTop},
-            // {sourceRight, sourceTop},
-            // {sourceRight, sourceBottom},
-            // {sourceLeft, sourceBottom},
-            // };
         }
 
         contour.indices = {0, 1, 2, 2, 3, 0};

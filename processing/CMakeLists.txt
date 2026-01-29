@@ -14,7 +14,7 @@ add_subdirectory(../external/glad ${CMAKE_BINARY_DIR}/glad)
 add_subdirectory(../external/stb/ ${CMAKE_BINARY_DIR}/stb)
 
 add_library(processing STATIC
-    src/processing/batch_renderer.cpp
+    src/processing/default_renderer.cpp
     src/processing/depth_provider.cpp
     src/processing/glfw_graphics_context.cpp
     src/processing/glfw_window.cpp

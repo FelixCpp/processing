@@ -16,7 +16,7 @@ namespace processing
     class Graphics
     {
     public:
-        explicit Graphics(uint2 size, ShaderAssetManager& shaderAssetManager, RenderTargetManager& renderTargetManager, TextureAssetManager& textureAssetManager);
+        explicit Graphics(uint2 size, ShaderAssetManager& shaderAssetManager, RenderbufferManager& renderTargetManager, TextureAssetManager& textureAssetManager);
 
         void event(const Event& event);
 
@@ -24,8 +24,8 @@ namespace processing
         void endDraw();
         rect2f getViewport() const;
 
-        void renderBuffer(RenderBuffer renderBuffer);
-        void noRenderBuffer();
+        void renderbuffer(Renderbuffer renderBuffer);
+        void noRenderbuffer();
 
         void strokeJoin(StrokeJoin strokeJoin);
         void strokeCap(StrokeCap strokeCap);
@@ -87,19 +87,17 @@ namespace processing
         float getNextDepth();
         void submit(const RenderingSubmission& submission);
 
-        DepthProvider& getActiveDepthProvider();
-
         std::unique_ptr<Renderer> m_renderer;
-        RenderTargetManager* m_renderTargetManager;
+        RenderbufferManager* m_renderTargetManager;
         TextureAssetManager* m_textureAssetManager;
         RenderStyleStack m_renderStyles;
 
         // Core-Layer
         DepthProvider m_depthProvider;
-        MainRenderBuffer m_mainRenderBuffer;
+        MainRenderbuffer m_mainRenderbuffer;
 
         DepthProvider m_tmpDepthProvider;
-        std::optional<RenderBuffer> m_tmpRenderbuffer;
+        std::optional<Renderbuffer> m_tmpRenderbuffer;
 
         uint2 m_windowSize;
     };

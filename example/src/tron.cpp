@@ -88,7 +88,7 @@ inline static constexpr const char* FRAGMENT_SHADER = R"(
         if (t[0]>color[0]) color[0]=t[0];
         if (t[1]>color[1]) color[1]=t[1];
         if (t[2]>color[2]) color[2]=t[2];
-        o_Color=color * v_Color;
+        o_Color=color;
     }
 )";
 
@@ -98,7 +98,7 @@ struct TronGame : Sketch
     Player p2 = Player(color(255, 0, 255));
 
     Texture backgroundImage = loadTexture("images/background.jpg");
-    RenderBuffer offscreen = createRenderBuffer(WIDTH, HEIGHT);
+    Renderbuffer offscreen = createRenderbuffer(WIDTH, HEIGHT);
     Shader playerShader = loadShader(VERTEX_SHADER, FRAGMENT_SHADER);
 
     int field[HEIGHT][WIDTH] = {};
@@ -112,7 +112,7 @@ struct TronGame : Sketch
 
         renderBuffer(offscreen);
         background(backgroundImage);
-        noRenderBuffer();
+        noRenderbuffer();
 
         playerShader.uploadUniform("frag_ScreenResolution", WIDTH, HEIGHT);
         playerShader.uploadUniform("frag_LightAttenuation", 200.0f);
@@ -161,7 +161,7 @@ struct TronGame : Sketch
             noStroke();
             fill(p1.color);
             circle(p1.x, p1.y, 3.0f);
-            noRenderBuffer();
+            noRenderbuffer();
 
             renderBuffer(offscreen);
             shader(playerShader);
@@ -169,13 +169,13 @@ struct TronGame : Sketch
             playerShader.uploadUniform("frag_LightColor", red(p1.color), green(p1.color), blue(p1.color));
             image(offscreen.getTexture(), 0.0f, 0.0f);
             noShader();
-            noRenderBuffer();
+            noRenderbuffer();
 
             renderBuffer(offscreen);
             noStroke();
             fill(p2.color);
             circle(p2.x, p2.y, 3.0f);
-            noRenderBuffer();
+            noRenderbuffer();
 
             renderBuffer(offscreen);
             shader(playerShader);
@@ -183,7 +183,7 @@ struct TronGame : Sketch
             playerShader.uploadUniform("frag_LightColor", red(p2.color), green(p2.color), blue(p2.color));
             image(offscreen.getTexture(), 0.0f, 0.0f);
             noShader();
-            noRenderBuffer();
+            noRenderbuffer();
 
             // playerShader.uploadUniform("frag_LightOrigin", p2.x, p2.y);
             // playerShader.uploadUniform("frag_LightColor", red(p2.color) / 255.0f, green(p2.color) / 255.0f, blue(p2.color) / 255.0f);

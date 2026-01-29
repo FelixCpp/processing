@@ -3,20 +3,20 @@ using namespace processing;
 
 struct RenderbufferTest : Sketch
 {
-    RenderBuffer offscreen = createRenderBuffer(200, 200);
+    Renderbuffer offscreen = createRenderbuffer(200, 200);
 
     void setup() override
     {
-        renderBuffer(offscreen);
+        renderbuffer(offscreen);
         background(255, 0, 0);
         rect(100.0f, 100.0f, 50.0f, 50.0f);
-        noRenderBuffer();
+        noRenderbuffer();
 
         for (int i = 0; i < 2; ++i)
         {
-            renderBuffer(offscreen);
+            renderbuffer(offscreen);
             image(offscreen.getTexture(), 100.0f, 100.0f, 50.0f, 50.0f);
-            noRenderBuffer();
+            noRenderbuffer();
         }
     }
 

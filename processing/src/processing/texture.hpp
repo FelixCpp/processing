@@ -9,21 +9,6 @@
 namespace processing
 {
 
-    class TextureAsset : public TextureImpl
-    {
-    public:
-        static std::unique_ptr<TextureAsset> create(uint32_t width, uint32_t height, const uint8_t* data);
-        ~TextureAsset();
-
-        ResourceId getResourceId() const override;
-        uint2 getSize() const override;
-
-    private:
-        explicit TextureAsset(uint32_t resourceId, uint2 size);
-        uint32_t m_resourceId;
-        uint2 m_size;
-    };
-
     class TextureAssetManager
     {
     public:
