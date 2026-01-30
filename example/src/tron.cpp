@@ -94,8 +94,8 @@ inline static constexpr const char* FRAGMENT_SHADER = R"(
 
 struct TronGame : Sketch
 {
-    Player p1 = Player(color(255, 255, 0));
-    Player p2 = Player(color(255, 0, 255));
+    Player p1 = Player(color(255, 0, 0));
+    Player p2 = Player(color(0, 255, 0));
 
     Texture backgroundImage = loadTexture("images/background.jpg");
     Renderbuffer offscreen = createRenderbuffer(WIDTH, HEIGHT);
@@ -110,12 +110,12 @@ struct TronGame : Sketch
         srand(time(nullptr));
         setWindowSize(WIDTH, HEIGHT);
 
-        renderBuffer(offscreen);
+        renderbuffer(offscreen);
         background(backgroundImage);
         noRenderbuffer();
 
         playerShader.uploadUniform("frag_ScreenResolution", WIDTH, HEIGHT);
-        playerShader.uploadUniform("frag_LightAttenuation", 200.0f);
+        playerShader.uploadUniform("frag_LightAttenuation", 100.0f);
     }
 
     void event(const Event& event) override
@@ -157,13 +157,13 @@ struct TronGame : Sketch
             field[p1.y][p1.x] = 1;
             field[p2.y][p2.x] = 1;
 
-            renderBuffer(offscreen);
+            renderbuffer(offscreen);
             noStroke();
             fill(p1.color);
             circle(p1.x, p1.y, 3.0f);
             noRenderbuffer();
 
-            renderBuffer(offscreen);
+            renderbuffer(offscreen);
             shader(playerShader);
             playerShader.uploadUniform("frag_LightOrigin", p1.x, p1.y);
             playerShader.uploadUniform("frag_LightColor", red(p1.color), green(p1.color), blue(p1.color));
@@ -171,28 +171,19 @@ struct TronGame : Sketch
             noShader();
             noRenderbuffer();
 
-            renderBuffer(offscreen);
+            renderbuffer(offscreen);
             noStroke();
             fill(p2.color);
             circle(p2.x, p2.y, 3.0f);
             noRenderbuffer();
 
-            renderBuffer(offscreen);
+            renderbuffer(offscreen);
             shader(playerShader);
             playerShader.uploadUniform("frag_LightOrigin", p2.x, p2.y);
             playerShader.uploadUniform("frag_LightColor", red(p2.color), green(p2.color), blue(p2.color));
             image(offscreen.getTexture(), 0.0f, 0.0f);
             noShader();
             noRenderbuffer();
-
-            // playerShader.uploadUniform("frag_LightOrigin", p2.x, p2.y);
-            // playerShader.uploadUniform("frag_LightColor", red(p2.color) / 255.0f, green(p2.color) / 255.0f, blue(p2.color) / 255.0f);
-            // renderBuffer(offscreen);
-            // shader(playerShader);
-            // fill(p2.color);
-            // circle(p2.x, p2.y, 3.0f);
-            // noShader();
-            // noRenderBuffer();
         }
 
         background(offscreen.getTexture());

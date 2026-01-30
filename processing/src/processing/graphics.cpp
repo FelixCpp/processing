@@ -484,6 +484,12 @@ namespace processing
         const RenderStyle& style = peekState();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = style.imageMode(x1, y1, x2, y2);
+        // const rect2f sourceRect = rect2f{
+        //     1.0f / 16.0f * 2.0f,
+        //     1.0f - 1.0f / 16.0f,
+        //     1.0f / 16.0f,
+        //     1.0f / 16.0f,
+        // };
         const rect2f sourceRect = style.imageSourceMode(texture.getSize(), sx1, sy1, sx2, sy2);
         const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, sourceRect.left, sourceRect.top, sourceRect.width, sourceRect.height);
         const Shape shape = shape_from_contour(contour, matrix, style.imageTint, getNextDepth());

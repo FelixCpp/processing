@@ -120,13 +120,17 @@ namespace processing
 
     ImageSourceMode image_source_mode_ltwh_coordinates()
     {
-        return [](uint2 size, float x1, float y1, float x2, float y2)
+        return [](uint2 size, float left, float top, float width, float height)
         {
-            const float sourceLeft = x1 / static_cast<float>(size.x);
-            const float sourceTop = y1 / static_cast<float>(size.y);
-            const float sourceWidth = x2 / static_cast<float>(size.x);
-            const float sourceHeight = y2 / static_cast<float>(size.y);
-            return rect2f(sourceLeft, sourceTop, sourceWidth, sourceHeight);
+            const float texW = static_cast<float>(size.x);
+            const float texH = static_cast<float>(size.y);
+
+            const float u = left / texW;
+            const float v = 1.0f - (top + height) / texH;
+            const float w = width / texW;
+            const float h = height / texH;
+
+            return rect2f{u, v, w, h};
         };
     }
 } // namespace processing
@@ -196,6 +200,7 @@ namespace processing
     Renderbuffer createRenderbuffer(const uint32_t width, const uint32_t height) { return s_data.renderbufferManager->create(width, height, *s_data.textureAssetManager); }
     Texture loadTexture(const std::filesystem::path& filepath) { return s_data.textureAssetManager->load(filepath); }
     Texture createTexture(const uint32_t width, const uint32_t height, const uint8_t* data) { return s_data.textureAssetManager->create(width, height, data); }
+    Texture copyTexture(const Texture &source, uint32_t left, uint32_t top, uint32_t width, uint32_t height) { return s_data.textureAssetManager->copy(source, left, top, width, height); }
     // clang-format on
 } // namespace processing
 

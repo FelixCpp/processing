@@ -15,6 +15,7 @@ namespace processing
         TextureAssetManager();
         Texture load(const std::filesystem::path& filepath);
         Texture create(uint32_t width, uint32_t height, const uint8_t* data);
+        Texture copy(const Texture& source, uint32_t left, uint32_t top, uint32_t width, uint32_t height);
 
         TextureImpl& getAsset(AssetId assetId);
 

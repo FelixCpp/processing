@@ -74,12 +74,12 @@ namespace processing
             return std::unique_ptr<TextureAsset>(new TextureAsset(id, uint2{width, height}, FilterMode::linear, ExtendMode::clamp));
         }
 
-        ~TextureAsset()
+        ~TextureAsset() override
         {
             glDeleteTextures(1, &m_resourceId);
         }
 
-        void setExtendMode(const ExtendMode mode)
+        void setExtendMode(const ExtendMode mode) override
         {
             if (m_extendMode != mode)
             {
@@ -103,12 +103,12 @@ namespace processing
             }
         }
 
-        ExtendMode getExtendMode() const
+        ExtendMode getExtendMode() const override
         {
             return m_extendMode;
         }
 
-        void setFilterMode(const FilterMode mode)
+        void setFilterMode(const FilterMode mode) override
         {
             if (m_filterMode != mode)
             {
@@ -130,19 +130,58 @@ namespace processing
             }
         }
 
-        FilterMode getFilterMode() const
+        FilterMode getFilterMode() const override
         {
             return m_filterMode;
         }
 
-        ResourceId getResourceId() const
+        ResourceId getResourceId() const override
         {
             return ResourceId{.value = m_resourceId};
         }
 
-        uint2 getSize() const
+        uint2 getSize() const override
         {
             return m_size;
+        }
+
+        std::unique_ptr<TextureImpl> copy(uint32_t left, uint32_t top, uint32_t width, uint32_t height) override
+        {
+            GLuint newTex = 0;
+            glGenTextures(1, &newTex);
+            glBindTexture(GL_TEXTURE_2D, newTex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, m_filterMode.min == FilterModeType::linear ? GL_LINEAR : GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, m_filterMode.mag == FilterModeType::linear ? GL_LINEAR : GL_NEAREST);
+
+            const auto convertExtend = [](ExtendModeType type)
+            {
+                switch (type)
+                {
+                    case ExtendModeType::clamp:
+                        return GL_CLAMP_TO_EDGE;
+                    case ExtendModeType::repeat:
+                        return GL_REPEAT;
+                    case ExtendModeType::mirror:
+                        return GL_MIRRORED_REPEAT;
+                }
+                return GL_CLAMP_TO_EDGE;
+            };
+
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, convertExtend(m_extendMode.s));
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, convertExtend(m_extendMode.t));
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+            GLuint fbo = 0;
+            glGenFramebuffers(1, &fbo);
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_resourceId, 0);
+            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, left, m_size.y - top - height, width, height);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDeleteFramebuffers(1, &fbo);
+            glBindTexture(GL_TEXTURE_2D, 0);
+
+            return std::unique_ptr<TextureImpl>(new TextureAsset(newTex, uint2{width, height}, m_filterMode, m_extendMode));
         }
 
     private:
@@ -188,6 +227,16 @@ namespace processing
     Texture TextureAssetManager::create(const uint32_t width, const uint32_t height, const uint8_t* data)
     {
         const auto insertion = m_assets.insert(std::make_pair(m_nextAssetId++, TextureAsset::create(width, height, data)));
+        const auto assetId = insertion.first->first;
+
+        return Texture(AssetId{assetId}, insertion.first->second);
+    }
+
+    Texture TextureAssetManager::copy(const Texture& source, const uint32_t left, const uint32_t top, const uint32_t width, const uint32_t height)
+    {
+        TextureImpl& impl = getAsset(source.getAssetId());
+        auto newTexture = impl.copy(left, top, width, height);
+        const auto insertion = m_assets.insert(std::make_pair(m_nextAssetId++, std::move(newTexture)));
         const auto assetId = insertion.first->first;
 
         return Texture(AssetId{assetId}, insertion.first->second);

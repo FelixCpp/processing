@@ -575,6 +575,7 @@ namespace processing
         virtual ExtendMode getExtendMode() const = 0;
         virtual uint2 getSize() const = 0;
         virtual ResourceId getResourceId() const = 0;
+        virtual std::unique_ptr<TextureImpl> copy(uint32_t left, uint32_t top, uint32_t width, uint32_t height) = 0;
     };
 
     class Texture
@@ -599,6 +600,7 @@ namespace processing
 
     Texture loadTexture(const std::filesystem::path& filepath);
     Texture createTexture(uint32_t width, uint32_t height, const uint8_t* data);
+    Texture copyTexture(const Texture& texture, uint32_t left, uint32_t top, uint32_t width, uint32_t height);
 } // namespace processing
 
 namespace processing
