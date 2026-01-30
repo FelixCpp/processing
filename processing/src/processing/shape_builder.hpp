@@ -21,10 +21,37 @@ namespace processing
         std::vector<uint32_t> indices;
     };
 
+    using Path = std::vector<float2>;
+
+    struct Radius
+    {
+        float x;
+        float y;
+    };
+
+    struct RoundedRectSpecification
+    {
+        rect2f boundary;
+        Radius topLeft;
+        Radius topRight;
+        Radius bottomRight;
+        Radius bottomLeft;
+    };
+
+    struct RoundedRectPath
+    {
+        RoundedRectSpecification specification;
+        Path path;
+    };
+
     Shape shape_from_contour(const Contour& contour, const matrix4x4& transform, color_t color, float depth);
 
     Contour contour_rect_fill(float left, float top, float width, float height);
     Contour contour_rect_stroke(float left, float top, float width, float height, float strokeWeight, StrokeJoin strokeJoin);
+
+    RoundedRectPath path_rounded_rect(const RoundedRectSpecification& roundedRect);
+    Contour contour_rounded_rect_fill(const RoundedRectPath& path);
+    Contour contour_rounded_rect_stroke(const Path& path, float strokeWeight, StrokeJoin strokeJoin);
 
     Contour contour_quad_fill(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4);
     Contour contour_quad_stroke(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float strokeWeight, StrokeJoin strokeJoin);

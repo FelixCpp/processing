@@ -761,6 +761,9 @@ namespace processing
     void ellipseMode(EllipseMode ellipseMode);
 
     void rect(float left, float top, float width, float height);
+    void rect(float left, float top, float width, float height, float cornerRadius);
+    void rect(float left, float top, float width, float height, float cornerRadiusTopLeft, float cornerRadiusTopRight, float cornerRadiusBottomRight, float cornerRadiusBottomLeft);
+    void rect(float left, float top, float width, float height, float cornerRadiusTopLeftX, float cornerRadiusTopLeftY, float cornerRadiusTopRightX, float cornerRadiusTopRightY, float cornerRadiusBottomRightX, float cornerRadiusBottomRightY, float cornerRadiusBottomLeftX, float cornerRadiusBottomLeftY);
     void square(float left, float top, float size);
     void ellipse(float centerX, float centerY, float radiusX, float radiusY);
     void circle(float centerX, float centerY, float radius);

@@ -56,6 +56,130 @@ namespace processing
 
 namespace processing
 {
+    RoundedRectPath path_rounded_rect(const RoundedRectSpecification& roundedRect)
+    {
+        constexpr size_t SEGMENTS = 8; // Qualität der Rundung
+
+        // auto [left, top, width, height, radiusTopLeftX, radiusTopLeftY, radiusTopRightX, radiusTopRightY, radiusBottomRightX, radiusBottomRightY, radiusBottomLeftX, radiusBottomLeftY] = specification;
+
+        const float right = roundedRect.boundary.right();
+        const float bottom = roundedRect.boundary.bottom();
+
+        const auto clamp_radius = [&](const Radius& radius)
+        {
+            const float x = std::max(0.0f, std::min(radius.x, roundedRect.boundary.width * 0.5f));
+            const float y = std::max(0.0f, std::min(radius.y, roundedRect.boundary.height * 0.5f));
+            return Radius{x, y};
+        };
+
+        const Radius topLeft = clamp_radius(roundedRect.topLeft);
+        const Radius topRight = clamp_radius(roundedRect.topRight);
+        const Radius bottomRight = clamp_radius(roundedRect.bottomRight);
+        const Radius bottomLeft = clamp_radius(roundedRect.bottomLeft);
+
+        const auto append_arc_or_corner = [&](std::vector<float2>& path, float cx, float cy, const Radius& radius, float cornerX, float cornerY, float startAngle, float endAngle)
+        {
+            if (radius.x <= 0.0f || radius.y <= 0.0f)
+            {
+                path.emplace_back(cornerX, cornerY);
+                return;
+            }
+
+            for (size_t i = 0; i <= SEGMENTS; ++i)
+            {
+                float t = static_cast<float>(i) / SEGMENTS;
+                float a = startAngle + (endAngle - startAngle) * t;
+
+                path.emplace_back(
+                    cx + std::cos(a) * radius.x,
+                    cy + std::sin(a) * radius.y
+                );
+            }
+        };
+
+        std::vector<float2> path;
+        path.reserve(SEGMENTS * 4 + 4);
+
+        append_arc_or_corner(
+            path,
+            roundedRect.boundary.left + topLeft.x,
+            roundedRect.boundary.top + topLeft.y,
+            topLeft,
+            roundedRect.boundary.left, roundedRect.boundary.top,
+            PI, PI * 1.5f
+        );
+
+        append_arc_or_corner(
+            path,
+            right - topRight.x,
+            roundedRect.boundary.top + topRight.y,
+            topRight,
+            right, roundedRect.boundary.top,
+            PI * 1.5f, PI * 2.0f
+        );
+
+        append_arc_or_corner(
+            path,
+            right - bottomRight.x,
+            bottom - bottomRight.y,
+            bottomRight,
+            right, bottom,
+            0.0f, PI * 0.5f
+        );
+
+        append_arc_or_corner(
+            path,
+            roundedRect.boundary.left + bottomLeft.x,
+            bottom - bottomLeft.y,
+            bottomLeft,
+            roundedRect.boundary.left, bottom,
+            PI * 0.5f, PI
+        );
+
+        return RoundedRectPath{.specification = roundedRect, .path = std::move(path)};
+    }
+
+    Contour contour_rounded_rect_fill(const RoundedRectPath& path)
+    {
+        const auto [roundedRect, positions] = path;
+        Contour c;
+
+        const float2 center = roundedRect.boundary.center();
+        c.positions.push_back(center);
+        c.texcoords.push_back({0.5f, 0.5f});
+
+        for (const float2& p : positions)
+        {
+            c.positions.push_back(p);
+            c.texcoords.push_back({(p.x - roundedRect.boundary.left) / roundedRect.boundary.width, (p.y - roundedRect.boundary.top) / roundedRect.boundary.height});
+        }
+
+        const size_t ringStart = 1;
+        const size_t ringCount = c.positions.size() - 1;
+        for (size_t i = 0; i < ringCount; ++i)
+        {
+            const size_t a = ringStart + i;
+            const size_t b = ringStart + (i + 1) % ringCount;
+            c.indices.push_back(0);
+            c.indices.push_back(static_cast<uint32_t>(a));
+            c.indices.push_back(static_cast<uint32_t>(b));
+        }
+
+        return c;
+    }
+
+    Contour contour_rounded_rect_stroke(const Path& path, const float strokeWeight, const StrokeJoin strokeJoin)
+    {
+        return contour_stroke_from_path(
+            path,
+            strokeWeight,
+            strokeJoin
+        );
+    }
+} // namespace processing
+
+namespace processing
+{
     static constexpr float4 float4_from_color(color_t color)
     {
         return float4{
@@ -366,13 +490,6 @@ namespace processing
                 {sourceRight, sourceTop},
                 {sourceLeft, sourceTop},
             };
-
-            // contour.texcoords = {
-            //     {sourceLeft, sourceTop},
-            //     {sourceRight, sourceTop},
-            //     {sourceRight, sourceBottom},
-            //     {sourceLeft, sourceBottom},
-            // };
         }
 
         contour.indices = {0, 1, 2, 2, 3, 0};

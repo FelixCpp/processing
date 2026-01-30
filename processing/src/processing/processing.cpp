@@ -186,6 +186,9 @@ namespace processing
     void ellipseMode(EllipseMode ellipseMode) { s_data.graphics->ellipseMode(ellipseMode);}
 
     void rect(float left, float top, float width, float height) { s_data.graphics->rect(left, top, width, height); }
+    void rect(float left, float top, float width, float height, float cornerRadius) { s_data.graphics->rect(left, top, width, height, cornerRadius); }
+    void rect(float left, float top, float width, float height, float cornerRadiusTopLeft, float cornerRadiusTopRight, float cornerRadiusBottomRight, float cornerRadiusBottomLeft) { s_data.graphics->rect(left, top, width, height, cornerRadiusTopLeft, cornerRadiusTopRight, cornerRadiusBottomRight, cornerRadiusBottomLeft); };
+    void rect(float left, float top, float width, float height, float cornerRadiusTopLeftX, float cornerRadiusTopLeftY, float cornerRadiusTopRightX, float cornerRadiusTopRightY, float cornerRadiusBottomRightX, float cornerRadiusBottomRightY, float cornerRadiusBottomLeftX, float cornerRadiusBottomLeftY) { s_data.graphics->rect(left, top, width, height, cornerRadiusTopLeftX, cornerRadiusTopLeftY, cornerRadiusTopRightX, cornerRadiusTopRightY, cornerRadiusBottomRightX, cornerRadiusBottomRightY, cornerRadiusBottomLeftX, cornerRadiusBottomLeftY); }
     void square(float left, float top, float size) { s_data.graphics->square(left, top, size); }
     void ellipse(float centerX, float centerY, float radiusX, float radiusY) { s_data.graphics->ellipse(centerX, centerY, radiusX, radiusY); }
     void circle(float centerX, float centerY, float radius) { s_data.graphics->circle(centerX, centerY, radius); }

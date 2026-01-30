@@ -350,6 +350,56 @@ namespace processing
         }
     }
 
+    void Graphics::rect(float left, float top, float width, float height, float cornerRadius)
+    {
+        rect(left, top, width, height, cornerRadius, cornerRadius, cornerRadius, cornerRadius);
+    }
+
+    void Graphics::rect(float left, float top, float width, float height, float cornerRadiusTopLeft, float cornerRadiusTopRight, float cornerRadiusBottomRight, float cornerRadiusBottomLeft)
+    {
+        rect(left, top, width, height, cornerRadiusTopLeft, cornerRadiusTopLeft, cornerRadiusTopRight, cornerRadiusTopRight, cornerRadiusBottomRight, cornerRadiusBottomRight, cornerRadiusBottomLeft, cornerRadiusBottomLeft);
+    }
+
+    void Graphics::rect(float left, float top, float width, float height, float cornerRadiusTopLeftX, float cornerRadiusTopLeftY, float cornerRadiusTopRightX, float cornerRadiusTopRightY, float cornerRadiusBottomRightX, float cornerRadiusBottomRightY, float cornerRadiusBottomLeftX, float cornerRadiusBottomLeftY)
+    {
+        const RenderStyle& style = peekState();
+        const matrix4x4& matrix = peekMatrix();
+        const rect2f boundary = style.rectMode(left, top, width, height);
+        const RoundedRectPath roundedRect = path_rounded_rect({
+            .boundary = {left, top, width, height},
+            .topLeft = {cornerRadiusTopLeftX, cornerRadiusTopLeftY},
+            .topRight = {cornerRadiusTopRightX, cornerRadiusTopRightY},
+            .bottomRight = {cornerRadiusBottomRightX, cornerRadiusBottomRightY},
+            .bottomLeft = {cornerRadiusBottomLeftX, cornerRadiusBottomLeftY},
+        });
+
+        if (style.isFillEnabled)
+        {
+            const Contour contour = contour_rounded_rect_fill(roundedRect);
+            const Shape shape = shape_from_contour(contour, matrix, style.fillColor, getNextDepth());
+
+            submit({
+                .vertices = shape.vertices,
+                .indices = shape.indices,
+                .shaderResourceId = style.shaderResourceId,
+                .blendMode = style.blendMode,
+            });
+        }
+
+        if (style.isStrokeEnabled)
+        {
+            const Contour contour = contour_rounded_rect_stroke(roundedRect.path, style.strokeWeight, style.strokeJoin);
+            const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
+
+            submit({
+                .vertices = shape.vertices,
+                .indices = shape.indices,
+                .shaderResourceId = style.shaderResourceId,
+                .blendMode = style.blendMode,
+            });
+        }
+    }
+
     void Graphics::square(float left, float top, float size)
     {
         rect(left, top, size, size);
@@ -484,12 +534,6 @@ namespace processing
         const RenderStyle& style = peekState();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = style.imageMode(x1, y1, x2, y2);
-        // const rect2f sourceRect = rect2f{
-        //     1.0f / 16.0f * 2.0f,
-        //     1.0f - 1.0f / 16.0f,
-        //     1.0f / 16.0f,
-        //     1.0f / 16.0f,
-        // };
         const rect2f sourceRect = style.imageSourceMode(texture.getSize(), sx1, sy1, sx2, sy2);
         const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, sourceRect.left, sourceRect.top, sourceRect.width, sourceRect.height);
         const Shape shape = shape_from_contour(contour, matrix, style.imageTint, getNextDepth());
