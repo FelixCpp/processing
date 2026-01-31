@@ -35,6 +35,16 @@ namespace processing
 
 namespace processing
 {
+    struct StrokeProperties
+    {
+        StrokeJoin strokeJoin;
+        float strokeWeight;
+        float miterLimit;
+    };
+} // namespace processing
+
+namespace processing
+{
     struct Shape
     {
         std::vector<Vertex> vertices;
@@ -54,7 +64,7 @@ namespace processing
 
     RectPath path_rect(const rect2f& boundary);
     Contour contour_rect_fill(const RectPath& path);
-    Contour contour_rect_stroke(const RectPath& path, float strokeWeight, StrokeJoin strokeJoin);
+    Contour contour_rect_stroke(const RectPath& path, const StrokeProperties& strokeProperties);
 } // namespace processing
 
 namespace processing
@@ -74,7 +84,7 @@ namespace processing
 
     EllipsePath path_ellipse(const EllipseSpecification& specification);
     Contour contour_ellipse_fill(const EllipsePath& path);
-    Contour contour_ellipse_stroke(const EllipsePath& path, float strokeWeight, StrokeJoin strokeJoin);
+    Contour contour_ellipse_stroke(const EllipsePath& path, const StrokeProperties& properties);
 } // namespace processing
 
 namespace processing
@@ -94,7 +104,7 @@ namespace processing
 
     TrianglePath path_triangle(const TriangleSpecification& specification);
     Contour contour_triangle_fill(const TrianglePath& path);
-    Contour contour_triangle_stroke(const TrianglePath& path, float strokeWeight, StrokeJoin strokeJoin);
+    Contour contour_triangle_stroke(const TrianglePath& path, const StrokeProperties& properties);
 } // namespace processing
 
 namespace processing
@@ -116,10 +126,10 @@ namespace processing
 
     RoundedRectPath path_rounded_rect(const RoundedRectSpecification& roundedRect);
     Contour contour_rounded_rect_fill(const RoundedRectPath& path);
-    Contour contour_rounded_rect_stroke(const RoundedRectPath& path, float strokeWeight, StrokeJoin strokeJoin);
+    Contour contour_rounded_rect_stroke(const RoundedRectPath& path, const StrokeProperties& properties);
 
     Contour contour_quad_fill(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4);
-    Contour contour_quad_stroke(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float strokeWeight, StrokeJoin strokeJoin);
+    Contour contour_quad_stroke(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, const StrokeProperties& properties);
 
     Contour contour_line(float x1, float y1, float x2, float y2, float strokeWeight, StrokeCap strokeCap);
     Contour contour_image(float left, float top, float width, float height, float sourceLeft, float sourceTop, float sourceWidth, float sourceHeight);

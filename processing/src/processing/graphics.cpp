@@ -4,6 +4,18 @@
 
 namespace processing
 {
+    constexpr StrokeProperties get_stroke_properties(const RenderStyle& style)
+    {
+        return {
+            .strokeJoin = style.strokeJoin,
+            .strokeWeight = style.strokeWeight,
+            .miterLimit = 4.0f,
+        };
+    }
+} // namespace processing
+
+namespace processing
+{
     inline static constexpr float MIN_DEPTH = -1.0f;
     inline static constexpr float MAX_DEPTH = 1.0f;
     inline static constexpr float DEPTH_INCREMENT = (MAX_DEPTH - MIN_DEPTH) / 20'000.0f;
@@ -340,7 +352,7 @@ namespace processing
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_rect_stroke(path, style.strokeWeight, style.strokeJoin);
+            const Contour contour = contour_rect_stroke(path, get_stroke_properties(style));
             const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
             submit({
@@ -390,7 +402,7 @@ namespace processing
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_rounded_rect_stroke(path, style.strokeWeight, style.strokeJoin);
+            const Contour contour = contour_rounded_rect_stroke(path, get_stroke_properties(style));
             const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
             submit({
@@ -435,7 +447,7 @@ namespace processing
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_ellipse_stroke(path, style.strokeWeight, style.strokeJoin);
+            const Contour contour = contour_ellipse_stroke(path, get_stroke_properties(style));
             const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
             submit({
@@ -493,7 +505,7 @@ namespace processing
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_triangle_stroke(path, style.strokeWeight, style.strokeJoin);
+            const Contour contour = contour_triangle_stroke(path, get_stroke_properties(style));
             const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
             submit({

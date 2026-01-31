@@ -16,6 +16,7 @@ namespace processing
 
         float2 bisector;
         float miterLength;
+        bool miterLimitExceeded;
     };
 
     constexpr float compute_signed_area(const std::vector<float2>& points)
@@ -32,7 +33,7 @@ namespace processing
         return area;
     }
 
-    StrokeSegment segment_between_points(const float2& previous, const float2& current, const float2& next, const float strokeWeight, const bool isClockwise)
+    StrokeSegment segment_between_points(const float2& previous, const float2& current, const float2& next, const float strokeWeight, const float miterLimit, const bool isClockwise)
     {
         const float2 dirPrev = value2_normalized(current - previous);
         const float2 dirNext = value2_normalized(next - current);
@@ -56,13 +57,14 @@ namespace processing
             dotProduct = (dotProduct >= 0.0f) ? epsilon : -epsilon;
         }
 
-        constexpr float miterLimit = 4.0f;
         const float maxMiterLength = halfStrokeWeight * miterLimit;
 
         float miterLength = halfStrokeWeight / dotProduct;
+        bool miterLimitExceeded = false;
         if (std::abs(miterLength) > maxMiterLength)
         {
             miterLength = maxMiterLength * (miterLength > 0 ? 1.0f : -1.0f);
+            miterLimitExceeded = true;
         }
 
         const float2 outerIntersection = current + bisector * miterLength;
@@ -76,10 +78,11 @@ namespace processing
             .nextOuter = nextOuter,
             .bisector = bisector,
             .miterLength = miterLength,
+            .miterLimitExceeded = miterLimitExceeded,
         };
     }
 
-    static std::vector<StrokeSegment> compute_stroke_segments(const std::vector<float2>& points, const float strokeWeight)
+    static std::vector<StrokeSegment> compute_stroke_segments(const std::vector<float2>& points, const float strokeWeight, const float miterLimit)
     {
         std::vector<StrokeSegment> segments;
         segments.reserve(points.size());
@@ -96,20 +99,20 @@ namespace processing
             const float2& nextPt = points[nextIdx];
             const float2& currPt = points[currIdx];
 
-            segments.push_back(segment_between_points(prevPt, currPt, nextPt, strokeWeight, isClockwise));
+            segments.push_back(segment_between_points(prevPt, currPt, nextPt, strokeWeight, miterLimit, isClockwise));
         }
 
         return segments;
     }
 
-    static Contour contour_stroke_from_path(const std::vector<float2>& points, const float strokeWeight, const StrokeJoin strokeJoin)
+    static Contour contour_stroke_from_path(const std::vector<float2>& points, const StrokeProperties& properties)
     {
         if (points.size() < 3)
         {
             return {};
         }
 
-        const std::vector<StrokeSegment> segments = compute_stroke_segments(points, strokeWeight);
+        const std::vector<StrokeSegment> segments = compute_stroke_segments(points, properties.strokeWeight, properties.miterLimit);
         std::vector<float2> positions;
         std::vector<float2> texcoords;
         std::vector<uint32_t> indices;
@@ -141,7 +144,11 @@ namespace processing
                 indices.push_back(idxStart + 0);
             }
 
-            switch (strokeJoin)
+            StrokeJoin join = properties.strokeJoin;
+            if (join == StrokeJoin::miter && curr.miterLimitExceeded)
+                join = StrokeJoin::bevel;
+
+            switch (join)
             {
                 case StrokeJoin::miter:
                 {
@@ -187,7 +194,7 @@ namespace processing
                         sweepAngle += TAU;
                     const size_t numSegments = 8;
                     const float angleStepSize = sweepAngle / static_cast<float>(numSegments);
-                    const float radius = strokeWeight * 0.5f;
+                    const float radius = properties.strokeWeight * 0.5f;
 
                     const size_t idxStart = positions.size();
                     positions.push_back(center);
@@ -304,9 +311,9 @@ namespace processing
         };
     }
 
-    Contour contour_rect_stroke(const RectPath& path, float strokeWeight, StrokeJoin strokeJoin)
+    Contour contour_rect_stroke(const RectPath& path, const StrokeProperties& properties)
     {
-        return contour_stroke_from_path(path.points, strokeWeight, strokeJoin);
+        return contour_stroke_from_path(path.points, properties);
     }
 } // namespace processing
 
@@ -373,9 +380,9 @@ namespace processing
         return c;
     }
 
-    Contour contour_ellipse_stroke(const EllipsePath& path, float strokeWeight, StrokeJoin strokeJoin)
+    Contour contour_ellipse_stroke(const EllipsePath& path, const StrokeProperties& properties)
     {
-        return contour_stroke_from_path(path.points, strokeWeight, strokeJoin);
+        return contour_stroke_from_path(path.points, properties);
     }
 } // namespace processing
 
@@ -428,13 +435,9 @@ namespace processing
         return c;
     }
 
-    Contour contour_triangle_stroke(const TrianglePath& path, float strokeWeight, StrokeJoin strokeJoin)
+    Contour contour_triangle_stroke(const TrianglePath& path, const StrokeProperties& properties)
     {
-        return contour_stroke_from_path(
-            path.points,
-            strokeWeight,
-            strokeJoin
-        );
+        return contour_stroke_from_path(path.points, properties);
     }
 } // namespace processing
 
@@ -556,13 +559,9 @@ namespace processing
         return c;
     }
 
-    Contour contour_rounded_rect_stroke(const RoundedRectPath& path, const float strokeWeight, const StrokeJoin strokeJoin)
+    Contour contour_rounded_rect_stroke(const RoundedRectPath& path, const StrokeProperties& properties)
     {
-        return contour_stroke_from_path(
-            path.points,
-            strokeWeight,
-            strokeJoin
-        );
+        return contour_stroke_from_path(path.points, properties);
     }
 } // namespace processing
 
@@ -587,7 +586,7 @@ namespace processing
         };
     }
 
-    Contour contour_quad_stroke(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float strokeWeight, StrokeJoin strokeJoin)
+    Contour contour_quad_stroke(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, const StrokeProperties& properties)
     {
         const std::vector<float2> positions = {
             {x1, y1},
@@ -596,7 +595,7 @@ namespace processing
             {x4, y4},
         };
 
-        return contour_stroke_from_path(positions, strokeWeight, strokeJoin);
+        return contour_stroke_from_path(positions, properties);
     }
 
     inline float2 value2_rotated(float2 v, float angle)
