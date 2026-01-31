@@ -323,9 +323,11 @@ namespace processing
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = style.rectMode(x1, y1, x2, y2);
 
+        const RectPath path = path_rect(boundary);
+
         if (style.isFillEnabled)
         {
-            const Contour contour = contour_rect_fill(boundary.left, boundary.top, boundary.width, boundary.height);
+            const Contour contour = contour_rect_fill(path);
             const Shape shape = shape_from_contour(contour, matrix, style.fillColor, getNextDepth());
 
             submit({
@@ -338,7 +340,7 @@ namespace processing
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_rect_stroke(boundary.left, boundary.top, boundary.width, boundary.height, style.strokeWeight, style.strokeJoin);
+            const Contour contour = contour_rect_stroke(path, style.strokeWeight, style.strokeJoin);
             const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
             submit({
@@ -365,7 +367,7 @@ namespace processing
         const RenderStyle& style = peekState();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = style.rectMode(left, top, width, height);
-        const RoundedRectPath roundedRect = path_rounded_rect({
+        const RoundedRectPath path = path_rounded_rect({
             .boundary = {left, top, width, height},
             .topLeft = {cornerRadiusTopLeftX, cornerRadiusTopLeftY},
             .topRight = {cornerRadiusTopRightX, cornerRadiusTopRightY},
@@ -375,7 +377,7 @@ namespace processing
 
         if (style.isFillEnabled)
         {
-            const Contour contour = contour_rounded_rect_fill(roundedRect);
+            const Contour contour = contour_rounded_rect_fill(path);
             const Shape shape = shape_from_contour(contour, matrix, style.fillColor, getNextDepth());
 
             submit({
@@ -388,7 +390,7 @@ namespace processing
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_rounded_rect_stroke(roundedRect.path, style.strokeWeight, style.strokeJoin);
+            const Contour contour = contour_rounded_rect_stroke(path, style.strokeWeight, style.strokeJoin);
             const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
             submit({
@@ -412,9 +414,15 @@ namespace processing
         const rect2f boundary = style.ellipseMode(x1, y1, x2, y2);
         const float2 center = boundary.center();
 
+        const EllipsePath path = path_ellipse({
+            .center = boundary.center(),
+            .radius = Radius::elliptical(boundary.width * 0.5f, boundary.height * 0.5f),
+            .segments = 32,
+        });
+
         if (style.isFillEnabled)
         {
-            const Contour contour = contour_ellipse_fill(center.x, center.y, boundary.width * 0.5f, boundary.height * 0.5f, 32);
+            const Contour contour = contour_ellipse_fill(path);
             const Shape shape = shape_from_contour(contour, matrix, style.fillColor, getNextDepth());
 
             submit({
@@ -427,7 +435,7 @@ namespace processing
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_ellipse_stroke(center.x, center.y, boundary.width * 0.5f, boundary.height * 0.5f, style.strokeWeight, 32, style.strokeJoin);
+            const Contour contour = contour_ellipse_stroke(path, style.strokeWeight, style.strokeJoin);
             const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
             submit({
@@ -464,9 +472,15 @@ namespace processing
         const RenderStyle& style = peekState();
         const matrix4x4& matrix = peekMatrix();
 
+        const TrianglePath path = path_triangle({
+            .a = float2{x1, y1},
+            .b = float2{x2, y2},
+            .c = float2{x3, y3},
+        });
+
         if (style.isFillEnabled)
         {
-            const Contour contour = contour_triangle_fill(x1, y1, x2, y2, x3, y3);
+            const Contour contour = contour_triangle_fill(path);
             const Shape shape = shape_from_contour(contour, matrix, style.fillColor, getNextDepth());
 
             submit({
@@ -479,7 +493,7 @@ namespace processing
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_triangle_stroke(x1, y1, x2, y2, x3, y3, style.strokeWeight, style.strokeJoin);
+            const Contour contour = contour_triangle_stroke(path, style.strokeWeight, style.strokeJoin);
             const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
             submit({
@@ -495,7 +509,13 @@ namespace processing
     {
         const RenderStyle& style = peekState();
         const matrix4x4& matrix = peekMatrix();
-        const Contour contour = contour_ellipse_fill(x, y, style.strokeWeight, style.strokeWeight, 16);
+        const EllipsePath path = path_ellipse({
+            .center = float2(x, y),
+            .radius = Radius::circular(style.strokeWeight),
+            .segments = 16,
+        });
+
+        const Contour contour = contour_ellipse_fill(path);
         const Shape shape = shape_from_contour(contour, matrix, style.strokeColor, getNextDepth());
 
         submit({

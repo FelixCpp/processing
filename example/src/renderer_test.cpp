@@ -17,8 +17,12 @@ struct RendererTest : Sketch
 
         background(0);
         noFill();
-        strokeWeight(15.0f);
-        rect(100.0f, 100.0f, 300.0f, 300.0f, 60.0f);
+        stroke(255);
+        strokeWeight(35.0f);
+        strokeJoin(StrokeJoin::miter);
+        // rect(100.0f, 100.0f, 400.0f, 400.0f);
+        // circle(300.0f, 300.0f, 200.0f);
+        triangle(200.0f, 200.0f, getMousePosition().x, getMousePosition().y, 400.0f, 300.0f);
     }
 
     void destroy() override

@@ -61,10 +61,13 @@ namespace processing
     template <typename T> T value2_length(const value2<T>& value);
     template <typename T> constexpr T value2_length_squared(const value2<T>& value);
     template <typename T> constexpr T value2_dot(const value2<T>& lhs, const value2<T>& rhs);
-    template <typename T> constexpr value2<T> value2_perpendicular(const value2<T>& value);
+    template <typename T> constexpr T value2_cross(const value2<T>& lhs, const value2<T>& rhs);
+    template <typename T> constexpr value2<T> value2_perpendicular_cw(const value2<T>& value);
+    template <typename T> constexpr value2<T> value2_perpendicular_ccw(const value2<T>& value);
     template <typename T> value2<T> value2_normalized(const value2<T>& value);
     template <typename T> void value2_normalize(value2<T>& value);
 
+    template <typename T> constexpr value2<T> operator-(const value2<T>& rhs);
     template <typename T> constexpr value2<T> operator+(const value2<T>& lhs, const value2<T>& rhs);
     template <typename T> constexpr value2<T> operator-(const value2<T>& lhs, const value2<T>& rhs);
     template <typename T> constexpr value2<T> operator*(const value2<T>& lhs, const value2<T>& rhs);
@@ -803,15 +806,27 @@ namespace processing
     }
 
     template <typename T>
+    constexpr T value2_cross(const value2<T>& lhs, const value2<T>& rhs)
+    {
+        return lhs.x * rhs.y - lhs.y * rhs.x;
+    }
+
+    template <typename T>
     constexpr T value2_length_squared(const value2<T>& value)
     {
         return value.x * value.x + value.y * value.y;
     }
 
     template <typename T>
-    constexpr value2<T> value2_perpendicular(const value2<T>& value)
+    constexpr value2<T> value2_perpendicular_cw(const value2<T>& value)
     {
         return { value.y, -value.x };
+    }
+
+    template <typename T>
+    constexpr value2<T> value2_perpendicular_ccw(const value2<T>& value)
+    {
+        return { -value.y, value.x };
     }
 
     template <typename T>
@@ -830,6 +845,7 @@ namespace processing
         return value = value2_normalized(value);
     }
 
+    template <typename T> constexpr value2<T> operator-(const value2<T>& rhs) { return { -rhs.x, -rhs.y }; }
     template <typename T> constexpr value2<T> operator+(const value2<T>& lhs, const value2<T>& rhs) { return { lhs.x + rhs.x, lhs.y + rhs.y }; }
     template <typename T> constexpr value2<T> operator-(const value2<T>& lhs, const value2<T>& rhs) { return { lhs.x - rhs.x, lhs.y - rhs.y }; }
     template <typename T> constexpr value2<T> operator*(const value2<T>& lhs, const value2<T>& rhs) { return { lhs.x * rhs.x, lhs.y * rhs.y }; }
