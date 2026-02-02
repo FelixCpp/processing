@@ -8,7 +8,6 @@
 
 namespace processing
 {
-
     class TextureAssetManager
     {
     public:

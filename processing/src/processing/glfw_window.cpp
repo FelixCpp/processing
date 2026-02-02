@@ -159,6 +159,8 @@ namespace processing
                 error("Could not initialize GLFW");
                 return nullptr;
             }
+
+            ++s_windowCount;
         }
 
         GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();

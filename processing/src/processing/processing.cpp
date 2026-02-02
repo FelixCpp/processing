@@ -172,7 +172,7 @@ namespace processing
 
     void stroke(int red, int green, int blue, int alpha) { s_data.graphics->stroke(red, green, blue, alpha); }
     void stroke(int grey, int alpha) { s_data.graphics->stroke(grey, alpha); }
-    void strkoe(color_t color) { s_data.graphics->stroke(color); }
+    void stroke(color_t color) { s_data.graphics->stroke(color); }
     void noStroke() { s_data.graphics->noStroke(); }
 
     void imageMode(RectMode imageMode) { s_data.graphics->imageMode(imageMode); }
@@ -218,7 +218,9 @@ void launch()
     s_data.graphics = std::make_unique<Graphics>(uint2{1280, 720}, *s_data.shaderAssetManager, *s_data.renderbufferManager, *s_data.textureAssetManager);
     s_data.sketch = createSketch();
 
+    s_data.graphics->beginDraw();
     s_data.sketch->setup();
+    s_data.graphics->endDraw();
 
     while (not s_data.shouldAppClose)
     {
@@ -227,6 +229,18 @@ void launch()
             if (event->type == Event::closed)
             {
                 close();
+            }
+
+            if (event->type == Event::key_released)
+            {
+                if (event->key.code == KeyCode::f5)
+                {
+                    restart();
+                }
+                if (event->key.code == KeyCode::escape)
+                {
+                    close();
+                }
             }
 
             s_data.graphics->event(*event);
@@ -255,7 +269,7 @@ int main()
 {
     do
     {
-        std::memset((void*)&s_data, 0, sizeof(ProcessingData));
+        s_data = {};
         launch();
     } while (s_data.shouldRestart);
 

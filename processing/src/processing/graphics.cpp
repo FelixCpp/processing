@@ -523,7 +523,7 @@ namespace processing
         const matrix4x4& matrix = peekMatrix();
         const EllipsePath path = path_ellipse({
             .center = float2(x, y),
-            .radius = Radius::circular(style.strokeWeight),
+            .radius = Radius::circular(style.strokeWeight / 2.0f),
             .segments = 16,
         });
 

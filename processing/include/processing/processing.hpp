@@ -767,12 +767,14 @@ namespace processing
     void rect(float left, float top, float width, float height, float cornerRadius);
     void rect(float left, float top, float width, float height, float cornerRadiusTopLeft, float cornerRadiusTopRight, float cornerRadiusBottomRight, float cornerRadiusBottomLeft);
     void rect(float left, float top, float width, float height, float cornerRadiusTopLeftX, float cornerRadiusTopLeftY, float cornerRadiusTopRightX, float cornerRadiusTopRightY, float cornerRadiusBottomRightX, float cornerRadiusBottomRightY, float cornerRadiusBottomLeftX, float cornerRadiusBottomLeftY);
+
     void square(float left, float top, float size);
     void ellipse(float centerX, float centerY, float radiusX, float radiusY);
     void circle(float centerX, float centerY, float radius);
     void line(float x1, float y1, float x2, float y2);
     void triangle(float x1, float y1, float x2, float y2, float x3, float y3);
     void point(float x, float y);
+
     void image(const Texture& texture, float x1, float y1);
     void image(const Texture& texture, float x1, float y1, float x2, float y2);
     void image(const Texture& texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2);
