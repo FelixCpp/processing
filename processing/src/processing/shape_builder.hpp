@@ -51,7 +51,7 @@ namespace processing
         std::vector<uint32_t> indices;
     };
 
-    Shape shape_from_contour(const Contour& contour, const matrix4x4& transform, color_t color, float depth);
+    Shape shape_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth);
 } // namespace processing
 
 namespace processing
