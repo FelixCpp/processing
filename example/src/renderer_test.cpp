@@ -1,43 +1,19 @@
-#include <algorithm>
 #include <processing/processing.hpp>
-#include <random>
 using namespace processing;
-
-#include <vector>
 
 struct RendererTest : Sketch
 {
-    Texture texture;
-    std::vector<rect2i> tiles;
+    Texture buffer1;
+    Texture buffer2;
 
-    int columns;
-    int rows;
-    int tileWidth;
-    int tileHeight;
+    inline static constexpr int cols = 900;
+    inline static constexpr int rows = 900;
 
     void setup() override
     {
-        texture = loadTexture("images/wallpaper.jpg");
-        columns = 10;
-        rows = 10;
-        tileWidth = static_cast<int>(texture.getSize().x) / columns;
-        tileHeight = static_cast<int>(texture.getSize().y) / rows;
-
-        for (int y = 0; y < rows; ++y)
-        {
-            for (int x = 0; x < columns; ++x)
-            {
-                tiles.push_back(rect2i{
-                    x * tileWidth,
-                    y * tileHeight,
-                    tileWidth,
-                    tileHeight,
-                });
-            }
-        }
-
-        std::mt19937 generator{std::random_device{}()};
-        std::ranges::shuffle(tiles, generator);
+        setWindowSize(900, 900);
+        buffer1 = createTexture(cols, rows, nullptr);
+        buffer2 = createTexture(cols, rows, nullptr);
     }
 
     void event(const Event& event) override
@@ -46,20 +22,115 @@ struct RendererTest : Sketch
 
     void draw() override
     {
-        background(21);
-        const float w = getViewport().width / static_cast<float>(columns);
-        const float h = getViewport().height / static_cast<float>(rows);
-
-        for (int y = 0; y < rows; ++y)
-        {
-            for (int x = 0; x < columns; ++x)
+        buffer1.modifyPixels(
+            [](PixelBuffer& buffer)
             {
-                const rect2i& tile = tiles[y * columns + x];
-                const float px = static_cast<float>(x) * w;
-                const float py = static_cast<float>(y) * h;
-                image(texture, px, py, w, h, tile.left, tile.top, tile.width, tile.height);
+                for (int x = 0; x < cols; ++x)
+                {
+                    buffer.set(x, rows - 1, color(255));
+                    buffer.set(x, rows - 2, color(255));
+                }
             }
-        }
+        );
+
+        buffer2.modifyPixels(
+            [](PixelBuffer& buffer)
+            {
+                for (int x = 0; x < cols; ++x)
+                {
+                    buffer.set(x, rows - 1, color(255));
+                    buffer.set(x, rows - 2, color(255));
+                }
+            }
+        );
+
+        background(0);
+
+        buffer1.readPixels(
+            [this](const PixelBuffer& buffer1)
+            {
+                buffer2.modifyPixels(
+                    [this, &buffer1](PixelBuffer& buffer2)
+                    {
+                        for (int y = 0; y < rows; ++y)
+                        {
+                            for (int x = 0; x < cols; ++x)
+                            {
+                                const color_t left = buffer1.get(x - 1, y);
+                                const color_t right = buffer1.get(x + 1, y);
+                                const color_t up = buffer1.get(x, y - 1);
+                                const color_t down = buffer1.get(x, y + 1);
+                                const int32_t b = brightness(left) + brightness(right) + brightness(up) + brightness(down);
+
+                                buffer2.set(x, y - 1, color(fmin(b * 0.25, 255)));
+                            }
+                        }
+                    }
+                );
+            }
+        );
+
+        // std::swap(buffer1, buffer2);
+        swapPixels(buffer1, buffer2);
+
+        image(buffer2, 0.0f, 0.0f);
+    }
+
+    void swapPixels(Texture& a, Texture& b)
+    {
+        std::vector<color_t> a_data(cols * rows);
+        a.readPixels(
+            [&](const PixelBuffer& buffer)
+            {
+                for (int y = 0; y < rows; ++y)
+                {
+                    for (int x = 0; x < cols; ++x)
+                    {
+                        a_data[y * cols + x] = buffer.get(x, y);
+                    }
+                }
+            }
+        );
+
+        std::vector<color_t> b_data(cols * rows);
+        b.readPixels(
+            [&](const PixelBuffer& buffer)
+            {
+                for (int y = 0; y < rows; ++y)
+                {
+                    for (int x = 0; x < cols; ++x)
+                    {
+                        b_data[y * cols + x] = buffer.get(x, y);
+                    }
+                }
+            }
+        );
+
+        a.modifyPixels(
+            [&](PixelBuffer& buffer)
+            {
+                for (int y = 0; y < rows; ++y)
+                {
+                    for (int x = 0; x < cols; ++x)
+                    {
+                        buffer.set(x, y, b_data[y * cols + x]);
+                    }
+                }
+            }
+        );
+
+        b.modifyPixels(
+            [&](PixelBuffer& buffer)
+            {
+                for (int y = 0; y < rows; ++y)
+                {
+                    for (int x = 0; x < cols; ++x)
+                    {
+                        buffer.set(x, y, a_data[y * cols + x]);
+                    }
+                }
+            }
+        );
     }
 
     void destroy() override

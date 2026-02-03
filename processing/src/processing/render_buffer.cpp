@@ -94,6 +94,12 @@ namespace processing
             return std::unique_ptr<RenderbufferAsset>(new RenderbufferAsset(framebufferId, std::move(renderTexture), renderbufferId, uint2{width, height}));
         }
 
+        ~RenderbufferAsset() override
+        {
+            glDeleteFramebuffers(1, &m_framebufferId);
+            glDeleteRenderbuffers(1, &m_renderbufferId);
+        }
+
         ResourceId getResourceId() const override
         {
             return ResourceId{.value = m_framebufferId};

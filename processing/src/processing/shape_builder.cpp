@@ -732,10 +732,10 @@ namespace processing
             const float sourceBottom = sourceTop + sourceHeight;
 
             contour.texcoords = {
-                {sourceLeft, sourceBottom},
-                {sourceRight, sourceBottom},
-                {sourceRight, sourceTop},
                 {sourceLeft, sourceTop},
+                {sourceRight, sourceTop},
+                {sourceRight, sourceBottom},
+                {sourceLeft, sourceBottom},
             };
         }
 

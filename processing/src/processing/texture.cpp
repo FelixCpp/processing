@@ -8,6 +8,51 @@
 
 namespace processing
 {
+    PixelBuffer::PixelBuffer(const uint32_t width, const uint32_t height, uint8_t* data)
+        : m_size{width, height},
+          m_data({data, width * height * 4})
+    {
+    }
+
+    void PixelBuffer::set(const uint32_t x, const uint32_t y, const color_t color)
+    {
+        const size_t n = (y * m_size.x + x) * 4;
+
+#ifndef NDEBUG
+        if (n >= m_data.size())
+        {
+            return;
+        }
+#endif
+
+        m_data[n + 0] = red(color);
+        m_data[n + 1] = green(color);
+        m_data[n + 2] = blue(color);
+        m_data[n + 3] = alpha(color);
+    }
+
+    color_t PixelBuffer::get(const uint32_t x, const uint32_t y) const
+    {
+        const size_t n = (y * m_size.x + x) * 4;
+
+#ifndef NDEBUG
+        if (n >= m_data.size())
+        {
+            return color(0);
+        }
+#endif
+
+        return color(m_data[n + 0], m_data[n + 1], m_data[n + 2], m_data[n + 3]);
+    }
+
+    const uint2& PixelBuffer::getSize() const
+    {
+        return m_size;
+    }
+} // namespace processing
+
+namespace processing
+{
     Texture::Texture()
     {
     }
@@ -36,6 +81,16 @@ namespace processing
     ExtendMode Texture::getExtendMode() const
     {
         return m_impl.lock()->getExtendMode();
+    }
+
+    void Texture::modifyPixels(const std::function<void(PixelBuffer&)>& callback)
+    {
+        m_impl.lock()->modifyPixels(callback);
+    }
+
+    void Texture::readPixels(const std::function<void(const PixelBuffer&)>& callback)
+    {
+        m_impl.lock()->readPixels(callback);
     }
 
     uint2 Texture::getSize() const
@@ -182,6 +237,30 @@ namespace processing
             glBindTexture(GL_TEXTURE_2D, 0);
 
             return std::unique_ptr<TextureImpl>(new TextureAsset(newTex, uint2{width, height}, m_filterMode, m_extendMode));
+        }
+
+        void modifyPixels(const std::function<void(PixelBuffer&)>& callback) override
+        {
+            const auto data = std::make_unique<uint8_t[]>(m_size.x * m_size.y * 4);
+
+            glBindTexture(GL_TEXTURE_2D, m_resourceId);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.get());
+
+            auto buffer = PixelBuffer{m_size.x, m_size.y, data.get()};
+            callback(buffer);
+
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_size.x, m_size.y, GL_RGBA, GL_UNSIGNED_BYTE, data.get());
+        }
+
+        void readPixels(const std::function<void(const PixelBuffer&)>& callback) override
+        {
+            const auto data = std::make_unique<uint8_t[]>(m_size.x * m_size.y * 4);
+
+            glBindTexture(GL_TEXTURE_2D, m_resourceId);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.get());
+
+            const auto buffer = PixelBuffer{m_size.x, m_size.y, data.get()};
+            callback(buffer);
         }
 
     private:

@@ -11,6 +11,7 @@
 #include <string_view>
 #include <filesystem>
 #include <numbers>
+#include <functional>
 
 namespace processing
 {
@@ -397,6 +398,7 @@ namespace processing
     constexpr int32_t green(color_t color);
     constexpr int32_t blue(color_t color);
     constexpr int32_t alpha(color_t color);
+    constexpr int32_t brightness(color_t color);
 } // namespace processing
 
 namespace processing
@@ -524,6 +526,24 @@ namespace processing
 
 namespace processing
 {
+    class PixelBuffer
+    {
+    public:
+        explicit PixelBuffer(uint32_t width, uint32_t height, uint8_t* data);
+
+        void set(uint32_t x, uint32_t y, color_t color);
+        color_t get(uint32_t x, uint32_t y) const;
+
+        const uint2& getSize() const;
+
+    private:
+        uint2 m_size;
+        std::span<uint8_t> m_data;
+    };
+} // namespace processing
+
+namespace processing
+{
     enum class ExtendModeType
     {
         clamp,
@@ -576,6 +596,8 @@ namespace processing
         virtual FilterMode getFilterMode() const = 0;
         virtual void setExtendMode(ExtendMode mode) = 0;
         virtual ExtendMode getExtendMode() const = 0;
+        virtual void modifyPixels(const std::function<void(PixelBuffer&)>& callback) = 0;
+        virtual void readPixels(const std::function<void(const PixelBuffer&)>& callback) = 0;
         virtual uint2 getSize() const = 0;
         virtual ResourceId getResourceId() const = 0;
         virtual std::unique_ptr<TextureImpl> copy(uint32_t left, uint32_t top, uint32_t width, uint32_t height) = 0;
@@ -591,6 +613,9 @@ namespace processing
         FilterMode getFilterMode() const;
         void setExtendMode(ExtendMode mode);
         ExtendMode getExtendMode() const;
+
+        void modifyPixels(const std::function<void(PixelBuffer&)>& callback);
+        void readPixels(const std::function<void(const PixelBuffer&)>& callback);
 
         uint2 getSize() const;
         ResourceId getResourceId() const;
@@ -1006,6 +1031,7 @@ namespace processing
     constexpr int32_t green(color_t color) { return (color.value & 0x00FF0000) >> 16; }
     constexpr int32_t blue(color_t color) { return (color.value & 0x0000FF00) >> 8; }
     constexpr int32_t alpha(color_t color) { return (color.value & 0x000000FF); }
+    constexpr int32_t brightness(color_t color) { return static_cast<int32_t>(0.2126) * static_cast<float>(red(color)) + static_cast<int32_t>(0.7152 * green(color)) + static_cast<int32_t>(0.0722 * blue(color)); }
     // clang-format on
 } // namespace processing
 
