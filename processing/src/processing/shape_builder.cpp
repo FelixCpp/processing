@@ -247,7 +247,7 @@ namespace processing
 namespace processing
 {
 
-    Vertices shape_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth)
+    Vertices vertices_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth)
     {
     }
 } // namespace processing

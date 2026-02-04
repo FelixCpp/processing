@@ -20,7 +20,7 @@ struct DemoApp : Sketch
                 p.set(x, y, c);
             }
         }
-        buff.updatePixels(p);
+        p.commit();
     }
 
     void destroy() override

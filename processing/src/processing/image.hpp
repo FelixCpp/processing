@@ -2,7 +2,6 @@
 #define _PROCESSING_INCLUDE_IMAGE_HPP_
 
 #include <processing/processing.hpp>
-#include <vector>
 
 namespace processing
 {
@@ -10,6 +9,7 @@ namespace processing
     {
     public:
         Image createImage(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode);
+        Image loadImage(const std::filesystem::path& filepath, FilterMode filterMode, ExtendMode extendMode);
         Image loadAsset(AssetId assetId);
 
     private:

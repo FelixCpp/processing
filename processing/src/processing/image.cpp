@@ -1,5 +1,7 @@
 #include <processing/image.hpp>
+
 #include <glad/gl.h>
+#include <stb/stb_image.h>
 
 namespace processing
 {
@@ -45,6 +47,27 @@ namespace processing
             return std::unique_ptr<OpenGLPlatformImage>(new OpenGLPlatformImage(uint2{width, height}, resourceId, filterMode, extendMode));
         }
 
+        static std::unique_ptr<OpenGLPlatformImage> load(const std::filesystem::path& filepath, FilterMode filterMode, ExtendMode extendMode)
+        {
+            int width, height;
+            std::unique_ptr<stbi_uc, decltype(&stbi_image_free)> data(stbi_load(filepath.string().c_str(), &width, &height, nullptr, STBI_rgb_alpha), &stbi_image_free);
+            if (data == nullptr)
+            {
+                return nullptr;
+            }
+
+            ResourceId resourceId = {.value = 0};
+            glGenTextures(1, &resourceId.value);
+            glBindTexture(GL_TEXTURE_2D, resourceId.value);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filterModeToGLId(filterMode.mag));
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filterModeToGLId(filterMode.min));
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, extendModeToGLId(extendMode.horizontal));
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, extendModeToGLId(extendMode.vertical));
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, 0, GL_UNSIGNED_BYTE, data.get());
+
+            return std::unique_ptr<OpenGLPlatformImage>(new OpenGLPlatformImage(uint2{static_cast<u32>(width), static_cast<u32>(height)}, resourceId, filterMode, extendMode));
+        }
+
         ~OpenGLPlatformImage() override
         {
             glDeleteTextures(1, &m_resourceId.value);
@@ -80,6 +103,11 @@ namespace processing
         ExtendMode getExtendMode() const override
         {
             return m_extendMode;
+        }
+
+        uint2 getSize() const override
+        {
+            return m_size;
         }
 
         Pixels loadPixels() override
@@ -127,15 +155,22 @@ namespace processing
         return Image(AssetId{.value = 0}, nullptr);
     }
 
-    Image ImageAssetHandler::loadAsset(AssetId assetId)
+    Image ImageAssetHandler::loadImage(const std::filesystem::path& filepath, FilterMode filterMode, ExtendMode extendMode)
     {
-        if (assetId.value == 0)
+        if (auto image = OpenGLPlatformImage::load(filepath, filterMode, extendMode))
         {
-            return Image(AssetId{.value = 0}, nullptr);
+            std::shared_ptr<PlatformImage>& ptr = m_assets.emplace_back(std::move(image));
+            AssetId assetId = {.value = m_assets.size()};
+
+            return Image(assetId, ptr);
         }
 
-        const usize index = assetId.value - 1;
-        return Image(assetId, m_assets[index]);
+        return Image(AssetId{.value = 0}, nullptr);
+    }
+
+    Image ImageAssetHandler::loadAsset(AssetId assetId)
+    {
+        return Image(assetId, m_assets[assetId.value]);
     }
 } // namespace processing
 
@@ -159,6 +194,11 @@ namespace processing
     ExtendMode Image::getExtendMode() const
     {
         return m_impl->getExtendMode();
+    }
+
+    uint2 Image::getSize() const
+    {
+        return m_impl->getSize();
     }
 
     Pixels Image::loadPixels()

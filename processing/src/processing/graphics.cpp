@@ -13,7 +13,7 @@ namespace processing
         };
     }
 
-    Vertices shape_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth)
+    Vertices vertices_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth)
     {
         Vertices shape;
         shape.mode = VertexMode::triangles;
@@ -35,16 +35,14 @@ namespace processing
 
 namespace processing
 {
-    static constexpr RenderState get_render_state(const RenderStyle& style)
+    Graphics::Graphics(std::shared_ptr<Renderer> renderer, Renderbuffer renderbuffer)
+        : m_renderer(std::move(renderer)),
+          m_renderbuffer(std::move(renderbuffer)),
+          m_renderStyles({RenderStyle()}),
+          m_metrics({matrix4x4::identity})
     {
-        return RenderState{
-            .blendMode = style.blendMode,
-        };
     }
-} // namespace processing
 
-namespace processing
-{
     void Graphics::beginDraw()
     {
     }
@@ -236,14 +234,14 @@ namespace processing
 
     void Graphics::background(Color color)
     {
-        const float2 size = float2{m_renderbuffer->getSize()};
+        const float2 size = float2{m_renderbuffer.getSize()};
 
         RenderStyle& style = peekStyle();
         const RectPath path = path_rect(rect2f{0.0f, 0.0f, size.x, size.y});
         const Contour contour = contour_rect_fill(path);
-        const Vertices vertices = shape_from_contour(contour, matrix4x4::identity, color, getNextDepth());
+        const Vertices vertices = vertices_from_contour(contour, matrix4x4::identity, color, getNextDepth());
 
-        m_renderer->render(vertices, get_render_state(style));
+        m_renderer->render(vertices, getRenderState(style));
     }
 
     void Graphics::beginShape()
@@ -300,5 +298,13 @@ namespace processing
 
     void Graphics::line(f32 x1, f32 y1, f32 x2, f32 y2)
     {
+    }
+
+    RenderState Graphics::getRenderState(const RenderStyle& style)
+    {
+        return RenderState{
+            .blendMode = style.blendMode,
+            .renderbuffer = m_renderbuffer,
+        };
     }
 } // namespace processing

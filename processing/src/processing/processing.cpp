@@ -1,4 +1,8 @@
 #include <processing/processing.hpp>
+#include <processing/image.hpp>
+#include <processing/renderbuffer.hpp>
+#include <processing/renderer.hpp>
+
 #include <GLFW/glfw3.h>
 #include <cmath>
 
@@ -10,7 +14,11 @@ namespace processing
         bool shouldRestart;
         i32 exitCode;
 
+        ImageAssetHandler images;
+        RenderbufferAssetHandler renderbuffers;
+
         std::unique_ptr<Sketch> sketch;
+        std::unique_ptr<Graphics> graphics;
     };
 
     inline static LibraryData s_data;
@@ -163,6 +171,24 @@ namespace processing
 
 namespace processing
 {
+    Image createImage(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode)
+    {
+        return s_data.images.createImage(width, height, filterMode, extendMode);
+    }
+
+    Image loadImage(const std::filesystem::path& filepath, FilterMode filterMode, ExtendMode extendMode)
+    {
+        return s_data.images.loadImage(filepath, filterMode, extendMode);
+    }
+
+    Renderbuffer createRenderbuffer(u32 width, u32 height)
+    {
+        return s_data.renderbuffers.create(width, height);
+    }
+} // namespace processing
+
+namespace processing
+{
     void launch()
     {
         glfwInit();
@@ -170,13 +196,19 @@ namespace processing
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1);
 
+        std::shared_ptr<Renderer> renderer = DefaultRenderer::create();
+        Renderbuffer buffer = createRenderbuffer(800, 800);
+        s_data.graphics = std::make_unique<Graphics>(renderer, buffer);
+
         s_data.sketch = createSketch();
         s_data.sketch->setup();
 
         while (not s_data.closeRequested)
         {
             glfwPollEvents();
+            s_data.graphics->beginDraw();
             s_data.sketch->draw(0.0f);
+            s_data.graphics->endDraw();
             glfwSwapBuffers(window);
         }
 

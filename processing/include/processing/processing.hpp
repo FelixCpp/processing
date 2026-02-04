@@ -8,6 +8,7 @@
 #include <vector>
 #include <stack>
 #include <span>
+#include <filesystem>
 
 namespace processing
 {
@@ -439,6 +440,7 @@ namespace processing
         virtual void setExtendMode(ExtendMode mode) = 0;
         virtual ExtendMode getExtendMode() const = 0;
 
+        virtual uint2 getSize() const = 0;
         virtual Pixels loadPixels() = 0;
 
         virtual ResourceId getResourceId() const = 0;
@@ -455,6 +457,7 @@ namespace processing
         void setExtendMode(ExtendMode mode);
         ExtendMode getExtendMode() const;
 
+        uint2 getSize() const;
         Pixels loadPixels();
 
         ResourceId getResourceId() const;
@@ -465,7 +468,8 @@ namespace processing
         std::shared_ptr<PlatformImage> m_impl;
     };
 
-    Image createImage(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode);
+    Image createImage(u32 width, u32 height, FilterMode filterMode = FilterMode::linear, ExtendMode extendMode = ExtendMode::clamp);
+    Image loadImage(const std::filesystem::path& filepath, FilterMode filterMode = FilterMode::linear, ExtendMode extendMode = ExtendMode::clamp);
 } // namespace processing
 
 namespace processing
@@ -490,14 +494,16 @@ namespace processing
         AssetId m_assetId;
         std::shared_ptr<PlatformRenderbuffer> m_impl;
     };
+
+    Renderbuffer createRenderbuffer(u32 width, u32 height);
 } // namespace processing
 
 namespace processing
 {
-
     struct RenderState
     {
         BlendMode blendMode;
+        Renderbuffer renderbuffer;
     };
 
     struct Renderer
@@ -509,6 +515,8 @@ namespace processing
     class Graphics
     {
     public:
+        explicit Graphics(std::shared_ptr<Renderer> renderer, Renderbuffer renderbuffer);
+
         void beginDraw();
         void endDraw();
 
@@ -570,12 +578,14 @@ namespace processing
 
     private:
         f32 getNextDepth();
+        RenderState getRenderState(const RenderStyle& style);
 
         std::stack<RenderStyle> m_renderStyles;
         std::stack<matrix4x4> m_metrics;
-        std::unique_ptr<Renderbuffer> m_renderbuffer;
+        Renderbuffer m_renderbuffer;
         std::shared_ptr<Renderer> m_renderer;
     };
+
 } // namespace processing
 
 namespace processing
