@@ -5,16 +5,12 @@
 
 namespace processing
 {
-    struct RenderState
-    {
-    };
-
-    class Renderer
+    class DefaultRenderer : public Renderer
     {
     public:
         static std::unique_ptr<Renderer> create();
 
-        void draw();
+        void render(const Vertices& vertices, const RenderState& state) override;
 
     private:
     };

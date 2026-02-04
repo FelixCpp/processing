@@ -1,0 +1,178 @@
+#include <processing/image.hpp>
+#include <glad/gl.h>
+
+namespace processing
+{
+    class OpenGLPlatformImage : public PlatformImage
+    {
+    private:
+        inline static constexpr GLenum filterModeToGLId(const FilterModeType type)
+        {
+            switch (type)
+            {
+                case FilterModeType::linear:
+                    return GL_LINEAR;
+                case FilterModeType::nearest:
+                    return GL_NEAREST;
+            }
+        }
+
+        inline static constexpr GLenum extendModeToGLId(const ExtendModeType type)
+        {
+            switch (type)
+            {
+                case ExtendModeType::clamp:
+                    return GL_CLAMP_TO_EDGE;
+                case ExtendModeType::repeat:
+                    return GL_REPEAT;
+                case ExtendModeType::mirroredRepeat:
+                    return GL_MIRRORED_REPEAT;
+            }
+        }
+
+    public:
+        static std::unique_ptr<OpenGLPlatformImage> create(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode)
+        {
+            ResourceId resourceId = {.value = 0};
+            glGenTextures(1, &resourceId.value);
+            glBindTexture(GL_TEXTURE_2D, resourceId.value);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filterModeToGLId(filterMode.mag));
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filterModeToGLId(filterMode.min));
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, extendModeToGLId(extendMode.horizontal));
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, extendModeToGLId(extendMode.vertical));
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, 0, GL_UNSIGNED_BYTE, nullptr);
+
+            return std::unique_ptr<OpenGLPlatformImage>(new OpenGLPlatformImage(uint2{width, height}, resourceId, filterMode, extendMode));
+        }
+
+        ~OpenGLPlatformImage() override
+        {
+            glDeleteTextures(1, &m_resourceId.value);
+        }
+
+        void setFilterMode(FilterMode mode) override
+        {
+            if (m_filterMode != mode)
+            {
+                glBindTexture(GL_TEXTURE_2D, m_resourceId.value);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filterModeToGLId(mode.mag));
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filterModeToGLId(mode.min));
+                m_filterMode = mode;
+            }
+        }
+
+        FilterMode getFilterMode() const override
+        {
+            return m_filterMode;
+        }
+
+        void setExtendMode(ExtendMode mode) override
+        {
+            if (m_extendMode != mode)
+            {
+                glBindTexture(GL_TEXTURE_2D, m_resourceId.value);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, extendModeToGLId(mode.horizontal));
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, extendModeToGLId(mode.vertical));
+                m_extendMode = mode;
+            }
+        }
+
+        ExtendMode getExtendMode() const override
+        {
+            return m_extendMode;
+        }
+
+        Pixels loadPixels() override
+        {
+            std::vector<u8> data(m_size.x * m_size.y * 4);
+            glBindTexture(GL_TEXTURE_2D, m_resourceId.value);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data());
+
+            return Pixels(m_size.x, m_size.y, data);
+        }
+
+        ResourceId getResourceId() const override
+        {
+            return m_resourceId;
+        }
+
+    private:
+        explicit OpenGLPlatformImage(const uint2& size, ResourceId resourceId, FilterMode filterMode, ExtendMode extendMode)
+            : m_size(size),
+              m_resourceId(resourceId),
+              m_extendMode(extendMode),
+              m_filterMode(filterMode)
+        {
+        }
+
+        uint2 m_size;
+        ResourceId m_resourceId;
+        FilterMode m_filterMode;
+        ExtendMode m_extendMode;
+    };
+} // namespace processing
+
+namespace processing
+{
+    Image ImageAssetHandler::createImage(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode)
+    {
+        if (auto image = OpenGLPlatformImage::create(width, height, filterMode, extendMode))
+        {
+            std::shared_ptr<PlatformImage>& ptr = m_assets.emplace_back(std::move(image));
+            AssetId assetId = {.value = m_assets.size()};
+
+            return Image(assetId, ptr);
+        }
+
+        return Image(AssetId{.value = 0}, nullptr);
+    }
+
+    Image ImageAssetHandler::loadAsset(AssetId assetId)
+    {
+        if (assetId.value == 0)
+        {
+            return Image(AssetId{.value = 0}, nullptr);
+        }
+
+        const usize index = assetId.value - 1;
+        return Image(assetId, m_assets[index]);
+    }
+} // namespace processing
+
+namespace processing
+{
+    void Image::setFilterMode(FilterMode mode)
+    {
+        m_impl->setFilterMode(mode);
+    }
+
+    FilterMode Image::getFilterMode() const
+    {
+        return m_impl->getFilterMode();
+    }
+
+    void Image::setExtendMode(ExtendMode mode)
+    {
+        m_impl->setExtendMode(mode);
+    }
+
+    ExtendMode Image::getExtendMode() const
+    {
+        return m_impl->getExtendMode();
+    }
+
+    Pixels Image::loadPixels()
+    {
+        return m_impl->loadPixels();
+    }
+
+    ResourceId Image::getResourceId() const
+    {
+        return m_impl->getResourceId();
+    }
+
+    AssetId Image::getAssetId() const
+    {
+        return m_assetId;
+    }
+} // namespace processing

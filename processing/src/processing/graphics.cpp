@@ -1,7 +1,58 @@
 #include <processing/processing.hpp>
+#include <processing/shape_builder.hpp>
 
 namespace processing
 {
+    static constexpr float4 float4_from_color(Color color)
+    {
+        return float4{
+            static_cast<float>(color.r) / 255.0f,
+            static_cast<float>(color.g) / 255.0f,
+            static_cast<float>(color.b) / 255.0f,
+            static_cast<float>(color.a) / 255.0f,
+        };
+    }
+
+    Vertices shape_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth)
+    {
+        Vertices shape;
+        shape.mode = VertexMode::triangles;
+        shape.vertices.reserve(contour.positions.size());
+        shape.indices.append_range(contour.indices);
+
+        for (size_t i = 0; i < contour.positions.size(); ++i)
+        {
+            shape.vertices.push_back(Vertex{
+                .position = transform.transformPoint(float3{contour.positions[i], depth}),
+                .texcoord = contour.texcoords[i],
+                .color = float4_from_color(color),
+            });
+        }
+
+        return shape;
+    }
+} // namespace processing
+
+namespace processing
+{
+    static constexpr RenderState get_render_state(const RenderStyle& style)
+    {
+        return RenderState{
+            .blendMode = style.blendMode,
+        };
+    }
+} // namespace processing
+
+namespace processing
+{
+    void Graphics::beginDraw()
+    {
+    }
+
+    void Graphics::endDraw()
+    {
+    }
+
     void Graphics::push()
     {
         pushStyle();
@@ -185,6 +236,69 @@ namespace processing
 
     void Graphics::background(Color color)
     {
+        const float2 size = float2{m_renderbuffer->getSize()};
+
         RenderStyle& style = peekStyle();
+        const RectPath path = path_rect(rect2f{0.0f, 0.0f, size.x, size.y});
+        const Contour contour = contour_rect_fill(path);
+        const Vertices vertices = shape_from_contour(contour, matrix4x4::identity, color, getNextDepth());
+
+        m_renderer->render(vertices, get_render_state(style));
+    }
+
+    void Graphics::beginShape()
+    {
+    }
+
+    void Graphics::endShape()
+    {
+    }
+
+    void Graphics::vertex(f32 x, f32 y)
+    {
+    }
+
+    void Graphics::vertex(f32 x, f32 y, f32 u, f32 v)
+    {
+    }
+
+    void Graphics::bezierVertex(f32 x2, f32 y2, f32 x3, f32 y3)
+    {
+    }
+
+    void Graphics::quadraticVertex(f32 cx, f32 cy, f32 x3, f32 y3)
+    {
+    }
+
+    void Graphics::curveVertex(f32 x, f32 y)
+    {
+    }
+
+    void Graphics::rect(f32 x1, f32 y1, f32 x2, f32 y2)
+    {
+    }
+
+    void Graphics::square(f32 x1, f32 y1, f32 xy2)
+    {
+    }
+
+    void Graphics::ellipse(f32 x1, f32 y1, f32 x2, f32 y2)
+    {
+    }
+
+    void Graphics::circle(f32 x1, f32 y1, f32 xy2)
+    {
+    }
+
+    void Graphics::triangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3)
+    {
+    }
+
+    void Graphics::point(f32 x, f32 y)
+    {
+    }
+
+    void Graphics::line(f32 x1, f32 y1, f32 x2, f32 y2)
+    {
     }
 } // namespace processing

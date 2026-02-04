@@ -246,34 +246,9 @@ namespace processing
 
 namespace processing
 {
-    static constexpr float4 float4_from_color(Color color)
+
+    Vertices shape_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth)
     {
-        return float4{
-            static_cast<float>(color.r) / 255.0f,
-            static_cast<float>(color.g) / 255.0f,
-            static_cast<float>(color.b) / 255.0f,
-            static_cast<float>(color.a) / 255.0f,
-        };
-    }
-
-    Shape shape_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth)
-    {
-        assert(contour.positions.size() == contour.texcoords.size() and "Contour must contain the same number of positions as texcoords");
-
-        Shape shape;
-        shape.vertices.reserve(contour.positions.size());
-        shape.indices.append_range(contour.indices);
-
-        for (size_t i = 0; i < contour.positions.size(); ++i)
-        {
-            shape.vertices.push_back(Vertex{
-                .position = transform.transformPoint(float3{contour.positions[i], depth}),
-                .texcoord = contour.texcoords[i],
-                .color = float4_from_color(color),
-            });
-        }
-
-        return shape;
     }
 } // namespace processing
 

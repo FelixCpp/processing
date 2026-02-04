@@ -5,8 +5,9 @@
 #include <array>
 #include <numbers>
 #include <memory>
-#include <span>
+#include <vector>
 #include <stack>
+#include <span>
 
 namespace processing
 {
@@ -21,6 +22,8 @@ namespace processing
 
     using f32 = float;
     using f64 = double;
+
+    using usize = size_t;
 } // namespace processing
 
 namespace processing
@@ -321,8 +324,8 @@ namespace processing
     struct Vertices
     {
         VertexMode mode;
-        std::span<const Vertex> vertices;
-        std::span<const uint32_t> indices;
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> indices;
     };
 } // namespace processing
 
@@ -352,6 +355,157 @@ namespace processing
 
 namespace processing
 {
+    struct ResourceId
+    {
+        u32 value;
+    };
+
+    struct AssetId
+    {
+        usize value;
+    };
+} // namespace processing
+
+namespace processing
+{
+    enum class FilterModeType
+    {
+        linear,
+        nearest,
+    };
+
+    struct FilterMode
+    {
+        FilterModeType min;
+        FilterModeType mag;
+
+        bool operator==(const FilterMode& other) const = default;
+        bool operator!=(const FilterMode& other) const = default;
+
+        static const FilterMode linear;
+        static const FilterMode nearest;
+    };
+} // namespace processing
+
+namespace processing
+{
+    enum class ExtendModeType
+    {
+        clamp,
+        repeat,
+        mirroredRepeat,
+    };
+
+    struct ExtendMode
+    {
+        ExtendModeType horizontal;
+        ExtendModeType vertical;
+
+        bool operator==(const ExtendMode& other) const = default;
+        bool operator!=(const ExtendMode& other) const = default;
+
+        static const ExtendMode clamp;
+        static const ExtendMode repeat;
+        static const ExtendMode mirroredRepeat;
+    };
+} // namespace processing
+
+namespace processing
+{
+    class Image;
+    class Pixels
+    {
+    public:
+        Pixels(u32 width, u32 height, const std::span<u8>& data);
+        void set(usize x, usize y, Color color);
+        Color get(usize x, usize y) const;
+
+        void commit();
+
+    private:
+        u32 width;
+        u32 height;
+        Image* parent;
+        std::span<u8> data;
+    };
+
+    struct PlatformImage
+    {
+        virtual ~PlatformImage() = default;
+
+        virtual void setFilterMode(FilterMode mode) = 0;
+        virtual FilterMode getFilterMode() const = 0;
+
+        virtual void setExtendMode(ExtendMode mode) = 0;
+        virtual ExtendMode getExtendMode() const = 0;
+
+        virtual Pixels loadPixels() = 0;
+
+        virtual ResourceId getResourceId() const = 0;
+    };
+
+    class Image
+    {
+    public:
+        explicit Image(AssetId assetId, std::shared_ptr<PlatformImage> image);
+
+        void setFilterMode(FilterMode mode);
+        FilterMode getFilterMode() const;
+
+        void setExtendMode(ExtendMode mode);
+        ExtendMode getExtendMode() const;
+
+        Pixels loadPixels();
+
+        ResourceId getResourceId() const;
+        AssetId getAssetId() const;
+
+    private:
+        AssetId m_assetId;
+        std::shared_ptr<PlatformImage> m_impl;
+    };
+
+    Image createImage(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode);
+} // namespace processing
+
+namespace processing
+{
+    struct PlatformRenderbuffer
+    {
+        virtual ~PlatformRenderbuffer() = default;
+        virtual uint2 getSize() const = 0;
+        virtual ResourceId getResourceId() const = 0;
+    };
+
+    struct Renderbuffer
+    {
+    public:
+        explicit Renderbuffer(AssetId assetId, std::shared_ptr<PlatformRenderbuffer> impl);
+
+        uint2 getSize() const;
+        ResourceId getResourceId() const;
+        AssetId getAssetId() const;
+
+    private:
+        AssetId m_assetId;
+        std::shared_ptr<PlatformRenderbuffer> m_impl;
+    };
+} // namespace processing
+
+namespace processing
+{
+
+    struct RenderState
+    {
+        BlendMode blendMode;
+    };
+
+    struct Renderer
+    {
+        virtual ~Renderer() = default;
+        virtual void render(const Vertices& vertices, const RenderState& state) = 0;
+    };
+
     class Graphics
     {
     public:
@@ -406,6 +560,7 @@ namespace processing
         void quadraticVertex(f32 cx, f32 cy, f32 x3, f32 y3);
         void curveVertex(f32 x, f32 y);
 
+        void rect(f32 x1, f32 y1, f32 x2, f32 y2);
         void square(f32 x1, f32 y1, f32 xy2);
         void ellipse(f32 x1, f32 y1, f32 x2, f32 y2);
         void circle(f32 x1, f32 y1, f32 xy2);
@@ -414,8 +569,12 @@ namespace processing
         void line(f32 x1, f32 y1, f32 x2, f32 y2);
 
     private:
+        f32 getNextDepth();
+
         std::stack<RenderStyle> m_renderStyles;
         std::stack<matrix4x4> m_metrics;
+        std::unique_ptr<Renderbuffer> m_renderbuffer;
+        std::shared_ptr<Renderer> m_renderer;
     };
 } // namespace processing
 
