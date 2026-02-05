@@ -198,6 +198,16 @@ namespace processing
 
 namespace processing
 {
+    int2 getMousePosition()
+    {
+        double mx, my;
+        glfwGetCursorPos(glfwGetCurrentContext(), &mx, &my);
+        return int2{static_cast<i32>(mx), static_cast<i32>(my)};
+    }
+} // namespace processing
+
+namespace processing
+{
     Image createImage(u32 width, u32 height, const u8* data, FilterMode filterMode, ExtendMode extendMode)
     {
         return s_data.images.createImage(width, height, data, filterMode, extendMode);
@@ -235,7 +245,7 @@ namespace processing
         glBlitFramebuffer(
             0, 0, rb.getSize().x, rb.getSize().y,
             0, 0, width, height,
-            GL_COLOR_BUFFER_BIT, GL_NEAREST
+            GL_COLOR_BUFFER_BIT, GL_LINEAR
         );
     }
 
@@ -254,7 +264,7 @@ namespace processing
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-        // glfwWindowHint(GLFW_SAMPLES, 4);
+        glfwWindowHint(GLFW_SAMPLES, 4);
         GLFWwindow* window = glfwCreateWindow(800, 800, "Processing App", nullptr, nullptr);
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1);
@@ -270,10 +280,12 @@ namespace processing
         glfwGetFramebufferSize(window, &w, &h);
 
         gladLoadGL(&glfwGetProcAddress);
+
+        glEnable(GL_BLEND);
         glEnable(GL_TEXTURE_2D);
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
-        // glEnable(GL_MULTISAMPLE);
+        glEnable(GL_MULTISAMPLE);
 
         std::shared_ptr<Renderer> renderer = DefaultRenderer::create();
         Renderbuffer buffer = createRenderbuffer(800, 800);

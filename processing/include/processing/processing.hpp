@@ -269,6 +269,15 @@ namespace processing
     enum class BlendMode
     {
         alpha,
+        additive,
+        multiply,
+        screen,
+        premultiplied,
+        subtractiveRGB,
+        modulate,
+        invert,
+        min,
+        max
     };
 
     enum class AngleMode
@@ -287,9 +296,16 @@ namespace processing
     enum class EllipseMode
     {
         cornerDiameter,
+        cornerRadius,
         corners,
         centerRadius,
         centerDiameter,
+    };
+
+    enum class ImageSourceMode
+    {
+        normal,
+        size,
     };
 } // namespace processing
 
@@ -341,6 +357,7 @@ namespace processing
     {
         Color fillColor;
         Color strokeColor;
+        Color tintColor;
 
         bool isFillEnabled;
         bool isStrokeEnabled;
@@ -354,6 +371,7 @@ namespace processing
         RectMode rectMode;
         EllipseMode ellipseMode;
         RectMode imageMode;
+        ImageSourceMode imageSourceMode;
 
         RenderStyle();
     };
@@ -422,7 +440,7 @@ namespace processing
     class Pixels
     {
     public:
-        explicit Pixels(u32 width, u32 height, PlatformImage* parent, const std::span<u8>& data);
+        explicit Pixels(u32 width, u32 height, PlatformImage* parent, u8* data);
         void set(u32 x, u32 y, Color color);
         Color get(u32 x, u32 y) const;
 
@@ -432,7 +450,7 @@ namespace processing
         u32 m_width;
         u32 m_height;
         PlatformImage* m_parent;
-        std::span<u8> m_data;
+        u8* m_data;
     };
 
     struct PlatformImage
@@ -454,6 +472,7 @@ namespace processing
     class Image
     {
     public:
+        Image();
         explicit Image(AssetId assetId, std::shared_ptr<PlatformImage> image);
 
         void setFilterMode(FilterMode mode);
@@ -482,6 +501,7 @@ namespace processing
     struct PlatformRenderbuffer
     {
         virtual ~PlatformRenderbuffer() = default;
+        virtual Image& getImage() = 0;
         virtual uint2 getSize() const = 0;
         virtual ResourceId getResourceId() const = 0;
     };
@@ -491,6 +511,7 @@ namespace processing
     public:
         explicit Renderbuffer(AssetId assetId, std::shared_ptr<PlatformRenderbuffer> impl);
 
+        Image& getImage();
         uint2 getSize() const;
         ResourceId getResourceId() const;
         AssetId getAssetId() const;
@@ -573,6 +594,7 @@ namespace processing
         void rectMode(RectMode mode);
         void ellipseMode(EllipseMode mode);
         void imageMode(RectMode mode);
+        void imageSourceMode(ImageSourceMode mode);
 
         void fill(i32 red, i32 green, i32 blue, i32 alpha = 255);
         void fill(i32 grey, i32 alpha = 255);
@@ -587,6 +609,10 @@ namespace processing
         void strokeWeight(f32 strokeWeight);
         void strokeCap(StrokeCap strokeCap);
         void strokeJoin(StrokeJoin strokeJoin);
+
+        void tint(i32 red, i32 green, i32 blue, i32 alpha = 255);
+        void tint(i32 grey, i32 alpha = 255);
+        void tint(Color color);
 
         void background(i32 red, i32 green, i32 blue, i32 alpha = 255);
         void background(i32 grey, i32 alpha = 255);
@@ -607,10 +633,15 @@ namespace processing
         void triangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3);
         void point(f32 x, f32 y);
         void line(f32 x1, f32 y1, f32 x2, f32 y2);
+        void image(const Image& img, f32 x1, f32 y1);
+        void image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2);
+        void image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2, f32 sx1, f32 sy1, f32 sx2, f32 sy2);
+
+        Image& getImage();
 
     private:
         f32 getNextDepth();
-        RenderState getRenderState(const RenderStyle& style);
+        RenderState getRenderState(const RenderStyle& style, const std::optional<Image>& image = std::nullopt);
 
         std::stack<RenderStyle> m_renderStyles;
         std::stack<matrix4x4> m_metrics;
@@ -630,6 +661,11 @@ namespace processing
     void restart();
     void setExitCode(i32 exitCode);
 } // namespace processing
+
+namespace processing
+{
+    int2 getMousePosition();
+}
 
 #endif // _PROCESSING_INCLUDE_PROCESSING_HPP_
 

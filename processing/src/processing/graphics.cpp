@@ -47,6 +47,39 @@ namespace processing
         }
     }
 
+    inline static constexpr rect2f image_source_to_rect(const ImageSourceMode mode, f32 imgWidth, f32 imgHeight, f32 x1, f32 y1, f32 x2, f32 y2)
+    {
+        switch (mode)
+        {
+                // clang-format off
+            case ImageSourceMode::normal: return rect2f{ x1, y1, x2, y2 };
+            case ImageSourceMode::size:
+            {
+                const f32 u = x1 / imgWidth;
+                const f32 v = 1.0f - (y1 + y2) / imgHeight;
+                const f32 w = x2 / imgWidth;
+                const f32 h = y2 / imgHeight;
+
+                return rect2f{u, v, w, h};
+            } break;
+                // clang-format on
+        }
+    }
+
+    inline static constexpr rect2f ellipse_to_rect(const EllipseMode mode, const f32 x1, const f32 y1, const f32 x2, const f32 y2)
+    {
+        switch (mode)
+        {
+                // clang-format off
+            case EllipseMode::cornerDiameter: return rect2f{ x1, y1, x2, y2 };
+            case EllipseMode::cornerRadius: return rect2f{ x1, y1, x2 * 2.0f, y2 * 2.0f };
+            case EllipseMode::corners: return rect2f{ x1, y1, x2 - x1, y2 - y1 };
+            case EllipseMode::centerRadius: return rect2f{ x1 - x2, y1 - y2, x2 * 2.0f, y2 * 2.0f };
+            case EllipseMode::centerDiameter: return rect2f{ x1 - x2 * 0.5f, y1 - y2 * 0.5f, x2, y2 };
+                // clang-format on
+        }
+    }
+
     inline static constexpr StrokeProperties get_stroke_properties(const RenderStyle& style)
     {
         return StrokeProperties{
@@ -189,6 +222,11 @@ namespace processing
         peekStyle().imageMode = mode;
     }
 
+    void Graphics::imageSourceMode(ImageSourceMode mode)
+    {
+        peekStyle().imageSourceMode = mode;
+    }
+
     void Graphics::fill(const i32 red, const i32 green, const i32 blue, const i32 alpha)
     {
         fill(Color(red, green, blue, alpha));
@@ -246,6 +284,21 @@ namespace processing
     void Graphics::strokeJoin(const StrokeJoin strokeJoin)
     {
         peekStyle().strokeJoin = strokeJoin;
+    }
+
+    void Graphics::tint(const i32 red, const i32 green, const i32 blue, const i32 alpha)
+    {
+        tint(Color(red, green, blue, alpha));
+    }
+
+    void Graphics::tint(const i32 grey, const i32 alpha)
+    {
+        tint(Color(grey, alpha));
+    }
+
+    void Graphics::tint(const Color color)
+    {
+        peekStyle().tintColor = color;
     }
 
     void Graphics::background(i32 red, i32 green, i32 blue, i32 alpha)
@@ -322,26 +375,132 @@ namespace processing
 
     void Graphics::square(f32 x1, f32 y1, f32 xy2)
     {
+        rect(x1, y1, xy2, xy2);
     }
 
     void Graphics::ellipse(f32 x1, f32 y1, f32 x2, f32 y2)
     {
+        const RenderStyle& style = peekStyle();
+        const matrix4x4& matrix = peekMatrix();
+        const rect2f boundary = ellipse_to_rect(style.ellipseMode, x1, y1, x2, y2);
+        const EllipsePath path = path_ellipse({
+            .center = boundary.center(),
+            .radius = Radius{
+                .x = boundary.width * 0.5f,
+                .y = boundary.height * 0.5f,
+            },
+            .segments = 32,
+        });
+
+        if (style.isFillEnabled)
+        {
+            const Contour contour = contour_ellipse_fill(path);
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth());
+            m_renderer->render(vertices, getRenderState(style));
+        }
+
+        if (style.isStrokeEnabled)
+        {
+            const Contour contour = contour_ellipse_stroke(path, get_stroke_properties(style));
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
+            m_renderer->render(vertices, getRenderState(style));
+        }
     }
 
     void Graphics::circle(f32 x1, f32 y1, f32 xy2)
     {
+        ellipse(x1, y1, xy2, xy2);
     }
 
     void Graphics::triangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3)
     {
+        const RenderStyle& style = peekStyle();
+        const matrix4x4& matrix = peekMatrix();
+        const rect2f boundary = ellipse_to_rect(style.ellipseMode, x1, y1, x2, y2);
+        const TrianglePath path = path_triangle({
+            .a = {x1, y1},
+            .b = {x2, y2},
+            .c = {x3, y3},
+        });
+
+        if (style.isFillEnabled)
+        {
+            const Contour contour = contour_triangle_fill(path);
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth());
+            m_renderer->render(vertices, getRenderState(style));
+        }
+
+        if (style.isStrokeEnabled)
+        {
+            const Contour contour = contour_triangle_stroke(path, get_stroke_properties(style));
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
+            m_renderer->render(vertices, getRenderState(style));
+        }
     }
 
     void Graphics::point(f32 x, f32 y)
     {
+        const RenderStyle& style = peekStyle();
+        const matrix4x4& matrix = peekMatrix();
+        const rect2f boundary = ellipse_to_rect(EllipseMode::centerDiameter, x, y, style.strokeWeight, style.strokeWeight);
+        const EllipsePath path = path_ellipse({
+            .center = boundary.center(),
+            .radius = Radius{
+                .x = boundary.width * 0.5f,
+                .y = boundary.height * 0.5f,
+            },
+            .segments = 32,
+        });
+
+        const Contour contour = contour_ellipse_fill(path);
+        const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
+        m_renderer->render(vertices, getRenderState(style));
     }
 
     void Graphics::line(f32 x1, f32 y1, f32 x2, f32 y2)
     {
+        const RenderStyle& style = peekStyle();
+        const matrix4x4& matrix = peekMatrix();
+        const rect2f boundary = ellipse_to_rect(style.ellipseMode, x1, y1, x2, y2);
+
+        const Contour contour = contour_line(x1, y1, x2, y2, style.strokeWeight, style.strokeCap);
+        const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
+        m_renderer->render(vertices, getRenderState(style));
+    }
+
+    void Graphics::image(const Image& img, f32 x1, f32 y1)
+    {
+        const auto [imgWidth, imgHeight] = img.getSize();
+        image(img, x1, y1, static_cast<f32>(imgWidth), static_cast<f32>(imgHeight));
+    }
+
+    void Graphics::image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2)
+    {
+        const RenderStyle& style = peekStyle();
+        const matrix4x4& matrix = peekMatrix();
+        const rect2f boundary = convert_to_rect(style.imageMode, x1, y1, x2, y2);
+
+        const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, 0.0f, 0.0f, 1.0f, 1.0f);
+        const Vertices vertices = vertices_from_contour(contour, matrix, style.tintColor, getNextDepth());
+        m_renderer->render(vertices, getRenderState(style, img));
+    }
+
+    void Graphics::image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2, f32 sx1, f32 sy1, f32 sx2, f32 sy2)
+    {
+        const auto [imgWidth, imgHeight] = img.getSize();
+        const RenderStyle& style = peekStyle();
+        const matrix4x4& matrix = peekMatrix();
+        const rect2f boundary = convert_to_rect(style.imageMode, x1, y1, x2, y2);
+        const rect2f source = image_source_to_rect(style.imageSourceMode, static_cast<f32>(imgWidth), static_cast<f32>(imgHeight), sx1, sy1, sx2, sy2);
+
+        const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, source.left, source.top, source.width, source.height);
+        const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
+        m_renderer->render(vertices, getRenderState(style, img));
+    }
+
+    Image& Graphics::getImage()
+    {
+        return m_renderbuffer.getImage();
     }
 
     f32 Graphics::getNextDepth()
@@ -351,11 +510,12 @@ namespace processing
         return depth;
     }
 
-    RenderState Graphics::getRenderState(const RenderStyle& style)
+    RenderState Graphics::getRenderState(const RenderStyle& style, const std::optional<Image>& image)
     {
         return RenderState{
             .blendMode = style.blendMode,
             .renderbuffer = m_renderbuffer,
+            .image = image,
             .transform = matrix4x4::orthographic(0.0f, 0.0f, m_renderbuffer.getSize().x, m_renderbuffer.getSize().y, -1.0f, 1.0f),
         };
     }

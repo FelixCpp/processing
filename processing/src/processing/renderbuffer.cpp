@@ -3,29 +3,6 @@
 
 namespace processing
 {
-    MainRenderbuffer::MainRenderbuffer(const u32 width, const u32 height)
-        : m_size{width, height}
-    {
-    }
-
-    void MainRenderbuffer::resize(const u32 width, const u32 height)
-    {
-        m_size = {width, height};
-    }
-
-    uint2 MainRenderbuffer::getSize() const
-    {
-        return m_size;
-    }
-
-    ResourceId MainRenderbuffer::getResourceId() const
-    {
-        return ResourceId{.value = 0};
-    }
-} // namespace processing
-
-namespace processing
-{
     class OpenGLRenderbuffer : public PlatformRenderbuffer
     {
     public:
@@ -45,6 +22,11 @@ namespace processing
             glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, renderbufferId.value, renderbufferId.value);
 
             return std::unique_ptr<OpenGLRenderbuffer>(new OpenGLRenderbuffer(uint2{width, height}, renderbufferId, framebufferId, image));
+        }
+
+        Image& getImage() override
+        {
+            return m_image;
         }
 
         uint2 getSize() const override
@@ -97,6 +79,12 @@ namespace processing
           m_impl{std::move(impl)}
     {
     }
+
+    Image& Renderbuffer::getImage()
+    {
+        return m_impl->getImage();
+    }
+
     uint2 Renderbuffer::getSize() const
     {
         return m_impl->getSize();

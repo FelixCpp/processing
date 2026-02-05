@@ -8,22 +8,6 @@
 
 namespace processing
 {
-    class MainRenderbuffer : public PlatformRenderbuffer
-    {
-    public:
-        explicit MainRenderbuffer(u32 width, u32 height);
-
-        void resize(u32 width, u32 height);
-
-        uint2 getSize() const override;
-        ResourceId getResourceId() const override;
-
-        void blit();
-
-    private:
-        uint2 m_size;
-    };
-
     class RenderbufferAssetHandler
     {
     public:

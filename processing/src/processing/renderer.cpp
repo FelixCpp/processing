@@ -47,6 +47,75 @@ void main() {
 
 namespace processing
 {
+    void activate(const BlendMode mode)
+    {
+        switch (mode)
+        {
+            case BlendMode::alpha:
+                // Standard: Src.rgb * Src.a + Dst.rgb * (1 - Src.a)
+                glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                break;
+
+            case BlendMode::additive:
+                // Addiert Farben: Src.rgb + Dst.rgb
+                glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ONE, GL_ONE);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                break;
+
+            case BlendMode::multiply:
+                // Multipliziert: Src.rgb * Dst.rgb
+                glBlendFuncSeparate(GL_DST_COLOR, GL_ZERO, GL_DST_ALPHA, GL_ZERO);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                break;
+
+            case BlendMode::screen:
+                // Screen: 1 - (1 - Src.rgb) * (1 - Dst.rgb)
+                glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_COLOR, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                break;
+
+            case BlendMode::premultiplied:
+                // Für bereits mit Alpha multiplizierte Texturen
+                glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                break;
+
+            case BlendMode::subtractiveRGB:
+                // Subtrahiert RGB, addiert Alpha
+                glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ONE, GL_ONE);
+                glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
+                break;
+
+            case BlendMode::modulate:
+                // 2x Modulation: 2 * Src.rgb * Dst.rgb
+                glBlendFuncSeparate(GL_DST_COLOR, GL_SRC_COLOR, GL_DST_ALPHA, GL_ZERO);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                break;
+
+            case BlendMode::invert:
+                // Invertiert die Zielfarbe
+                glBlendFuncSeparate(GL_ONE_MINUS_DST_COLOR, GL_ZERO, GL_ONE_MINUS_DST_ALPHA, GL_ZERO);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                break;
+
+            case BlendMode::min:
+                // Nimmt minimum von Src und Dst
+                glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
+                glBlendEquationSeparate(GL_MIN, GL_MIN);
+                break;
+
+            case BlendMode::max:
+                // Nimmt maximum von Src und Dst
+                glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
+                glBlendEquationSeparate(GL_MAX, GL_MAX);
+                break;
+        }
+    }
+} // namespace processing
+
+namespace processing
+{
     inline static constexpr GLenum vertexModeToGlId(const VertexMode mode)
     {
         switch (mode)
@@ -124,6 +193,8 @@ namespace processing
                 return m_whiteImage.getResourceId();
             }
         );
+
+        activate(renderState.blendMode);
 
         glViewport(0, 0, renderState.renderbuffer.getSize().x, renderState.renderbuffer.getSize().y);
         glBindFramebuffer(GL_FRAMEBUFFER, renderState.renderbuffer.getResourceId().value);

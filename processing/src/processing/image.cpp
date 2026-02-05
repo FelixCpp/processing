@@ -5,7 +5,7 @@
 
 namespace processing
 {
-    Pixels::Pixels(u32 width, u32 height, PlatformImage* parent, const std::span<u8>& data)
+    Pixels::Pixels(u32 width, u32 height, PlatformImage* parent, u8* data)
         : m_width{width},
           m_height{height},
           m_parent{parent},
@@ -39,7 +39,7 @@ namespace processing
     void Pixels::commit()
     {
         glBindTexture(GL_TEXTURE_2D, m_parent->getResourceId().value);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, m_data.data());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, m_data);
     }
 } // namespace processing
 
@@ -216,6 +216,12 @@ namespace processing
 
 namespace processing
 {
+    Image::Image()
+        : m_assetId{.value = 0},
+          m_impl(nullptr)
+    {
+    }
+
     Image::Image(const AssetId assetId, std::shared_ptr<PlatformImage> impl)
         : m_assetId{assetId},
           m_impl{std::move(impl)}

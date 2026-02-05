@@ -3,18 +3,32 @@ using namespace processing;
 
 struct DemoApp : Sketch
 {
+    Image* img;
+    Image wallpaper = loadImage("images/wallpaper.jpg");
+
     void setup() override
     {
+        getGfx().background(51);
+        getGfx().imageSourceMode(ImageSourceMode::normal);
+        getGfx().image(wallpaper, 0.0f, 0.0f, wallpaper.getSize().x, wallpaper.getSize().y, 0.0f, 0.0f, 2.0f, 2.0f);
+        img = &getGfx().getImage();
+
+        auto pixels = img->loadPixels();
+        for (int y = 0; y < img->getSize().y; ++y)
+        {
+            for (int x = 0; x < img->getSize().x; ++x)
+            {
+                const auto c = pixels.get(x, y);
+                pixels.set(x, y, Color(255, 0, 0));
+            }
+        }
+        pixels.commit();
     }
 
     void draw(f32 deltaTime) override
     {
-        getGfx().background(51);
-        getGfx().fill(255, 0, 0);
-        getGfx().stroke(0, 255, 0);
-        getGfx().strokeWeight(35.0f);
-        getGfx().strokeJoin(StrokeJoin::round);
-        getGfx().rect(100.0f, 100.0f, 300.0f, 300.0f);
+        // // getGfx().background(51);
+        // getGfx().image(img, 0.0f, 0.0f, 300.0f, 300.0f);
     }
 
     void destroy() override
