@@ -29,13 +29,13 @@ namespace processing
     class OpenGLRenderbuffer : public PlatformRenderbuffer
     {
     public:
-        static std::unique_ptr<OpenGLRenderbuffer> create(u32 width, u32 height)
+        static std::unique_ptr<OpenGLRenderbuffer> create(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode)
         {
             ResourceId framebufferId = {.value = 0};
             glGenFramebuffers(1, &framebufferId.value);
             glBindFramebuffer(GL_FRAMEBUFFER, framebufferId.value);
 
-            Image image = createImage(width, height, FilterMode::linear, ExtendMode::clamp);
+            Image image = createImage(width, height, nullptr, filterMode, extendMode);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, image.getResourceId().value, 0);
 
             ResourceId renderbufferId = {.value = 0};
@@ -76,6 +76,27 @@ namespace processing
 
 namespace processing
 {
+    Renderbuffer RenderbufferAssetHandler::create(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode)
+    {
+        if (auto image = OpenGLRenderbuffer::create(width, height, filterMode, extendMode))
+        {
+            std::shared_ptr<PlatformRenderbuffer>& ptr = m_assets.emplace_back(std::move(image));
+            AssetId assetId = {.value = m_assets.size()};
+
+            return Renderbuffer(assetId, ptr);
+        }
+
+        return Renderbuffer(AssetId{.value = 0}, nullptr);
+    }
+} // namespace processing
+
+namespace processing
+{
+    Renderbuffer::Renderbuffer(const AssetId assetId, std::shared_ptr<PlatformRenderbuffer> impl)
+        : m_assetId{assetId},
+          m_impl{std::move(impl)}
+    {
+    }
     uint2 Renderbuffer::getSize() const
     {
         return m_impl->getSize();

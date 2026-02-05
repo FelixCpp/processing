@@ -8,11 +8,19 @@ namespace processing
     class DefaultRenderer : public Renderer
     {
     public:
-        static std::unique_ptr<Renderer> create();
+        static std::unique_ptr<DefaultRenderer> create();
 
         void render(const Vertices& vertices, const RenderState& state) override;
 
     private:
+        explicit DefaultRenderer(ResourceId vertexArrayId, ResourceId vertexBufferId, ResourceId elementBufferId, Image whiteImage, Shader defaultShader);
+
+        ResourceId m_vertexArrayId;
+        ResourceId m_vertexBufferId;
+        ResourceId m_elementBufferId;
+
+        Image m_whiteImage;
+        Shader m_defaultShader;
     };
 } // namespace processing
 

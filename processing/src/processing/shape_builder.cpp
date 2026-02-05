@@ -192,7 +192,7 @@ namespace processing
                         sweepAngle -= TAU;
                     while (sweepAngle < -PI)
                         sweepAngle += TAU;
-                    const size_t numSegments = 8;
+                    const size_t numSegments = 4;
                     const float angleStepSize = sweepAngle / static_cast<float>(numSegments);
                     const float radius = properties.strokeWeight * 0.5f;
 
@@ -241,14 +241,6 @@ namespace processing
             .texcoords = std::move(texcoords),
             .indices = std::move(indices),
         };
-    }
-} // namespace processing
-
-namespace processing
-{
-
-    Vertices vertices_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth)
-    {
     }
 } // namespace processing
 

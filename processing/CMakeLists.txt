@@ -14,22 +14,13 @@ add_subdirectory(../external/glad ${CMAKE_BINARY_DIR}/glad)
 add_subdirectory(../external/stb/ ${CMAKE_BINARY_DIR}/stb)
 
 add_library(processing STATIC
-    src/processing/default_renderer.cpp
-    src/processing/depth_provider.cpp
-    src/processing/glfw_graphics_context.cpp
-    src/processing/glfw_window.cpp
     src/processing/graphics.cpp
-    src/processing/graphics_context.cpp
-    src/processing/matrix_stack.cpp
+    src/processing/image.cpp
     src/processing/processing.cpp
-    src/processing/render_buffer.cpp
-    src/processing/render_style.cpp
-    src/processing/render_style_stack.cpp
-    src/processing/render_targets.cpp
+    src/processing/renderbuffer.cpp
+    src/processing/renderer.cpp
     src/processing/shader.cpp
     src/processing/shape_builder.cpp
-    src/processing/texture.cpp
-    src/processing/window.cpp
 )
 
 target_include_directories(processing PUBLIC

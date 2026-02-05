@@ -2,6 +2,8 @@
 #define _PROCESSING_INCLUDE_PROCESSING_HPP_
 
 #include <cstdint>
+#include <cmath>
+
 #include <array>
 #include <numbers>
 #include <memory>
@@ -9,6 +11,8 @@
 #include <stack>
 #include <span>
 #include <filesystem>
+#include <string_view>
+#include <optional>
 
 namespace processing
 {
@@ -217,6 +221,7 @@ namespace processing
             float m30, float m31, float m32, float m33
         );
 
+        static matrix4x4 orthographic(f32 left, f32 top, f32 width, f32 height, f32 near, f32 far);
         static matrix4x4 translation(f32 x, f32 y);
         static matrix4x4 scaling(f32 x, f32 y);
         static matrix4x4 rotation(f32 angle);
@@ -413,21 +418,21 @@ namespace processing
 
 namespace processing
 {
-    class Image;
+    class PlatformImage;
     class Pixels
     {
     public:
-        Pixels(u32 width, u32 height, const std::span<u8>& data);
-        void set(usize x, usize y, Color color);
-        Color get(usize x, usize y) const;
+        explicit Pixels(u32 width, u32 height, PlatformImage* parent, const std::span<u8>& data);
+        void set(u32 x, u32 y, Color color);
+        Color get(u32 x, u32 y) const;
 
         void commit();
 
     private:
-        u32 width;
-        u32 height;
-        Image* parent;
-        std::span<u8> data;
+        u32 m_width;
+        u32 m_height;
+        PlatformImage* m_parent;
+        std::span<u8> m_data;
     };
 
     struct PlatformImage
@@ -468,7 +473,7 @@ namespace processing
         std::shared_ptr<PlatformImage> m_impl;
     };
 
-    Image createImage(u32 width, u32 height, FilterMode filterMode = FilterMode::linear, ExtendMode extendMode = ExtendMode::clamp);
+    Image createImage(u32 width, u32 height, const u8* data = nullptr, FilterMode filterMode = FilterMode::linear, ExtendMode extendMode = ExtendMode::clamp);
     Image loadImage(const std::filesystem::path& filepath, FilterMode filterMode = FilterMode::linear, ExtendMode extendMode = ExtendMode::clamp);
 } // namespace processing
 
@@ -495,7 +500,31 @@ namespace processing
         std::shared_ptr<PlatformRenderbuffer> m_impl;
     };
 
-    Renderbuffer createRenderbuffer(u32 width, u32 height);
+    Renderbuffer createRenderbuffer(u32 width, u32 height, FilterMode filterMode = FilterMode::linear, ExtendMode extendMode = ExtendMode::clamp);
+} // namespace processing
+
+namespace processing
+{
+    struct PlatformShader
+    {
+        virtual ~PlatformShader() = default;
+        virtual ResourceId getResourceId() const = 0;
+    };
+
+    class Shader
+    {
+    public:
+        explicit Shader(AssetId assetId, std::shared_ptr<PlatformShader> impl);
+
+        ResourceId getResourceId() const;
+        AssetId getAssetId() const;
+
+    private:
+        AssetId m_assetId;
+        std::shared_ptr<PlatformShader> m_impl;
+    };
+
+    Shader createShader(std::string_view vertexShaderSource, std::string_view fragmentShaderSource);
 } // namespace processing
 
 namespace processing
@@ -504,6 +533,9 @@ namespace processing
     {
         BlendMode blendMode;
         Renderbuffer renderbuffer;
+        std::optional<Shader> shader;
+        std::optional<Image> image;
+        matrix4x4 transform;
     };
 
     struct Renderer
@@ -584,7 +616,10 @@ namespace processing
         std::stack<matrix4x4> m_metrics;
         Renderbuffer m_renderbuffer;
         std::shared_ptr<Renderer> m_renderer;
+        f32 m_currentDepth;
     };
+
+    Graphics& getGfx();
 
 } // namespace processing
 
@@ -607,6 +642,104 @@ namespace processing
 {
     inline constexpr f32 PI = std::numbers::pi_v<f32>;
     inline constexpr f32 TAU = 2.0f * PI;
+} // namespace processing
+
+namespace processing
+{
+    // clang-format off
+    template <typename T> value2<T>::value2() : x(T{}), y(T{}) {}
+    template <typename T> value2<T>::value2(T x, T y) : x(x), y(y) {}
+    template <typename T> value2<T>::value2(const T scalar) : x(scalar), y(scalar) {}
+    template <typename T> template <typename U> value2<T>::value2(const value2<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)) {}
+    template <typename T> T value2<T>::length() const { return std::hypot(x, y); }
+    template <typename T> T value2<T>::lengthSquared() const { return x * x + y * y; }
+    template <typename T> T value2<T>::dot(const value2<T>& other) const { return x * other.x + y * other.y; }
+    template <typename T> value2<T> value2<T>::perpendicular_cw() const { return { y, -x }; }
+    template <typename T> value2<T> value2<T>::perpendicular_ccw() const { return { -y, x }; }
+    template <typename T> value2<T> value2<T>::normalized() const { const T len = length(); if (len != static_cast<T>(0.0)) { return { x / len, y / len }; } return *this; }
+    template <typename T> value2<T> value2<T>::operator+(const value2<T>& rhs) const { return { x + rhs.x, y + rhs.y }; }
+    template <typename T> value2<T> value2<T>::operator-(const value2<T>& rhs) const { return { x - rhs.x, y - rhs.y }; }
+    template <typename T> value2<T> value2<T>::operator*(const value2<T>& rhs) const { return { x * rhs.x, y * rhs.y }; }
+    template <typename T> value2<T> value2<T>::operator/(const value2<T>& rhs) const { return { x / rhs.x, y / rhs.y }; }
+    template <typename T> value2<T> value2<T>::operator+(T rhs) const { return { x + rhs, y + rhs }; }
+    template <typename T> value2<T> value2<T>::operator-(T rhs) const { return { x - rhs, y - rhs }; }
+    template <typename T> value2<T> value2<T>::operator*(T rhs) const { return { x * rhs, y * rhs }; }
+    template <typename T> value2<T> value2<T>::operator/(T rhs) const { return { x / rhs, y / rhs }; }
+    // clang-format on
+} // namespace processing
+
+namespace processing
+{
+    // clang-format off
+    template <typename T> value3<T>::value3() : x(T{}), y(T{}), z(T{}) {}
+    template <typename T> value3<T>::value3(T x, T y, T z) : x(x), y(y), z(z) {}
+    template <typename T> value3<T>::value3(T scalar) : x(scalar), y(scalar), z(scalar) {}
+    template <typename T> template <typename U> value3<T>::value3(const value3<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)), z(static_cast<T>(other.z)) {}
+    template <typename T> value3<T>::value3(const value2<T>& xy, T z) : x(xy.x), y(xy.y), z(z) {}
+    template <typename T> value3<T>::value3(T x, const value2<T>& yz) : x(x), y(yz.x), z(yz.y) {}
+    template <typename T> T value3<T>::length() const { return std::sqrt(lengthSquared()); }
+    template <typename T> T value3<T>::lengthSquared() const { return x * x + y * y + z * z; }
+    template <typename T> value3<T> value3<T>::operator+(const value3& rhs) const { return { x + rhs.x, y + rhs.y, z + rhs.z }; }
+    template <typename T> value3<T> value3<T>::operator-(const value3& rhs) const { return { x - rhs.x, y - rhs.y, z - rhs.z }; }
+    template <typename T> value3<T> value3<T>::operator*(const value3& rhs) const { return { x * rhs.x, y * rhs.y, z * rhs.z }; }
+    template <typename T> value3<T> value3<T>::operator/(const value3& rhs) const { return { x / rhs.x, y / rhs.y, z / rhs.z }; }
+    template <typename T> value3<T> value3<T>::operator+(T rhs) const { return { x + rhs, y + rhs, z + rhs }; }
+    template <typename T> value3<T> value3<T>::operator-(T rhs) const { return { x - rhs, y - rhs, z - rhs }; }
+    template <typename T> value3<T> value3<T>::operator*(T rhs) const { return { x * rhs, y * rhs, z * rhs }; }
+    template <typename T> value3<T> value3<T>::operator/(T rhs) const { return { x / rhs, y / rhs, z / rhs }; }
+    // clang-format on
+} // namespace processing
+
+namespace processing
+{
+    // clang-format off
+    template <typename T> value4<T>::value4() : x(T{}), y(T{}), z(T{}), w(T{}) {}
+    template <typename T> value4<T>::value4(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) {}
+    template <typename T> value4<T>::value4(T scalar) : x(scalar), y(scalar), z(scalar), w(scalar) {}
+    template <typename T> template <typename U> value4<T>::value4(const value4<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)), z(static_cast<T>(other.z)), w(static_cast<T>(other.w)) {}
+    template <typename T> T value4<T>::length() const { return std::sqrt(lengthSquared()); }
+    template <typename T> T value4<T>::lengthSquared() const { return x * x + y * y + z * z + w * w; }
+    template <typename T> value4<T> value4<T>::operator+(const value4& rhs) const { return { x + rhs.x, y + rhs.y, z + rhs.z, w + rhs.w }; }
+    template <typename T> value4<T> value4<T>::operator-(const value4& rhs) const { return { x - rhs.x, y - rhs.y, z - rhs.z, w - rhs.w }; }
+    template <typename T> value4<T> value4<T>::operator*(const value4& rhs) const { return { x * rhs.x, y * rhs.y, z * rhs.z, w * rhs.w }; }
+    template <typename T> value4<T> value4<T>::operator/(const value4& rhs) const { return { x / rhs.x, y / rhs.y, z / rhs.z, w / rhs.w }; }
+    template <typename T> value4<T> value4<T>::operator+(T rhs) const { return { x + rhs, y + rhs, z + rhs, w + rhs }; }
+    template <typename T> value4<T> value4<T>::operator-(T rhs) const { return { x - rhs, y - rhs, z - rhs, w - rhs }; }
+    template <typename T> value4<T> value4<T>::operator*(T rhs) const { return { x * rhs, y * rhs, z * rhs, w * rhs }; }
+    template <typename T> value4<T> value4<T>::operator/(T rhs) const { return { x / rhs, y / rhs, z / rhs, w / rhs }; }
+    // clang-format on
+} // namespace processing
+
+namespace processing
+{
+    // clang-format off
+    template <typename T> rect2<T>::rect2(): left(static_cast<T>(0)), top(static_cast<T>(0)), width(static_cast<T>(0)), height(static_cast<T>(0)) {}
+    template <typename T> rect2<T>::rect2(T left, T top, T width, T height): left(left), top(top), width(width), height(height) {}
+    template <typename T> rect2<T>::rect2(const value2<T>& position, const value2<T>& size): position(position), size(size) {}
+    template <typename T> T rect2<T>::right() const { return left + width; }
+    template <typename T> T rect2<T>::bottom() const { return top + height; }
+    template <typename T> value2<T> rect2<T>::center() const { return position + size / 2; }
+    // clang-format on
+} // namespace processing
+
+namespace processing
+{
+    inline constexpr StrokeCap StrokeCap::butt = {.start = StrokeCapStyle::butt, .end = StrokeCapStyle::butt};
+    inline constexpr StrokeCap StrokeCap::square = {.start = StrokeCapStyle::square, .end = StrokeCapStyle::square};
+    inline constexpr StrokeCap StrokeCap::round = {.start = StrokeCapStyle::round, .end = StrokeCapStyle::round};
+} // namespace processing
+
+namespace processing
+{
+    inline constexpr FilterMode FilterMode::linear = {.min = FilterModeType::linear, .mag = FilterModeType::linear};
+    inline constexpr FilterMode FilterMode::nearest = {.min = FilterModeType::nearest, .mag = FilterModeType::nearest};
+} // namespace processing
+
+namespace processing
+{
+    inline constexpr ExtendMode ExtendMode::clamp = {.horizontal = ExtendModeType::clamp, .vertical = ExtendModeType::clamp};
+    inline constexpr ExtendMode ExtendMode::repeat = {.horizontal = ExtendModeType::repeat, .vertical = ExtendModeType::repeat};
+    inline constexpr ExtendMode ExtendMode::mirroredRepeat = {.horizontal = ExtendModeType::mirroredRepeat, .vertical = ExtendModeType::mirroredRepeat};
 } // namespace processing
 
 #endif // _PROCESSING_INCLUDE_PROCESSING_INL_

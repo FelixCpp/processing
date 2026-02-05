@@ -27,7 +27,7 @@ namespace processing
     class RenderbufferAssetHandler
     {
     public:
-        Renderbuffer create(u32 width, u32 height);
+        Renderbuffer create(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode);
         Renderbuffer getAsset();
 
     private:

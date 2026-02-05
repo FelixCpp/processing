@@ -2,9 +2,12 @@
 #include <processing/image.hpp>
 #include <processing/renderbuffer.hpp>
 #include <processing/renderer.hpp>
+#include <processing/shader.hpp>
 
 #include <GLFW/glfw3.h>
-#include <cmath>
+#include <glad/gl.h>
+
+#include <algorithm>
 
 namespace processing
 {
@@ -16,90 +19,13 @@ namespace processing
 
         ImageAssetHandler images;
         RenderbufferAssetHandler renderbuffers;
+        ShaderAssetHandler shaders;
 
         std::unique_ptr<Sketch> sketch;
         std::unique_ptr<Graphics> graphics;
     };
 
     inline static LibraryData s_data;
-} // namespace processing
-
-namespace processing
-{
-    // clang-format off
-    template <typename T> value2<T>::value2() : x(T{}), y(T{}) {}
-    template <typename T> value2<T>::value2(T x, T y) : x(x), y(y) {}
-    template <typename T> value2<T>::value2(const T scalar) : x(scalar), y(scalar) {}
-    template <typename T> template <typename U> value2<T>::value2(const value2<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)) {}
-    template <typename T> T value2<T>::length() const { return std::hypot(x, y); }
-    template <typename T> T value2<T>::lengthSquared() const { return x * x + y * y; }
-    template <typename T> T value2<T>::dot(const value2<T>& other) const { return x * other.x + y * other.y; }
-    template <typename T> value2<T> value2<T>::perpendicular_cw() const { return { y, -x }; }
-    template <typename T> value2<T> value2<T>::perpendicular_ccw() const { return { -y, x }; }
-    template <typename T> value2<T> value2<T>::normalized() const { const T len = length(); if (len != static_cast<T>(0.0)) { return { x / len, y / len }; } return this; }
-    template <typename T> value2<T> value2<T>::operator+(const value2<T>& rhs) const { return { x + rhs.x, y + rhs.y }; }
-    template <typename T> value2<T> value2<T>::operator-(const value2<T>& rhs) const { return { x - rhs.x, y - rhs.y }; }
-    template <typename T> value2<T> value2<T>::operator*(const value2<T>& rhs) const { return { x * rhs.x, y * rhs.y }; }
-    template <typename T> value2<T> value2<T>::operator/(const value2<T>& rhs) const { return { x / rhs.x, y / rhs.y }; }
-    template <typename T> value2<T> value2<T>::operator+(T rhs) const { return { x + rhs.x, y + rhs.y }; }
-    template <typename T> value2<T> value2<T>::operator-(T rhs) const { return { x - rhs.x, y - rhs.y }; }
-    template <typename T> value2<T> value2<T>::operator*(T rhs) const { return { x * rhs.x, y * rhs.y }; }
-    template <typename T> value2<T> value2<T>::operator/(T rhs) const { return { x / rhs.x, y / rhs.y }; }
-    // clang-format on
-} // namespace processing
-
-namespace processing
-{
-    // clang-format off
-    template <typename T> value3<T>::value3() : x(T{}), y(T{}), z(T{}) {}
-    template <typename T> value3<T>::value3(T x, T y, T z) : x(x), y(y), z(z) {}
-    template <typename T> value3<T>::value3(T scalar) : x(scalar), y(scalar), z(scalar) {}
-    template <typename T> template <typename U> value3<T>::value3(const value3<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)), z(static_cast<T>(other.z)) {}
-    template <typename T> value3<T>::value3(const value2<T>& xy, T z) : x(xy.x), y(xy.y), z(z) {}
-    template <typename T> value3<T>::value3(T x, const value2<T>& yz) : x(x), y(yz.x), z(yz.y) {}
-    template <typename T> T value3<T>::length() const { return std::sqrt(lengthSquared()); }
-    template <typename T> T value3<T>::lengthSquared() const { return x * x + y * y + z * z; }
-    template <typename T> value3<T> value3<T>::operator+(const value3& rhs) const { return { x + rhs.x, y + rhs.y, z + rhs.z }; }
-    template <typename T> value3<T> value3<T>::operator-(const value3& rhs) const { return { x - rhs.x, y - rhs.y, z - rhs.z }; }
-    template <typename T> value3<T> value3<T>::operator*(const value3& rhs) const { return { x * rhs.x, y * rhs.y, z * rhs.z }; }
-    template <typename T> value3<T> value3<T>::operator/(const value3& rhs) const { return { x / rhs.x, y / rhs.y, z / rhs.z }; }
-    template <typename T> value3<T> value3<T>::operator+(T rhs) const { return { x + rhs, y + rhs, z + rhs }; }
-    template <typename T> value3<T> value3<T>::operator-(T rhs) const { return { x - rhs, y - rhs, z - rhs }; }
-    template <typename T> value3<T> value3<T>::operator*(T rhs) const { return { x * rhs, y * rhs, z * rhs }; }
-    template <typename T> value3<T> value3<T>::operator/(T rhs) const { return { x / rhs, y / rhs, z / rhs }; }
-    // clang-format on
-} // namespace processing
-
-namespace processing
-{
-    // clang-format off
-    template <typename T> value4<T>::value4() : x(T{}), y(T{}), z(T{}), w(T{}) {}
-    template <typename T> value4<T>::value4(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) {}
-    template <typename T> value4<T>::value4(T scalar) : x(scalar), y(scalar), z(scalar), w(scalar) {}
-    template <typename T> template <typename U> value4<T>::value4(const value4<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)), z(static_cast<T>(other.z)), w(static_cast<T>(other.w)) {}
-    template <typename T> T value4<T>::length() const { return std::sqrt(lengthSquared()); }
-    template <typename T> T value4<T>::lengthSquared() const { return x * x + y * y + z * z + w * w; }
-    template <typename T> value4<T> value4<T>::operator+(const value4& rhs) const { return { x + rhs.x, y + rhs.y, z + rhs.z, w + rhs.w }; }
-    template <typename T> value4<T> value4<T>::operator-(const value4& rhs) const { return { x - rhs.x, y - rhs.y, z - rhs.z, w - rhs.w }; }
-    template <typename T> value4<T> value4<T>::operator*(const value4& rhs) const { return { x * rhs.x, y * rhs.y, z * rhs.z, w * rhs.w }; }
-    template <typename T> value4<T> value4<T>::operator/(const value4& rhs) const { return { x / rhs.x, y / rhs.y, z / rhs.z, w / rhs.w }; }
-    template <typename T> value4<T> value4<T>::operator+(T rhs) const { return { x + rhs, y + rhs, z + rhs, w + rhs }; }
-    template <typename T> value4<T> value4<T>::operator-(T rhs) const { return { x - rhs, y - rhs, z - rhs, w - rhs }; }
-    template <typename T> value4<T> value4<T>::operator*(T rhs) const { return { x * rhs, y * rhs, z * rhs, w * rhs }; }
-    template <typename T> value4<T> value4<T>::operator/(T rhs) const { return { x / rhs, y / rhs, z / rhs, w / rhs }; }
-    // clang-format on
-} // namespace processing
-
-namespace processing
-{
-    // clang-format off
-    template <typename T> rect2<T>::rect2(): left(static_cast<T>(0)), top(static_cast<T>(0)), width(static_cast<T>(0)), height(static_cast<T>(0)) {}
-    template <typename T> rect2<T>::rect2(T left, T top, T width, T height): left(left), top(top), width(width), height(height) {}
-    template <typename T> rect2<T>::rect2(const value2<T>& position, const value2<T>& size): position(position), size(size) {}
-    template <typename T> T rect2<T>::right() const { return left + width; }
-    template <typename T> T rect2<T>::bottom() const { return top + height; }
-    template <typename T> value2<T> rect2<T>::center() const { return position + size / 2; }
-    // clang-format on
 } // namespace processing
 
 namespace processing
@@ -148,6 +74,56 @@ namespace processing
         return result;
     }
 
+    matrix4x4 matrix4x4::orthographic(f32 left, f32 top, f32 width, f32 height, f32 near, f32 far)
+    {
+        f32 right = left + width;
+        f32 bottom = top + height;
+
+        f32 rl = right - left;
+        f32 tb = top - bottom;
+        f32 fn = far - near;
+
+        return matrix4x4{
+            2.0f / rl, 0.0f, 0.0f, 0.0f,
+            0.0f, 2.0f / tb, 0.0f, 0.0f,
+            0.0f, 0.0f, -2.0f / fn, 0.0f,
+            -(right + left) / rl, -(top + bottom) / tb, -(far + near) / fn, 1.0f
+        };
+    }
+
+    matrix4x4 matrix4x4::translation(const f32 x, const f32 y)
+    {
+        return matrix4x4{
+            1.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 1.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            x, y, 0.0f, 1.0f
+        };
+    }
+
+    matrix4x4 matrix4x4::scaling(const f32 x, const f32 y)
+    {
+        return matrix4x4{
+            x, 0.0f, 0.0f, 0.0f,
+            0.0f, y, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f
+        };
+    }
+
+    matrix4x4 matrix4x4::rotation(const f32 angle)
+    {
+        const f32 cos = std::cos(angle);
+        const f32 sin = std::sin(angle);
+
+        return matrix4x4{
+            cos, sin, 0.0f, 0.0f,
+            -sin, cos, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f
+        };
+    }
+
     float2 matrix4x4::transformPoint(const float2& point) const
     {
         return point;
@@ -156,6 +132,57 @@ namespace processing
     float3 matrix4x4::transformPoint(const float3& point) const
     {
         return point;
+    }
+
+    const matrix4x4 matrix4x4::identity;
+} // namespace processing
+
+namespace processing
+{
+    Color::Color()
+        : Color(255)
+    {
+    }
+    Color::Color(const i32 red, const i32 green, const i32 blue, const i32 alpha)
+        : r{static_cast<u8>(std::clamp(red, 0, 255))},
+          g{static_cast<u8>(std::clamp(green, 0, 255))},
+          b{static_cast<u8>(std::clamp(blue, 0, 255))},
+          a{static_cast<u8>(std::clamp(alpha, 0, 255))}
+    {
+    }
+
+    Color::Color(const i32 grey, const i32 alpha)
+        : Color(grey, grey, grey, alpha)
+    {
+    }
+
+    i32 Color::brightness() const
+    {
+        const f32 r = 0.2126f * static_cast<f32>(r);
+        const f32 g = 0.7152f * static_cast<f32>(g);
+        const f32 b = 0.0722f * static_cast<f32>(b);
+        const f32 luminance = r + g + b;
+
+        return static_cast<i32>(luminance);
+    }
+} // namespace processing
+
+namespace processing
+{
+    RenderStyle::RenderStyle()
+        : fillColor{255, 255, 255},
+          strokeColor{255, 255, 255},
+          isFillEnabled{true},
+          isStrokeEnabled{true},
+          strokeWeight{1.0f},
+          strokeCap{StrokeCap::round},
+          strokeJoin{StrokeJoin::miter},
+          blendMode{BlendMode::alpha},
+          angleMode{AngleMode::degrees},
+          rectMode{RectMode::cornerSize},
+          ellipseMode{EllipseMode::centerDiameter},
+          imageMode{RectMode::cornerSize}
+    {
     }
 } // namespace processing
 
@@ -171,19 +198,50 @@ namespace processing
 
 namespace processing
 {
-    Image createImage(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode)
+    Image createImage(u32 width, u32 height, const u8* data, FilterMode filterMode, ExtendMode extendMode)
     {
-        return s_data.images.createImage(width, height, filterMode, extendMode);
+        return s_data.images.createImage(width, height, data, filterMode, extendMode);
     }
 
     Image loadImage(const std::filesystem::path& filepath, FilterMode filterMode, ExtendMode extendMode)
     {
         return s_data.images.loadImage(filepath, filterMode, extendMode);
     }
+} // namespace processing
 
-    Renderbuffer createRenderbuffer(u32 width, u32 height)
+namespace processing
+{
+    Renderbuffer createRenderbuffer(const u32 width, const u32 height, const FilterMode filterMode, const ExtendMode extendMode)
     {
-        return s_data.renderbuffers.create(width, height);
+        return s_data.renderbuffers.create(width, height, filterMode, extendMode);
+    }
+} // namespace processing
+
+namespace processing
+{
+    Shader createShader(std::string_view vertexShaderSource, std::string_view fragmentShaderSource)
+    {
+        return s_data.shaders.create(vertexShaderSource, fragmentShaderSource);
+    }
+} // namespace processing
+
+namespace processing
+{
+    void blit(u32 width, u32 height, const Renderbuffer& rb)
+    {
+        glViewport(0, 0, width, height);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, rb.getResourceId().value);
+        glBlitFramebuffer(
+            0, 0, rb.getSize().x, rb.getSize().y,
+            0, 0, width, height,
+            GL_COLOR_BUFFER_BIT, GL_NEAREST
+        );
+    }
+
+    Graphics& getGfx()
+    {
+        return *s_data.graphics;
     }
 } // namespace processing
 
@@ -192,9 +250,30 @@ namespace processing
     void launch()
     {
         glfwInit();
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        // glfwWindowHint(GLFW_SAMPLES, 4);
         GLFWwindow* window = glfwCreateWindow(800, 800, "Processing App", nullptr, nullptr);
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1);
+
+        glfwSetWindowCloseCallback(
+            window, [](GLFWwindow*)
+            {
+                s_data.closeRequested = true;
+            }
+        );
+
+        int w, h;
+        glfwGetFramebufferSize(window, &w, &h);
+
+        gladLoadGL(&glfwGetProcAddress);
+        glEnable(GL_TEXTURE_2D);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+        // glEnable(GL_MULTISAMPLE);
 
         std::shared_ptr<Renderer> renderer = DefaultRenderer::create();
         Renderbuffer buffer = createRenderbuffer(800, 800);
@@ -209,6 +288,7 @@ namespace processing
             s_data.graphics->beginDraw();
             s_data.sketch->draw(0.0f);
             s_data.graphics->endDraw();
+            blit(w, h, buffer);
             glfwSwapBuffers(window);
         }
 

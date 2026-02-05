@@ -5,6 +5,46 @@
 
 namespace processing
 {
+    Pixels::Pixels(u32 width, u32 height, PlatformImage* parent, const std::span<u8>& data)
+        : m_width{width},
+          m_height{height},
+          m_parent{parent},
+          m_data{data}
+    {
+    }
+
+    void Pixels::set(const u32 x, const u32 y, const Color color)
+    {
+        if (x < m_width and y < m_height)
+        {
+            const usize index = y * m_width + x;
+            m_data[index + 0] = color.r;
+            m_data[index + 1] = color.g;
+            m_data[index + 2] = color.b;
+            m_data[index + 3] = color.a;
+        }
+    }
+
+    Color Pixels::get(const u32 x, const u32 y) const
+    {
+        if (x < m_width and y < m_height)
+        {
+            const usize index = y * m_width + x;
+            return Color(m_data[index + 0], m_data[index + 1], m_data[index + 2], m_data[index + 3]);
+        }
+
+        return Color(0);
+    }
+
+    void Pixels::commit()
+    {
+        glBindTexture(GL_TEXTURE_2D, m_parent->getResourceId().value);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, m_data.data());
+    }
+} // namespace processing
+
+namespace processing
+{
     class OpenGLPlatformImage : public PlatformImage
     {
     private:
@@ -33,7 +73,7 @@ namespace processing
         }
 
     public:
-        static std::unique_ptr<OpenGLPlatformImage> create(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode)
+        static std::unique_ptr<OpenGLPlatformImage> create(u32 width, u32 height, const u8* data, FilterMode filterMode, ExtendMode extendMode)
         {
             ResourceId resourceId = {.value = 0};
             glGenTextures(1, &resourceId.value);
@@ -42,7 +82,7 @@ namespace processing
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filterModeToGLId(filterMode.min));
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, extendModeToGLId(extendMode.horizontal));
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, extendModeToGLId(extendMode.vertical));
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, 0, GL_UNSIGNED_BYTE, nullptr);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
             return std::unique_ptr<OpenGLPlatformImage>(new OpenGLPlatformImage(uint2{width, height}, resourceId, filterMode, extendMode));
         }
@@ -63,7 +103,7 @@ namespace processing
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filterModeToGLId(filterMode.min));
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, extendModeToGLId(extendMode.horizontal));
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, extendModeToGLId(extendMode.vertical));
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, 0, GL_UNSIGNED_BYTE, data.get());
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.get());
 
             return std::unique_ptr<OpenGLPlatformImage>(new OpenGLPlatformImage(uint2{static_cast<u32>(width), static_cast<u32>(height)}, resourceId, filterMode, extendMode));
         }
@@ -116,7 +156,7 @@ namespace processing
             glBindTexture(GL_TEXTURE_2D, m_resourceId.value);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data());
 
-            return Pixels(m_size.x, m_size.y, data);
+            return Pixels(m_size.x, m_size.y, this, data);
         }
 
         ResourceId getResourceId() const override
@@ -142,9 +182,9 @@ namespace processing
 
 namespace processing
 {
-    Image ImageAssetHandler::createImage(u32 width, u32 height, FilterMode filterMode, ExtendMode extendMode)
+    Image ImageAssetHandler::createImage(u32 width, u32 height, const u8* data, FilterMode filterMode, ExtendMode extendMode)
     {
-        if (auto image = OpenGLPlatformImage::create(width, height, filterMode, extendMode))
+        if (auto image = OpenGLPlatformImage::create(width, height, data, filterMode, extendMode))
         {
             std::shared_ptr<PlatformImage>& ptr = m_assets.emplace_back(std::move(image));
             AssetId assetId = {.value = m_assets.size()};
@@ -176,6 +216,12 @@ namespace processing
 
 namespace processing
 {
+    Image::Image(const AssetId assetId, std::shared_ptr<PlatformImage> impl)
+        : m_assetId{assetId},
+          m_impl{std::move(impl)}
+    {
+    }
+
     void Image::setFilterMode(FilterMode mode)
     {
         m_impl->setFilterMode(mode);

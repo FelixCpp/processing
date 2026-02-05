@@ -35,16 +35,42 @@ namespace processing
 
 namespace processing
 {
+    inline static constexpr rect2f convert_to_rect(const RectMode mode, f32 x1, f32 y1, f32 x2, f32 y2)
+    {
+        switch (mode)
+        {
+                // clang-format off
+            case RectMode::cornerSize: return rect2f{ x1, y1, x2, y2 };
+            case RectMode::corners: return rect2f{ x1, y1, x2 - x1, y2 - y1 };
+            case RectMode::centerSize: return rect2f{ x1 - x2 * 0.5f, y1 - y2 * 0.5f, x2, y2 };
+                // clang-format on
+        }
+    }
+
+    inline static constexpr StrokeProperties get_stroke_properties(const RenderStyle& style)
+    {
+        return StrokeProperties{
+            .strokeJoin = style.strokeJoin,
+            .strokeWeight = style.strokeWeight,
+            .miterLimit = 4.0f,
+        };
+    }
+} // namespace processing
+
+namespace processing
+{
     Graphics::Graphics(std::shared_ptr<Renderer> renderer, Renderbuffer renderbuffer)
         : m_renderer(std::move(renderer)),
           m_renderbuffer(std::move(renderbuffer)),
           m_renderStyles({RenderStyle()}),
-          m_metrics({matrix4x4::identity})
+          m_metrics({matrix4x4::identity}),
+          m_currentDepth{-1.0f}
     {
     }
 
     void Graphics::beginDraw()
     {
+        m_currentDepth = 0.0f;
     }
 
     void Graphics::endDraw()
@@ -274,6 +300,24 @@ namespace processing
 
     void Graphics::rect(f32 x1, f32 y1, f32 x2, f32 y2)
     {
+        const RenderStyle& style = peekStyle();
+        const matrix4x4& matrix = peekMatrix();
+        const rect2f boundary = convert_to_rect(style.rectMode, x1, y1, x2, y2);
+        const RectPath path = path_rect(boundary);
+
+        if (style.isFillEnabled)
+        {
+            const Contour contour = contour_rect_fill(path);
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth());
+            m_renderer->render(vertices, getRenderState(style));
+        }
+
+        if (style.isStrokeEnabled)
+        {
+            const Contour contour = contour_rect_stroke(path, get_stroke_properties(style));
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
+            m_renderer->render(vertices, getRenderState(style));
+        }
     }
 
     void Graphics::square(f32 x1, f32 y1, f32 xy2)
@@ -300,11 +344,20 @@ namespace processing
     {
     }
 
+    f32 Graphics::getNextDepth()
+    {
+        const f32 depth = m_currentDepth;
+        m_currentDepth += 1.0f / 20'000.0f;
+        return depth;
+    }
+
     RenderState Graphics::getRenderState(const RenderStyle& style)
     {
         return RenderState{
             .blendMode = style.blendMode,
             .renderbuffer = m_renderbuffer,
+            .transform = matrix4x4::orthographic(0.0f, 0.0f, m_renderbuffer.getSize().x, m_renderbuffer.getSize().y, -1.0f, 1.0f),
         };
     }
+
 } // namespace processing

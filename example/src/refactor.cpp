@@ -3,24 +3,18 @@ using namespace processing;
 
 struct DemoApp : Sketch
 {
-    Image buff = createImage(200, 200);
-
     void setup() override
     {
     }
 
     void draw(f32 deltaTime) override
     {
-        Pixels p = buff.loadPixels();
-        for (u32 y = 0; y < buff.height; ++y)
-        {
-            for (u32 x = 0; x < buff.width; ++x)
-            {
-                Color c = p.get(x, y);
-                p.set(x, y, c);
-            }
-        }
-        p.commit();
+        getGfx().background(51);
+        getGfx().fill(255, 0, 0);
+        getGfx().stroke(0, 255, 0);
+        getGfx().strokeWeight(35.0f);
+        getGfx().strokeJoin(StrokeJoin::round);
+        getGfx().rect(100.0f, 100.0f, 300.0f, 300.0f);
     }
 
     void destroy() override
