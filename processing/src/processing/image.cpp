@@ -5,7 +5,7 @@
 
 namespace processing
 {
-    Pixels::Pixels(u32 width, u32 height, PlatformImage* parent, u8* data)
+    Pixels::Pixels(u32 width, u32 height, PlatformImage* parent, const std::vector<u8>& data)
         : m_width{width},
           m_height{height},
           m_parent{parent},
@@ -17,7 +17,7 @@ namespace processing
     {
         if (x < m_width and y < m_height)
         {
-            const usize index = y * m_width + x;
+            const usize index = (y * m_width + x) * 4;
             m_data[index + 0] = color.r;
             m_data[index + 1] = color.g;
             m_data[index + 2] = color.b;
@@ -29,7 +29,7 @@ namespace processing
     {
         if (x < m_width and y < m_height)
         {
-            const usize index = y * m_width + x;
+            const usize index = (y * m_width + x) * 4;
             return Color(m_data[index + 0], m_data[index + 1], m_data[index + 2], m_data[index + 3]);
         }
 
@@ -39,7 +39,8 @@ namespace processing
     void Pixels::commit()
     {
         glBindTexture(GL_TEXTURE_2D, m_parent->getResourceId().value);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, m_data);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, m_data.data());
     }
 } // namespace processing
 
@@ -82,7 +83,8 @@ namespace processing
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filterModeToGLId(filterMode.min));
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, extendModeToGLId(extendMode.horizontal));
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, extendModeToGLId(extendMode.vertical));
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            glBindTexture(GL_TEXTURE_2D, 0);
 
             return std::unique_ptr<OpenGLPlatformImage>(new OpenGLPlatformImage(uint2{width, height}, resourceId, filterMode, extendMode));
         }
@@ -103,7 +105,8 @@ namespace processing
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filterModeToGLId(filterMode.min));
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, extendModeToGLId(extendMode.horizontal));
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, extendModeToGLId(extendMode.vertical));
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.get());
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.get());
+            glBindTexture(GL_TEXTURE_2D, 0);
 
             return std::unique_ptr<OpenGLPlatformImage>(new OpenGLPlatformImage(uint2{static_cast<u32>(width), static_cast<u32>(height)}, resourceId, filterMode, extendMode));
         }

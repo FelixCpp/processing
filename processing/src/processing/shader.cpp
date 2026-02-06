@@ -31,6 +31,11 @@ namespace processing
             return std::unique_ptr<OpenGLPlatformShader>(new OpenGLPlatformShader(shaderProgramId));
         }
 
+        ~OpenGLPlatformShader() override
+        {
+            glDeleteProgram(m_shaderProgramId.value);
+        }
+
         ResourceId getResourceId() const override
         {
             return m_shaderProgramId;

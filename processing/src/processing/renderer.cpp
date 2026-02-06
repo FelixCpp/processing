@@ -40,7 +40,6 @@ uniform sampler2D u_TextureSampler;
 
 void main() {
     o_FragColor = texture(u_TextureSampler, v_TexCoord) * v_Color;
-    // o_FragColor = (texture(u_TextureSampler, v_TexCoord) * v_Color) * vec4(0.0) + vec4(1.0);
 }
 )";
 } // namespace processing
@@ -51,65 +50,77 @@ namespace processing
     {
         switch (mode)
         {
+            case BlendMode::opaque:
+            {
+                glDisable(GL_BLEND);
+                return;
+            }
+
             case BlendMode::alpha:
-                // Standard: Src.rgb * Src.a + Dst.rgb * (1 - Src.a)
-                glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            {
+                glEnable(GL_BLEND);
                 glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                glBlendFuncSeparate(
+                    GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, // RGB
+                    GL_ONE, GL_ONE_MINUS_SRC_ALPHA        // Alpha
+                );
                 break;
-
-            case BlendMode::additive:
-                // Addiert Farben: Src.rgb + Dst.rgb
-                glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ONE, GL_ONE);
-                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-                break;
-
-            case BlendMode::multiply:
-                // Multipliziert: Src.rgb * Dst.rgb
-                glBlendFuncSeparate(GL_DST_COLOR, GL_ZERO, GL_DST_ALPHA, GL_ZERO);
-                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-                break;
-
-            case BlendMode::screen:
-                // Screen: 1 - (1 - Src.rgb) * (1 - Dst.rgb)
-                glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_COLOR, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-                break;
+            }
 
             case BlendMode::premultiplied:
-                // Für bereits mit Alpha multiplizierte Texturen
-                glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            {
+                glEnable(GL_BLEND);
                 glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                glBlendFuncSeparate(
+                    GL_ONE, GL_ONE_MINUS_SRC_ALPHA, // RGB
+                    GL_ONE, GL_ONE_MINUS_SRC_ALPHA  // Alpha
+                );
                 break;
+            }
 
-            case BlendMode::subtractiveRGB:
-                // Subtrahiert RGB, addiert Alpha
-                glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ONE, GL_ONE);
+            case BlendMode::additive:
+            {
+                glEnable(GL_BLEND);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                glBlendFuncSeparate(
+                    GL_SRC_ALPHA, GL_ONE, // RGB
+                    GL_ONE, GL_ONE        // Alpha
+                );
+                break;
+            }
+
+            case BlendMode::multiply:
+            {
+                glEnable(GL_BLEND);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                glBlendFuncSeparate(
+                    GL_DST_COLOR, GL_ZERO, // RGB
+                    GL_ONE, GL_ONE_MINUS_SRC_ALPHA
+                );
+                break;
+            }
+
+            case BlendMode::screen:
+            {
+                glEnable(GL_BLEND);
+                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+                glBlendFuncSeparate(
+                    GL_ONE, GL_ONE_MINUS_SRC_COLOR, // RGB
+                    GL_ONE, GL_ONE_MINUS_SRC_ALPHA
+                );
+                break;
+            }
+
+            case BlendMode::subtract:
+            {
+                glEnable(GL_BLEND);
                 glBlendEquationSeparate(GL_FUNC_REVERSE_SUBTRACT, GL_FUNC_ADD);
+                glBlendFuncSeparate(
+                    GL_SRC_ALPHA, GL_ONE, // RGB
+                    GL_ONE, GL_ONE
+                );
                 break;
-
-            case BlendMode::modulate:
-                // 2x Modulation: 2 * Src.rgb * Dst.rgb
-                glBlendFuncSeparate(GL_DST_COLOR, GL_SRC_COLOR, GL_DST_ALPHA, GL_ZERO);
-                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-                break;
-
-            case BlendMode::invert:
-                // Invertiert die Zielfarbe
-                glBlendFuncSeparate(GL_ONE_MINUS_DST_COLOR, GL_ZERO, GL_ONE_MINUS_DST_ALPHA, GL_ZERO);
-                glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-                break;
-
-            case BlendMode::min:
-                // Nimmt minimum von Src und Dst
-                glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
-                glBlendEquationSeparate(GL_MIN, GL_MIN);
-                break;
-
-            case BlendMode::max:
-                // Nimmt maximum von Src und Dst
-                glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
-                glBlendEquationSeparate(GL_MAX, GL_MAX);
-                break;
+            }
         }
     }
 } // namespace processing
@@ -151,15 +162,15 @@ namespace processing
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
         glEnableVertexAttribArray(2);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         ResourceId elementBufferId = {.value = 0};
         glGenBuffers(1, &elementBufferId.value);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBufferId.value);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, MAX_INDICES * sizeof(u32), nullptr, GL_DYNAMIC_DRAW);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
         glBindVertexArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
         const u8 pixel[] = {255, 255, 255, 255};
         Image whiteImage = createImage(1, 1, pixel, FilterMode::linear, ExtendMode::clamp);
@@ -170,6 +181,8 @@ namespace processing
 
     void DefaultRenderer::render(const Vertices& vertices, const RenderState& renderState)
     {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         const ResourceId shaderId = std::invoke(
             [this, &renderState]()
             {
@@ -220,8 +233,8 @@ namespace processing
         : m_vertexArrayId(vertexArrayId),
           m_vertexBufferId(vertexBufferId),
           m_elementBufferId(elementBufferId),
-          m_whiteImage(whiteImage),
-          m_defaultShader(defaultShader)
+          m_whiteImage(std::move(whiteImage)),
+          m_defaultShader(std::move(defaultShader))
     {
     }
 } // namespace processing

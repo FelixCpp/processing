@@ -17,11 +17,14 @@ namespace processing
         bool shouldRestart;
         i32 exitCode;
 
+        GLFWwindow* window;
+
         ImageAssetHandler images;
         RenderbufferAssetHandler renderbuffers;
         ShaderAssetHandler shaders;
 
         std::unique_ptr<Sketch> sketch;
+        std::shared_ptr<Renderer> renderer;
         std::unique_ptr<Graphics> graphics;
     };
 
@@ -172,6 +175,7 @@ namespace processing
     RenderStyle::RenderStyle()
         : fillColor{255, 255, 255},
           strokeColor{255, 255, 255},
+          tintColor{255, 255, 255},
           isFillEnabled{true},
           isStrokeEnabled{true},
           strokeWeight{1.0f},
@@ -181,7 +185,8 @@ namespace processing
           angleMode{AngleMode::degrees},
           rectMode{RectMode::cornerSize},
           ellipseMode{EllipseMode::centerDiameter},
-          imageMode{RectMode::cornerSize}
+          imageMode{RectMode::cornerSize},
+          shader(std::nullopt)
     {
     }
 } // namespace processing
@@ -201,7 +206,7 @@ namespace processing
     int2 getMousePosition()
     {
         double mx, my;
-        glfwGetCursorPos(glfwGetCurrentContext(), &mx, &my);
+        glfwGetCursorPos(s_data.window, &mx, &my);
         return int2{static_cast<i32>(mx), static_cast<i32>(my)};
     }
 } // namespace processing
@@ -242,11 +247,12 @@ namespace processing
         glViewport(0, 0, width, height);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, rb.getResourceId().value);
-        glBlitFramebuffer(
-            0, 0, rb.getSize().x, rb.getSize().y,
-            0, 0, width, height,
-            GL_COLOR_BUFFER_BIT, GL_LINEAR
-        );
+        glBlitFramebuffer(0, 0, rb.getSize().x, rb.getSize().y, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    }
+
+    Graphics createGraphics(u32 width, u32 height)
+    {
+        return Graphics(s_data.renderer, createRenderbuffer(width, height));
     }
 
     Graphics& getGfx()
@@ -260,24 +266,32 @@ namespace processing
     void launch()
     {
         glfwInit();
+
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+        glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_NATIVE_CONTEXT_API);
+
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-        glfwWindowHint(GLFW_SAMPLES, 4);
-        GLFWwindow* window = glfwCreateWindow(800, 800, "Processing App", nullptr, nullptr);
-        glfwMakeContextCurrent(window);
+
+        // glfwWindowHint(GLFW_SAMPLES, 4);
+        // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        s_data.window = glfwCreateWindow(800, 800, "Processing App", nullptr, nullptr);
+        glfwMakeContextCurrent(s_data.window);
         glfwSwapInterval(1);
 
         glfwSetWindowCloseCallback(
-            window, [](GLFWwindow*)
+            s_data.window, [](GLFWwindow*)
             {
                 s_data.closeRequested = true;
             }
         );
 
         int w, h;
-        glfwGetFramebufferSize(window, &w, &h);
+        glfwGetFramebufferSize(s_data.window, &w, &h);
 
         gladLoadGL(&glfwGetProcAddress);
 
@@ -285,11 +299,11 @@ namespace processing
         glEnable(GL_TEXTURE_2D);
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
-        glEnable(GL_MULTISAMPLE);
+        // glEnable(GL_MULTISAMPLE);
 
-        std::shared_ptr<Renderer> renderer = DefaultRenderer::create();
+        s_data.renderer = DefaultRenderer::create();
         Renderbuffer buffer = createRenderbuffer(800, 800);
-        s_data.graphics = std::make_unique<Graphics>(renderer, buffer);
+        s_data.graphics = std::make_unique<Graphics>(s_data.renderer, buffer);
 
         s_data.sketch = createSketch();
         s_data.sketch->setup();
@@ -301,7 +315,7 @@ namespace processing
             s_data.sketch->draw(0.0f);
             s_data.graphics->endDraw();
             blit(w, h, buffer);
-            glfwSwapBuffers(window);
+            glfwSwapBuffers(s_data.window);
         }
 
         s_data.sketch->destroy();

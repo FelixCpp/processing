@@ -9,7 +9,6 @@
 #include <memory>
 #include <vector>
 #include <stack>
-#include <span>
 #include <filesystem>
 #include <string_view>
 #include <optional>
@@ -268,16 +267,13 @@ namespace processing
 
     enum class BlendMode
     {
-        alpha,
-        additive,
-        multiply,
-        screen,
-        premultiplied,
-        subtractiveRGB,
-        modulate,
-        invert,
-        min,
-        max
+        opaque,        // kein Blending
+        alpha,         // klassisches Alpha-Blending
+        premultiplied, // premultiplied alpha
+        additive,      // Glow / Partikel
+        multiply,      // Schatten / Darken
+        screen,        // Aufhellen
+        subtract,      // Spezialeffekte
     };
 
     enum class AngleMode
@@ -353,32 +349,6 @@ namespace processing
 
 namespace processing
 {
-    struct RenderStyle
-    {
-        Color fillColor;
-        Color strokeColor;
-        Color tintColor;
-
-        bool isFillEnabled;
-        bool isStrokeEnabled;
-
-        f32 strokeWeight;
-        StrokeCap strokeCap;
-        StrokeJoin strokeJoin;
-
-        BlendMode blendMode;
-        AngleMode angleMode;
-        RectMode rectMode;
-        EllipseMode ellipseMode;
-        RectMode imageMode;
-        ImageSourceMode imageSourceMode;
-
-        RenderStyle();
-    };
-} // namespace processing
-
-namespace processing
-{
     struct ResourceId
     {
         u32 value;
@@ -440,7 +410,7 @@ namespace processing
     class Pixels
     {
     public:
-        explicit Pixels(u32 width, u32 height, PlatformImage* parent, u8* data);
+        explicit Pixels(u32 width, u32 height, PlatformImage* parent, const std::vector<u8>& data);
         void set(u32 x, u32 y, Color color);
         Color get(u32 x, u32 y) const;
 
@@ -450,7 +420,7 @@ namespace processing
         u32 m_width;
         u32 m_height;
         PlatformImage* m_parent;
-        u8* m_data;
+        std::vector<u8> m_data;
     };
 
     struct PlatformImage
@@ -550,6 +520,34 @@ namespace processing
 
 namespace processing
 {
+    struct RenderStyle
+    {
+        Color fillColor;
+        Color strokeColor;
+        Color tintColor;
+
+        bool isFillEnabled;
+        bool isStrokeEnabled;
+
+        f32 strokeWeight;
+        StrokeCap strokeCap;
+        StrokeJoin strokeJoin;
+
+        BlendMode blendMode;
+        AngleMode angleMode;
+        RectMode rectMode;
+        EllipseMode ellipseMode;
+        RectMode imageMode;
+        ImageSourceMode imageSourceMode;
+
+        std::optional<Shader> shader;
+
+        RenderStyle();
+    };
+} // namespace processing
+
+namespace processing
+{
     struct RenderState
     {
         BlendMode blendMode;
@@ -595,6 +593,9 @@ namespace processing
         void ellipseMode(EllipseMode mode);
         void imageMode(RectMode mode);
         void imageSourceMode(ImageSourceMode mode);
+
+        void shader(const Shader& shader);
+        void noShader();
 
         void fill(i32 red, i32 green, i32 blue, i32 alpha = 255);
         void fill(i32 grey, i32 alpha = 255);
@@ -650,6 +651,7 @@ namespace processing
         f32 m_currentDepth;
     };
 
+    Graphics createGraphics(u32 width, u32 height);
     Graphics& getGfx();
 
 } // namespace processing

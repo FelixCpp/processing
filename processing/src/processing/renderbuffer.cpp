@@ -19,9 +19,17 @@ namespace processing
             glGenRenderbuffers(1, &renderbufferId.value);
             glBindRenderbuffer(GL_RENDERBUFFER, renderbufferId.value);
             glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, renderbufferId.value, renderbufferId.value);
+            glBindRenderbuffer(GL_RENDERBUFFER, 0);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, renderbufferId.value);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
             return std::unique_ptr<OpenGLRenderbuffer>(new OpenGLRenderbuffer(uint2{width, height}, renderbufferId, framebufferId, image));
+        }
+
+        ~OpenGLRenderbuffer() override
+        {
+            glDeleteFramebuffers(1, &m_framebufferId.value);
+            glDeleteRenderbuffers(1, &m_renderbufferId.value);
         }
 
         Image& getImage() override
@@ -44,7 +52,7 @@ namespace processing
             : m_size(size),
               m_renderbufferId(renderbufferId),
               m_framebufferId(framebufferId),
-              m_image(image)
+              m_image(std::move(image))
         {
         }
 

@@ -20,12 +20,14 @@ namespace processing
         shape.vertices.reserve(contour.positions.size());
         shape.indices.append_range(contour.indices);
 
+        const float4 col = float4_from_color(color);
+
         for (size_t i = 0; i < contour.positions.size(); ++i)
         {
             shape.vertices.push_back(Vertex{
                 .position = transform.transformPoint(float3{contour.positions[i], depth}),
                 .texcoord = contour.texcoords[i],
-                .color = float4_from_color(color),
+                .color = col,
             });
         }
 
@@ -103,7 +105,7 @@ namespace processing
 
     void Graphics::beginDraw()
     {
-        m_currentDepth = 0.0f;
+        m_currentDepth = -1.0f;
     }
 
     void Graphics::endDraw()
@@ -227,6 +229,16 @@ namespace processing
         peekStyle().imageSourceMode = mode;
     }
 
+    void Graphics::shader(const Shader& shader)
+    {
+        peekStyle().shader = shader;
+    }
+
+    void Graphics::noShader()
+    {
+        peekStyle().shader.reset();
+    }
+
     void Graphics::fill(const i32 red, const i32 green, const i32 blue, const i32 alpha)
     {
         fill(Color(red, green, blue, alpha));
@@ -315,12 +327,19 @@ namespace processing
     {
         const float2 size = float2{m_renderbuffer.getSize()};
 
-        RenderStyle& style = peekStyle();
+        const RenderStyle& style = peekStyle();
         const RectPath path = path_rect(rect2f{0.0f, 0.0f, size.x, size.y});
         const Contour contour = contour_rect_fill(path);
         const Vertices vertices = vertices_from_contour(contour, matrix4x4::identity, color, getNextDepth());
 
-        m_renderer->render(vertices, getRenderState(style));
+        m_renderer->render(
+            vertices,
+            {
+                .blendMode = style.blendMode,
+                .renderbuffer = m_renderbuffer,
+                .transform = matrix4x4::orthographic(0.0f, 0.0f, size.x, size.y, -1.0f, 1.0f),
+            }
+        );
     }
 
     void Graphics::beginShape()
@@ -365,12 +384,12 @@ namespace processing
             m_renderer->render(vertices, getRenderState(style));
         }
 
-        if (style.isStrokeEnabled)
-        {
-            const Contour contour = contour_rect_stroke(path, get_stroke_properties(style));
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
-            m_renderer->render(vertices, getRenderState(style));
-        }
+        // if (style.isStrokeEnabled)
+        // {
+        //     const Contour contour = contour_rect_stroke(path, get_stroke_properties(style));
+        //     const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
+        //     m_renderer->render(vertices, getRenderState(style));
+        // }
     }
 
     void Graphics::square(f32 x1, f32 y1, f32 xy2)
@@ -399,12 +418,12 @@ namespace processing
             m_renderer->render(vertices, getRenderState(style));
         }
 
-        if (style.isStrokeEnabled)
-        {
-            const Contour contour = contour_ellipse_stroke(path, get_stroke_properties(style));
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
-            m_renderer->render(vertices, getRenderState(style));
-        }
+        // if (style.isStrokeEnabled)
+        // {
+        //     const Contour contour = contour_ellipse_stroke(path, get_stroke_properties(style));
+        //     const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
+        //     m_renderer->render(vertices, getRenderState(style));
+        // }
     }
 
     void Graphics::circle(f32 x1, f32 y1, f32 xy2)
@@ -494,7 +513,7 @@ namespace processing
         const rect2f source = image_source_to_rect(style.imageSourceMode, static_cast<f32>(imgWidth), static_cast<f32>(imgHeight), sx1, sy1, sx2, sy2);
 
         const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, source.left, source.top, source.width, source.height);
-        const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
+        const Vertices vertices = vertices_from_contour(contour, matrix, style.tintColor, getNextDepth());
         m_renderer->render(vertices, getRenderState(style, img));
     }
 
@@ -515,6 +534,7 @@ namespace processing
         return RenderState{
             .blendMode = style.blendMode,
             .renderbuffer = m_renderbuffer,
+            .shader = style.shader,
             .image = image,
             .transform = matrix4x4::orthographic(0.0f, 0.0f, m_renderbuffer.getSize().x, m_renderbuffer.getSize().y, -1.0f, 1.0f),
         };
