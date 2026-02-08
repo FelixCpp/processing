@@ -48,15 +48,15 @@ namespace processing
         Framebuffer framebuffer;
     };
 
-    class RenderbufferRegistry
+    class RenderbufferAssetHandler
     {
     public:
-        explicit RenderbufferRegistry()
+        explicit RenderbufferAssetHandler()
             : m_nextAssetId(1)
         {
         }
 
-        AssetId insert(std::shared_ptr<RenderbufferImpl> impl)
+        AssetId create(std::shared_ptr<RenderbufferImpl> impl)
         {
             const AssetId insertionId = AssetId{m_nextAssetId};
             m_assets.emplace(std::make_pair(insertionId.value, std::move(impl)));
@@ -64,7 +64,7 @@ namespace processing
             return insertionId;
         }
 
-        RenderbufferImpl& get(const AssetId& assetId)
+        RenderbufferImpl& get(const AssetId assetId)
         {
             return *m_assets.at(assetId.value);
         }
@@ -76,7 +76,7 @@ namespace processing
 
     struct GraphicsData
     {
-        RenderbufferRegistry renderbuffers;
+        RenderbufferAssetHandler renderbuffers;
         NeverEmptyStack<usize> renderbufferIds;
         std::shared_ptr<DefaultRenderer> renderer;
     };
@@ -93,8 +93,8 @@ namespace processing
 {
     void initGraphics(const u32 width, const u32 height)
     {
-        auto registry = RenderbufferRegistry{};
-        AssetId initialBufferId = registry.insert(std::make_shared<RenderbufferImpl>(width, height, FilterMode::linear, ExtendMode::clamp));
+        auto registry = RenderbufferAssetHandler{};
+        AssetId initialBufferId = registry.create(std::make_shared<RenderbufferImpl>(width, height, FilterMode::linear, ExtendMode::clamp));
 
         s_graphics = std::unique_ptr<GraphicsData>{
             new GraphicsData{
@@ -243,7 +243,7 @@ namespace processing
     Renderbuffer createRenderbuffer(const u32 width, const u32 height, const FilterMode filterMode, const ExtendMode extendMode)
     {
         auto impl = std::make_shared<RenderbufferImpl>(width, height, filterMode, extendMode);
-        auto assetId = s_graphics->renderbuffers.insert(impl);
+        auto assetId = s_graphics->renderbuffers.create(impl);
         return Renderbuffer{assetId, impl};
     }
 } // namespace processing
