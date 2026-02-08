@@ -483,6 +483,7 @@ namespace processing
     class Renderbuffer
     {
     public:
+        Renderbuffer();
         explicit Renderbuffer(AssetId assetId, std::shared_ptr<PlatformRenderbuffer> impl);
 
         Image& getImage();

@@ -17,6 +17,8 @@ namespace processing
         void pop();
         T& peek();
 
+        usize size() const;
+
     private:
         T m_defaultValue;
         std::stack<T> m_values;
@@ -63,6 +65,12 @@ namespace processing
     T& NeverEmptyStack<T>::peek()
     {
         return m_values.empty() ? m_defaultValue : m_values.top();
+    }
+
+    template <typename T>
+    usize NeverEmptyStack<T>::size() const
+    {
+        return m_values.size();
     }
 } // namespace processing
 

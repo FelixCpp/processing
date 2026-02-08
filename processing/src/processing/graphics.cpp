@@ -114,6 +114,26 @@ namespace processing
 
     void endDraw(u32 width, u32 height)
     {
+#ifndef NDEBUG
+        if (peekRenderbuffer().metrics.size() > 1)
+        {
+            fprintf(stdout, "Metrics have not been released properly");
+            fflush(stdout);
+        }
+
+        if (peekRenderbuffer().renderStyles.size() > 1)
+        {
+            fprintf(stdout, "RenderStyles have not been released properly");
+            fflush(stdout);
+        }
+
+        if (s_graphics->renderbufferIds.size() > 1)
+        {
+            fprintf(stdout, "Renderbuffers have not been released properly");
+            fflush(stdout);
+        }
+#endif
+
         // TODO(Felix): Maybe detect some unreleased resources (push without pop for styles, matrics shaders or renderbuffers)?
         s_graphics->renderer->endDraw();
         blit(width, height, peekRenderbuffer().framebuffer);
@@ -144,7 +164,7 @@ namespace processing
         for (size_t i = 0; i < contour.positions.size(); ++i)
         {
             shape.vertices.push_back(Vertex{
-                .position = transform.transformPoint(float3{contour.positions[i], depth}),
+                .position = float3{transform.transformPoint(contour.positions[i]), depth},
                 .texcoord = contour.texcoords[i],
                 .color = col,
             });
@@ -258,7 +278,9 @@ namespace processing
 
         // Activate the new render buffer
         {
-            const RenderbufferImpl& renderbuffer = peekRenderbuffer();
+            RenderbufferImpl& renderbuffer = peekRenderbuffer();
+            renderbuffer.currentDepth = MIN_DEPTH;
+
             s_graphics->renderer->beginDraw(renderbuffer.framebuffer);
         }
     }

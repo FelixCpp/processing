@@ -131,12 +131,42 @@ namespace processing
 
     float2 matrix4x4::transformPoint(const float2& point) const
     {
-        return point;
+        // f32 x = data[0] * point.x + data[1] * point.y + data[3];
+        // f32 y = data[4] * point.x + data[5] * point.y + data[7];
+        // f32 w = data[12] * point.x + data[13] * point.y + data[15];
+        //
+        // if (w != 0.0f && w != 1.0f)
+        // {
+        //     return float2(x / w, y / w);
+        // }
+        //
+        // return float2(x, y);
+
+        float x = data[0] * point.x + data[4] * point.y + data[12];
+        float y = data[1] * point.x + data[5] * point.y + data[13];
+        float w = data[3] * point.x + data[7] * point.y + data[15];
+
+        if (w != 0.0f && w != 1.0f)
+        {
+            return float2(x / w, y / w);
+        }
+
+        return float2(x, y);
     }
 
     float3 matrix4x4::transformPoint(const float3& point) const
     {
-        return point;
+        float x = data[0] * point.x + data[4] * point.y + data[8] * point.z + data[12];
+        float y = data[1] * point.x + data[5] * point.y + data[9] * point.z + data[13];
+        float z = data[2] * point.x + data[6] * point.y + data[10] * point.z + data[14];
+        float w = data[3] * point.x + data[7] * point.y + data[11] * point.z + data[15];
+
+        if (w != 0.0f && w != 1.0f)
+        {
+            return float3(x / w, y / w, z / w);
+        }
+
+        return float3(x, y, z);
     }
 
     const matrix4x4 matrix4x4::identity;
