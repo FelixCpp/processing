@@ -60,11 +60,10 @@ namespace processing
         const float maxMiterLength = halfStrokeWeight * miterLimit;
 
         float miterLength = halfStrokeWeight / dotProduct;
-        bool miterLimitExceeded = false;
-        if (std::abs(miterLength) > maxMiterLength)
+        const bool miterLimitExceeded = std::abs(miterLength) > maxMiterLength;
+        if (miterLimitExceeded)
         {
             miterLength = maxMiterLength * (miterLength > 0 ? 1.0f : -1.0f);
-            miterLimitExceeded = true;
         }
 
         const float2 outerIntersection = current + bisector * miterLength;
@@ -698,11 +697,18 @@ namespace processing
             const float sourceRight = sourceLeft + sourceWidth;
             const float sourceBottom = sourceTop + sourceHeight;
 
+            //     contour.texcoords = {
+            //         {sourceLeft, sourceTop},
+            //         {sourceRight, sourceTop},
+            //         {sourceRight, sourceBottom},
+            //         {sourceLeft, sourceBottom},
+            //     };
+
             contour.texcoords = {
-                {sourceLeft, sourceTop},
-                {sourceRight, sourceTop},
-                {sourceRight, sourceBottom},
                 {sourceLeft, sourceBottom},
+                {sourceRight, sourceBottom},
+                {sourceRight, sourceTop},
+                {sourceLeft, sourceTop},
             };
         }
 

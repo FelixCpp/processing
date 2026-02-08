@@ -1,8 +1,18 @@
 #include <processing/shader.hpp>
+
 #include <glad/gl.h>
+
+#include <string>
+#include <format>
 
 namespace processing
 {
+    inline void log(const std::string& data)
+    {
+        fprintf(stdout, "%s", data.c_str());
+        fflush(stdout);
+    }
+
     class OpenGLPlatformShader : public PlatformShader
     {
     public:
@@ -15,9 +25,35 @@ namespace processing
             glShaderSource(vsShader.value, 1, &vsSource, nullptr);
             glCompileShader(vsShader.value);
 
+            {
+                GLint success = GL_FALSE;
+                glGetShaderiv(vsShader.value, GL_COMPILE_STATUS, &success);
+                if (success == GL_FALSE)
+                {
+                    GLint length = 0;
+                    glGetShaderiv(vsShader.value, GL_INFO_LOG_LENGTH, &length);
+                    std::string buffer(length, '\0');
+                    glGetShaderInfoLog(vsShader.value, buffer.size(), &length, buffer.data());
+                    log(std::format("Failed to compile vertex shader: {}", buffer));
+                }
+            }
+
             ResourceId fsShader = {.value = glCreateShader(GL_FRAGMENT_SHADER)};
             glShaderSource(fsShader.value, 1, &fsSource, nullptr);
             glCompileShader(fsShader.value);
+
+            {
+                GLint success = GL_FALSE;
+                glGetShaderiv(fsShader.value, GL_COMPILE_STATUS, &success);
+                if (success == GL_FALSE)
+                {
+                    GLint length = 0;
+                    glGetShaderiv(fsShader.value, GL_INFO_LOG_LENGTH, &length);
+                    std::string buffer(length, '\0');
+                    glGetShaderInfoLog(fsShader.value, buffer.size(), &length, buffer.data());
+                    log(std::format("Failed to compile fragment shader: {}", buffer));
+                }
+            }
 
             ResourceId shaderProgramId = {.value = glCreateProgram()};
             glAttachShader(shaderProgramId.value, vsShader.value);

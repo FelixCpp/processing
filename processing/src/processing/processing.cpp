@@ -1,4 +1,5 @@
 #include <processing/processing.hpp>
+#include <processing/graphics.hpp>
 #include <processing/image.hpp>
 #include <processing/renderbuffer.hpp>
 #include <processing/renderer.hpp>
@@ -15,7 +16,10 @@ namespace processing
     {
         bool closeRequested;
         bool shouldRestart;
+        bool isLoopPaused;
+        bool isRedrawRequested;
         i32 exitCode;
+        u64 frameCount;
 
         GLFWwindow* window;
 
@@ -24,8 +28,8 @@ namespace processing
         ShaderAssetHandler shaders;
 
         std::unique_ptr<Sketch> sketch;
-        std::shared_ptr<Renderer> renderer;
-        std::unique_ptr<Graphics> graphics;
+        // std::shared_ptr<Renderer> renderer;
+        // std::unique_ptr<Graphics> graphics;
     };
 
     inline static LibraryData s_data;
@@ -198,6 +202,8 @@ namespace processing
     void quit(const i32 exitCode) { setExitCode(exitCode); quit(); }
     void restart() { quit(); s_data.shouldRestart = true; }
     void setExitCode(const i32 exitCode) { s_data.exitCode = exitCode; }
+    void loop() { s_data.isLoopPaused = false; }
+    void noLoop() { s_data.isLoopPaused = true; }
     // clang-format on
 } // namespace processing
 
@@ -242,27 +248,6 @@ namespace processing
 
 namespace processing
 {
-    void blit(u32 width, u32 height, const Renderbuffer& rb)
-    {
-        glViewport(0, 0, width, height);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, rb.getResourceId().value);
-        glBlitFramebuffer(0, 0, rb.getSize().x, rb.getSize().y, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    }
-
-    Graphics createGraphics(u32 width, u32 height)
-    {
-        return Graphics(s_data.renderer, createRenderbuffer(width, height));
-    }
-
-    Graphics& getGfx()
-    {
-        return *s_data.graphics;
-    }
-} // namespace processing
-
-namespace processing
-{
     void launch()
     {
         glfwInit();
@@ -301,21 +286,30 @@ namespace processing
         glDepthFunc(GL_LEQUAL);
         // glEnable(GL_MULTISAMPLE);
 
-        s_data.renderer = DefaultRenderer::create();
-        Renderbuffer buffer = createRenderbuffer(800, 800);
-        s_data.graphics = std::make_unique<Graphics>(s_data.renderer, buffer);
+        initGraphics(800, 800);
 
         s_data.sketch = createSketch();
+        beginDraw();
         s_data.sketch->setup();
+        endDraw(w, h);
 
         while (not s_data.closeRequested)
         {
+            ++s_data.frameCount;
+
+            if (not s_data.isLoopPaused or s_data.isRedrawRequested or s_data.frameCount == 1)
+            {
+                glfwGetFramebufferSize(s_data.window, &w, &h);
+
+                beginDraw();
+                s_data.sketch->draw(0.0f);
+                endDraw(w, h);
+                glfwSwapBuffers(s_data.window);
+
+                s_data.isRedrawRequested = false;
+            }
+
             glfwPollEvents();
-            s_data.graphics->beginDraw();
-            s_data.sketch->draw(0.0f);
-            s_data.graphics->endDraw();
-            blit(w, h, buffer);
-            glfwSwapBuffers(s_data.window);
         }
 
         s_data.sketch->destroy();

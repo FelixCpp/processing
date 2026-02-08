@@ -8,7 +8,6 @@
 #include <numbers>
 #include <memory>
 #include <vector>
-#include <stack>
 #include <filesystem>
 #include <string_view>
 #include <optional>
@@ -548,126 +547,100 @@ namespace processing
 
 namespace processing
 {
-    struct RenderState
-    {
-        BlendMode blendMode;
-        Renderbuffer renderbuffer;
-        std::optional<Shader> shader;
-        std::optional<Image> image;
-        matrix4x4 transform;
-    };
-
-    struct Renderer
-    {
-        virtual ~Renderer() = default;
-        virtual void render(const Vertices& vertices, const RenderState& state) = 0;
-    };
-
-    class Graphics
-    {
-    public:
-        explicit Graphics(std::shared_ptr<Renderer> renderer, Renderbuffer renderbuffer);
-
-        void beginDraw();
-        void endDraw();
-
-        void push();
-        void pop();
-
-        void pushStyle(bool extendPreviousStyle = true);
-        void popStyle();
-        RenderStyle& peekStyle();
-
-        void pushMatrix(bool extendPreviousMatrix = true);
-        void popMatrix();
-        void resetMatrix();
-        void resetMatrix(const matrix4x4& matrix);
-        matrix4x4& peekMatrix();
-        void translate(f32 x, f32 y);
-        void scale(f32 x, f32 y);
-        void rotate(f32 rotation);
-
-        void blendMode(BlendMode mode);
-        void angleMode(AngleMode mode);
-        void rectMode(RectMode mode);
-        void ellipseMode(EllipseMode mode);
-        void imageMode(RectMode mode);
-        void imageSourceMode(ImageSourceMode mode);
-
-        void shader(const Shader& shader);
-        void noShader();
-
-        void fill(i32 red, i32 green, i32 blue, i32 alpha = 255);
-        void fill(i32 grey, i32 alpha = 255);
-        void fill(Color color);
-        void noFill();
-
-        void stroke(i32 red, i32 green, i32 blue, i32 alpha = 255);
-        void stroke(i32 grey, i32 alpha = 255);
-        void stroke(Color color);
-        void noStroke();
-
-        void strokeWeight(f32 strokeWeight);
-        void strokeCap(StrokeCap strokeCap);
-        void strokeJoin(StrokeJoin strokeJoin);
-
-        void tint(i32 red, i32 green, i32 blue, i32 alpha = 255);
-        void tint(i32 grey, i32 alpha = 255);
-        void tint(Color color);
-
-        void background(i32 red, i32 green, i32 blue, i32 alpha = 255);
-        void background(i32 grey, i32 alpha = 255);
-        void background(Color color);
-
-        void beginShape();
-        void endShape();
-        void vertex(f32 x, f32 y);
-        void vertex(f32 x, f32 y, f32 u, f32 v);
-        void bezierVertex(f32 x2, f32 y2, f32 x3, f32 y3);
-        void quadraticVertex(f32 cx, f32 cy, f32 x3, f32 y3);
-        void curveVertex(f32 x, f32 y);
-
-        void rect(f32 x1, f32 y1, f32 x2, f32 y2);
-        void square(f32 x1, f32 y1, f32 xy2);
-        void ellipse(f32 x1, f32 y1, f32 x2, f32 y2);
-        void circle(f32 x1, f32 y1, f32 xy2);
-        void triangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3);
-        void point(f32 x, f32 y);
-        void line(f32 x1, f32 y1, f32 x2, f32 y2);
-        void image(const Image& img, f32 x1, f32 y1);
-        void image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2);
-        void image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2, f32 sx1, f32 sy1, f32 sx2, f32 sy2);
-
-        Image& getImage();
-
-    private:
-        f32 getNextDepth();
-        RenderState getRenderState(const RenderStyle& style, const std::optional<Image>& image = std::nullopt);
-
-        std::stack<RenderStyle> m_renderStyles;
-        std::stack<matrix4x4> m_metrics;
-        Renderbuffer m_renderbuffer;
-        std::shared_ptr<Renderer> m_renderer;
-        f32 m_currentDepth;
-    };
-
-    Graphics createGraphics(u32 width, u32 height);
-    Graphics& getGfx();
-
-} // namespace processing
-
-namespace processing
-{
     void quit();
     void quit(i32 exitCode);
     void restart();
     void setExitCode(i32 exitCode);
+
+    void loop();
+    void noLoop();
+    void redraw();
+} // namespace processing
+
+namespace processing
+{
+    void randomSeed(u64 seed);
+    f32 random(f32 max);
+    f32 random(f32 min, f32 max);
+    f32 map(f32 value, f32 istart, f32 istop, f32 ostart, f32 ostop);
 } // namespace processing
 
 namespace processing
 {
     int2 getMousePosition();
-}
+} // namespace processing
+
+namespace processing
+{
+    void push();
+    void pop();
+
+    void pushStyle(bool extendPreviousStyle = true);
+    void popStyle();
+    RenderStyle& peekStyle();
+
+    void pushMatrix(bool extendPreviousMatrix = true);
+    void popMatrix();
+    void resetMatrix();
+    void resetMatrix(const matrix4x4& matrix);
+    matrix4x4& peekMatrix();
+    void translate(f32 x, f32 y);
+    void scale(f32 x, f32 y);
+    void rotate(f32 rotation);
+
+    void blendMode(BlendMode mode);
+    void angleMode(AngleMode mode);
+    void rectMode(RectMode mode);
+    void ellipseMode(EllipseMode mode);
+    void imageMode(RectMode mode);
+    void imageSourceMode(ImageSourceMode mode);
+
+    void renderbuffer(const Renderbuffer& renderbuffer);
+    void noRenderbuffer();
+    void shader(const Shader& shader);
+    void noShader();
+
+    void fill(i32 red, i32 green, i32 blue, i32 alpha = 255);
+    void fill(i32 grey, i32 alpha = 255);
+    void fill(Color color);
+    void noFill();
+
+    void stroke(i32 red, i32 green, i32 blue, i32 alpha = 255);
+    void stroke(i32 grey, i32 alpha = 255);
+    void stroke(Color color);
+    void noStroke();
+
+    void strokeWeight(f32 strokeWeight);
+    void strokeCap(StrokeCap strokeCap);
+    void strokeJoin(StrokeJoin strokeJoin);
+
+    void tint(i32 red, i32 green, i32 blue, i32 alpha = 255);
+    void tint(i32 grey, i32 alpha = 255);
+    void tint(Color color);
+
+    void background(i32 red, i32 green, i32 blue, i32 alpha = 255);
+    void background(i32 grey, i32 alpha = 255);
+    void background(Color color);
+
+    void beginShape();
+    void endShape();
+    void vertex(f32 x, f32 y);
+    void vertex(f32 x, f32 y, f32 u, f32 v);
+    void bezierVertex(f32 x2, f32 y2, f32 x3, f32 y3);
+    void quadraticVertex(f32 cx, f32 cy, f32 x3, f32 y3);
+    void curveVertex(f32 x, f32 y);
+
+    void rect(f32 x1, f32 y1, f32 x2, f32 y2);
+    void square(f32 x1, f32 y1, f32 xy2);
+    void ellipse(f32 x1, f32 y1, f32 x2, f32 y2);
+    void circle(f32 x1, f32 y1, f32 xy2);
+    void triangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3);
+    void point(f32 x, f32 y);
+    void line(f32 x1, f32 y1, f32 x2, f32 y2);
+    void image(const Image& img, f32 x1, f32 y1);
+    void image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2);
+    void image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2, f32 sx1, f32 sy1, f32 sx2, f32 sy2);
+} // namespace processing
 
 #endif // _PROCESSING_INCLUDE_PROCESSING_HPP_
 

@@ -91,6 +91,8 @@ namespace processing
 
         static std::unique_ptr<OpenGLPlatformImage> load(const std::filesystem::path& filepath, FilterMode filterMode, ExtendMode extendMode)
         {
+            stbi_set_flip_vertically_on_load(1);
+
             int width, height;
             std::unique_ptr<stbi_uc, decltype(&stbi_image_free)> data(stbi_load(filepath.string().c_str(), &width, &height, nullptr, STBI_rgb_alpha), &stbi_image_free);
             if (data == nullptr)

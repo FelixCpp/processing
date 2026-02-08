@@ -16,6 +16,7 @@ add_subdirectory(../external/stb/ ${CMAKE_BINARY_DIR}/stb)
 add_library(processing STATIC
     src/processing/graphics.cpp
     src/processing/image.cpp
+    src/processing/math.cpp
     src/processing/processing.cpp
     src/processing/renderbuffer.cpp
     src/processing/renderer.cpp

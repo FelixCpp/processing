@@ -179,9 +179,19 @@ namespace processing
         return std::unique_ptr<DefaultRenderer>(new DefaultRenderer(vertexArrayId, vertexBufferId, elementBufferId, std::move(whiteImage), std::move(defaultShader)));
     }
 
+    void DefaultRenderer::beginDraw(const Renderbuffer& renderbuffer)
+    {
+        glViewport(0, 0, renderbuffer.getSize().x, renderbuffer.getSize().y);
+        glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.getResourceId().value);
+    }
+
+    void DefaultRenderer::endDraw()
+    {
+        // Nothing to do for now.
+    }
+
     void DefaultRenderer::render(const Vertices& vertices, const RenderState& renderState)
     {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         const ResourceId shaderId = std::invoke(
             [this, &renderState]()
@@ -208,9 +218,6 @@ namespace processing
         );
 
         activate(renderState.blendMode);
-
-        glViewport(0, 0, renderState.renderbuffer.getSize().x, renderState.renderbuffer.getSize().y);
-        glBindFramebuffer(GL_FRAMEBUFFER, renderState.renderbuffer.getResourceId().value);
 
         glBindBuffer(GL_ARRAY_BUFFER, m_vertexBufferId.value);
         glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.vertices.size() * sizeof(Vertex), vertices.vertices.data());
