@@ -1,191 +1,123 @@
-#include <processing/processing.hpp>
 #include <processing/shader.hpp>
-
-#include <string_view>
-#include <string>
-#include <format>
 
 #include <glad/gl.h>
 
+#include <string>
+#include <format>
+
 namespace processing
 {
-    Shader::Shader()
+    inline void log(const std::string& data)
     {
+        fprintf(stdout, "%s", data.c_str());
+        fflush(stdout);
     }
 
-    Shader::Shader(const AssetId assetId, std::weak_ptr<ShaderImpl> impl)
-        : m_assetId(assetId),
-          m_impl(impl)
+    class OpenGLPlatformShader : public PlatformShader
+    {
+    public:
+        static std::unique_ptr<OpenGLPlatformShader> create(const std::string_view vertexShaderSource, const std::string_view fragmentShaderSource)
+        {
+            const char* vsSource = vertexShaderSource.data();
+            const char* fsSource = fragmentShaderSource.data();
+
+            ResourceId vsShader = {.value = glCreateShader(GL_VERTEX_SHADER)};
+            glShaderSource(vsShader.value, 1, &vsSource, nullptr);
+            glCompileShader(vsShader.value);
+
+            {
+                GLint success = GL_FALSE;
+                glGetShaderiv(vsShader.value, GL_COMPILE_STATUS, &success);
+                if (success == GL_FALSE)
+                {
+                    GLint length = 0;
+                    glGetShaderiv(vsShader.value, GL_INFO_LOG_LENGTH, &length);
+                    std::string buffer(length, '\0');
+                    glGetShaderInfoLog(vsShader.value, buffer.size(), &length, buffer.data());
+                    log(std::format("Failed to compile vertex shader: {}", buffer));
+                }
+            }
+
+            ResourceId fsShader = {.value = glCreateShader(GL_FRAGMENT_SHADER)};
+            glShaderSource(fsShader.value, 1, &fsSource, nullptr);
+            glCompileShader(fsShader.value);
+
+            {
+                GLint success = GL_FALSE;
+                glGetShaderiv(fsShader.value, GL_COMPILE_STATUS, &success);
+                if (success == GL_FALSE)
+                {
+                    GLint length = 0;
+                    glGetShaderiv(fsShader.value, GL_INFO_LOG_LENGTH, &length);
+                    std::string buffer(length, '\0');
+                    glGetShaderInfoLog(fsShader.value, buffer.size(), &length, buffer.data());
+                    log(std::format("Failed to compile fragment shader: {}", buffer));
+                }
+            }
+
+            ResourceId shaderProgramId = {.value = glCreateProgram()};
+            glAttachShader(shaderProgramId.value, vsShader.value);
+            glAttachShader(shaderProgramId.value, fsShader.value);
+            glLinkProgram(shaderProgramId.value);
+            glDetachShader(shaderProgramId.value, vsShader.value);
+            glDetachShader(shaderProgramId.value, fsShader.value);
+            glDeleteShader(vsShader.value);
+            glDeleteShader(fsShader.value);
+
+            return std::unique_ptr<OpenGLPlatformShader>(new OpenGLPlatformShader(shaderProgramId));
+        }
+
+        ~OpenGLPlatformShader() override
+        {
+            glDeleteProgram(m_shaderProgramId.value);
+        }
+
+        ResourceId getResourceId() const override
+        {
+            return m_shaderProgramId;
+        }
+
+    private:
+        explicit OpenGLPlatformShader(const ResourceId shaderProgramId)
+            : m_shaderProgramId(shaderProgramId)
+        {
+        }
+
+        ResourceId m_shaderProgramId;
+    };
+} // namespace processing
+
+namespace processing
+{
+    Shader ShaderAssetHandler::create(std::string_view vertexShaderSource, std::string_view fragmentShaderSource)
+    {
+        if (auto image = OpenGLPlatformShader::create(vertexShaderSource, fragmentShaderSource))
+        {
+            std::shared_ptr<PlatformShader>& ptr = m_assets.emplace_back(std::move(image));
+            AssetId assetId = {.value = m_assets.size()};
+
+            return Shader(assetId, ptr);
+        }
+
+        return Shader(AssetId{.value = 0}, nullptr);
+    }
+} // namespace processing
+
+namespace processing
+{
+    Shader::Shader(const AssetId assetId, std::shared_ptr<PlatformShader> impl)
+        : m_assetId{assetId},
+          m_impl{std::move(impl)}
     {
     }
 
     ResourceId Shader::getResourceId() const
     {
-        return m_impl.lock()->getResourceId();
+        return m_impl->getResourceId();
     }
 
     AssetId Shader::getAssetId() const
     {
         return m_assetId;
-    }
-
-    void Shader::uploadUniform(const std::string_view name, const float x)
-    {
-        m_impl.lock()->uploadUniform(name, x);
-    }
-
-    void Shader::uploadUniform(const std::string_view name, const float x, const float y)
-    {
-        m_impl.lock()->uploadUniform(name, x, y);
-    }
-
-    void Shader::uploadUniform(const std::string_view name, const float x, const float y, const float z)
-    {
-        m_impl.lock()->uploadUniform(name, x, y, z);
-    }
-
-    void Shader::uploadUniform(const std::string_view name, const float x, const float y, const float z, const float w)
-    {
-        m_impl.lock()->uploadUniform(name, x, y, z, w);
-    }
-} // namespace processing
-
-namespace processing
-{
-    class ShaderAssetImpl : public ShaderImpl
-    {
-    public:
-        static std::unique_ptr<ShaderAssetImpl> create(std::string_view vertexShaderSource, std::string_view fragmentShaderSource)
-        {
-            const char* vsSource = vertexShaderSource.data();
-            GLuint vertexShaderId = glCreateShader(GL_VERTEX_SHADER);
-            glShaderSource(vertexShaderId, 1, &vsSource, nullptr);
-            glCompileShader(vertexShaderId);
-
-            {
-                GLint succeeded = GL_FALSE;
-                glGetShaderiv(vertexShaderId, GL_COMPILE_STATUS, &succeeded);
-                if (succeeded == GL_FALSE)
-                {
-                    GLint infoLogLength = 0;
-                    glGetShaderiv(vertexShaderId, GL_INFO_LOG_LENGTH, &infoLogLength);
-                    std::string buffer(static_cast<size_t>(infoLogLength), '\0');
-                    glGetShaderInfoLog(vertexShaderId, buffer.length(), &infoLogLength, buffer.data());
-                    error(std::format("Failed to compile vertex shader: {}", buffer));
-                    return {};
-                }
-            }
-
-            const char* fsSource = fragmentShaderSource.data();
-            GLuint fragmentShaderId = glCreateShader(GL_FRAGMENT_SHADER);
-            glShaderSource(fragmentShaderId, 1, &fsSource, nullptr);
-            glCompileShader(fragmentShaderId);
-
-            {
-                GLint succeeded = GL_FALSE;
-                glGetShaderiv(fragmentShaderId, GL_COMPILE_STATUS, &succeeded);
-                if (succeeded == GL_FALSE)
-                {
-                    GLint infoLogLength = 0;
-                    glGetShaderiv(fragmentShaderId, GL_INFO_LOG_LENGTH, &infoLogLength);
-                    std::string buffer(static_cast<size_t>(infoLogLength), '\0');
-                    glGetShaderInfoLog(fragmentShaderId, buffer.length(), &infoLogLength, buffer.data());
-                    error(std::format("Failed to compile fragment shader: {}", buffer));
-                    return {};
-                }
-            }
-
-            GLuint shaderProgramId = glCreateProgram();
-            glAttachShader(shaderProgramId, vertexShaderId);
-            glAttachShader(shaderProgramId, fragmentShaderId);
-            glLinkProgram(shaderProgramId);
-            glDetachShader(shaderProgramId, vertexShaderId);
-            glDetachShader(shaderProgramId, fragmentShaderId);
-            glDeleteShader(vertexShaderId);
-            glDeleteShader(fragmentShaderId);
-
-            {
-                GLint succeeded = GL_FALSE;
-                glGetProgramiv(shaderProgramId, GL_LINK_STATUS, &succeeded);
-                if (succeeded == GL_FALSE)
-                {
-                    GLint infoLogLength = 0;
-                    glGetProgramiv(shaderProgramId, GL_INFO_LOG_LENGTH, &infoLogLength);
-                    std::string buffer(static_cast<size_t>(infoLogLength), '\0');
-                    glGetProgramInfoLog(shaderProgramId, buffer.length(), &infoLogLength, buffer.data());
-                    error(std::format("Failed to compile shader program: {}", buffer));
-                    glDeleteProgram(shaderProgramId);
-                    return {};
-                }
-            }
-
-            return std::unique_ptr<ShaderAssetImpl>(new ShaderAssetImpl(shaderProgramId));
-        }
-        ~ShaderAssetImpl()
-        {
-            glDeleteProgram(m_shaderProgramId);
-        }
-
-        ResourceId getResourceId() const
-        {
-            return ResourceId{.value = m_shaderProgramId};
-        }
-
-        void uploadUniform(const std::string_view name, const float x)
-        {
-            GLint location = glGetUniformLocation(m_shaderProgramId, name.data());
-            glProgramUniform1f(m_shaderProgramId, location, x);
-        }
-
-        void uploadUniform(const std::string_view name, const float x, const float y)
-        {
-            GLint location = glGetUniformLocation(m_shaderProgramId, name.data());
-            glProgramUniform2f(m_shaderProgramId, location, x, y);
-        }
-
-        void uploadUniform(const std::string_view name, const float x, const float y, const float z)
-        {
-            GLint location = glGetUniformLocation(m_shaderProgramId, name.data());
-            glProgramUniform3f(m_shaderProgramId, location, x, y, z);
-        }
-
-        void uploadUniform(const std::string_view name, const float x, const float y, const float z, const float w)
-        {
-            GLint location = glGetUniformLocation(m_shaderProgramId, name.data());
-            glProgramUniform4f(m_shaderProgramId, location, x, y, z, w);
-        }
-
-    private:
-        explicit ShaderAssetImpl(GLuint resourceId)
-            : m_shaderProgramId(resourceId)
-        {
-        }
-
-        GLuint m_shaderProgramId;
-    };
-
-} // namespace processing
-
-namespace processing
-{
-    Shader ShaderAssetManager::loadShader(const std::string_view vertexShaderSource, const std::string_view fragmentShaderSource)
-    {
-        if (auto shader = ShaderAssetImpl::create(vertexShaderSource, fragmentShaderSource))
-        {
-            const auto insertion = m_assets.insert(std::make_pair(m_nextAssetId++, std::move(shader)));
-            return Shader(AssetId{.value = insertion.first->first}, insertion.first->second);
-        }
-
-        return Shader();
-    }
-
-    ShaderImpl& ShaderAssetManager::getAsset(const AssetId assetId)
-    {
-        if (const auto itr = m_assets.find(assetId.value); itr != m_assets.end())
-        {
-            return *itr->second;
-        }
-
-        throw std::runtime_error("Unknown asset id");
     }
 } // namespace processing

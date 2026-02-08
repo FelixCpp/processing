@@ -2,108 +2,68 @@
 #define _PROCESSING_INCLUDE_GRAPHICS_HPP_
 
 #include <processing/processing.hpp>
-#include <processing/render_targets.hpp>
-#include <processing/render_style.hpp>
-#include <processing/render_style_stack.hpp>
-#include <processing/matrix_stack.hpp>
-#include <processing/depth_provider.hpp>
-#include <processing/render_buffer.hpp>
-#include <processing/texture.hpp>
-#include <processing/shader.hpp>
+#include <processing/renderer.hpp>
+
+#include <stack>
 
 namespace processing
 {
-    class Graphics
+    template <typename T>
+    class NeverEmptyStack
     {
     public:
-        explicit Graphics(uint2 size, ShaderAssetManager& shaderAssetManager, RenderbufferManager& renderTargetManager, TextureAssetManager& textureAssetManager);
-
-        void event(const Event& event);
-
-        void beginDraw();
-        void endDraw();
-        rect2f getViewport() const;
-
-        void renderbuffer(Renderbuffer renderBuffer);
-        void noRenderbuffer();
-
-        void strokeJoin(StrokeJoin strokeJoin);
-        void strokeCap(StrokeCap strokeCap);
-
-        void pushState();
-        void popState();
-        RenderStyle& peekState();
-
-        void pushMatrix();
-        void popMatrix();
-        void resetMatrix();
-        matrix4x4& peekMatrix();
-
-        void translate(float x, float y);
-        void scale(float x, float y);
-        void rotate(float angle);
-
-        void blendMode(const BlendMode& blendMode);
-        void shader(const Shader& shader);
-        void noShader();
-
-        void background(const Texture& texture);
-        void background(int red, int green, int blue, int alpha = 255);
-        void background(int grey, int alpha = 255);
-        void background(color_t color);
-
-        void fill(int red, int green, int blue, int alpha = 255);
-        void fill(int grey, int alpha = 255);
-        void fill(color_t color);
-        void noFill();
-
-        void stroke(int red, int green, int blue, int alpha = 255);
-        void stroke(int grey, int alpha = 255);
-        void stroke(color_t color);
-        void noStroke();
-
-        void imageMode(RectMode imageMode);
-        void imageSourceMode(ImageSourceMode imageSourceMode);
-        void imageTint(int red, int green, int blue, int alpha = 255);
-        void imageTint(int grey, int alpha = 255);
-        void imageTint(color_t color);
-
-        void strokeWeight(float strokeWeight);
-        void rectMode(RectMode rectMode);
-        void ellipseMode(EllipseMode ellipseMode);
-
-        void rect(float left, float top, float width, float height);
-        void rect(float left, float top, float width, float height, float cornerRadius);
-        void rect(float left, float top, float width, float height, float cornerRadiusTopLeft, float cornerRadiusTopRight, float cornerRadiusBottomRight, float cornerRadiusBottomLeft);
-        void rect(float left, float top, float width, float height, float cornerRadiusTopLeftX, float cornerRadiusTopLeftY, float cornerRadiusTopRightX, float cornerRadiusTopRightY, float cornerRadiusBottomRightX, float cornerRadiusBottomRightY, float cornerRadiusBottomLeftX, float cornerRadiusBottomLeftY);
-        void square(float left, float top, float size);
-        void ellipse(float centerX, float centerY, float radiusX, float radiusY);
-        void circle(float centerX, float centerY, float radius);
-        void line(float x1, float y1, float x2, float y2);
-        void triangle(float x1, float y1, float x2, float y2, float x3, float y3);
-        void point(float x, float y);
-        void image(const Texture& texture, float x1, float y1);
-        void image(const Texture& texture, float x1, float y1, float x2, float y2);
-        void image(const Texture& texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2);
+        explicit NeverEmptyStack(const T& initialValue);
+        void push(const T& value);
+        void pop();
+        T& peek();
 
     private:
-        float getNextDepth();
-        void submit(const RenderingSubmission& submission);
-
-        std::unique_ptr<Renderer> m_renderer;
-        RenderbufferManager* m_renderTargetManager;
-        TextureAssetManager* m_textureAssetManager;
-        RenderStyleStack m_renderStyles;
-
-        // Core-Layer
-        DepthProvider m_depthProvider;
-        MainRenderbuffer m_mainRenderbuffer;
-
-        DepthProvider m_tmpDepthProvider;
-        std::optional<Renderbuffer> m_tmpRenderbuffer;
-
-        uint2 m_windowSize;
+        T m_defaultValue;
+        std::stack<T> m_values;
     };
 } // namespace processing
 
+namespace processing
+{
+    void initGraphics(u32 width, u32 height);
+    void beginDraw();
+    void endDraw(u32 width, u32 height);
+} // namespace processing
+
 #endif // _PROCESSING_INCLUDE_GRAPHICS_HPP_
+
+#ifndef _PROCESSING_INCLUDE_GRAPHICS_INL_
+#define _PROCESSING_INCLUDE_GRAPHICS_INL_
+
+namespace processing
+{
+    template <typename T>
+    NeverEmptyStack<T>::NeverEmptyStack(const T& initialValue)
+        : m_defaultValue(initialValue),
+          m_values()
+    {
+    }
+
+    template <typename T>
+    void NeverEmptyStack<T>::push(const T& value)
+    {
+        m_values.push(value);
+    }
+
+    template <typename T>
+    void NeverEmptyStack<T>::pop()
+    {
+        if (not m_values.empty())
+        {
+            m_values.pop();
+        }
+    }
+
+    template <typename T>
+    T& NeverEmptyStack<T>::peek()
+    {
+        return m_values.empty() ? m_defaultValue : m_values.top();
+    }
+} // namespace processing
+
+#endif // _PROCESSING_INCLUDE_GRAPHICS_INL_

@@ -3,22 +3,15 @@
 
 #include <processing/processing.hpp>
 
-#include <string_view>
-#include <unordered_map>
-
-#include <glad/gl.h>
-
 namespace processing
 {
-    class ShaderAssetManager
+    class ShaderAssetHandler
     {
     public:
-        Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderSource);
-        ShaderImpl& getAsset(AssetId assetId);
+        Shader create(std::string_view vertexShaderSource, std::string_view fragmentShaderSource);
 
     private:
-        std::unordered_map<size_t, std::shared_ptr<ShaderImpl>> m_assets;
-        size_t m_nextAssetId;
+        std::vector<std::shared_ptr<PlatformShader>> m_assets;
     };
 } // namespace processing
 

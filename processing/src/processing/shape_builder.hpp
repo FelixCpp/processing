@@ -45,13 +45,6 @@ namespace processing
 
 namespace processing
 {
-    struct Shape
-    {
-        std::vector<Vertex> vertices;
-        std::vector<uint32_t> indices;
-    };
-
-    Shape shape_from_contour(const Contour& contour, const matrix4x4& transform, color_t color, float depth);
 } // namespace processing
 
 namespace processing

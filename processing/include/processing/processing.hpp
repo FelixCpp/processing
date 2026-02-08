@@ -1,46 +1,45 @@
-#ifndef _PROCESSING_INCLUDE_LIBRARY_HPP_
-#define _PROCESSING_INCLUDE_LIBRARY_HPP_
+#ifndef _PROCESSING_INCLUDE_PROCESSING_HPP_
+#define _PROCESSING_INCLUDE_PROCESSING_HPP_
 
 #include <cstdint>
 #include <cmath>
-#include <string>
-#include <memory>
+
 #include <array>
-#include <span>
-#include <optional>
-#include <string_view>
-#include <filesystem>
 #include <numbers>
-#include <functional>
+#include <memory>
+#include <vector>
+#include <filesystem>
+#include <string_view>
+#include <optional>
 
 namespace processing
 {
-    inline constexpr float PI = std::numbers::pi_v<float>;
-    inline constexpr float TAU = 2.0f * PI;
-    inline constexpr float E = std::numbers::e_v<float>;
+    using i8 = int8_t;
+    using u8 = uint8_t;
+    using i16 = int16_t;
+    using u16 = uint16_t;
+    using i32 = int32_t;
+    using u32 = uint32_t;
+    using i64 = int64_t;
+    using u64 = uint64_t;
+
+    using f32 = float;
+    using f64 = double;
+
+    using usize = size_t;
 } // namespace processing
 
 namespace processing
 {
-    void trace(const std::string& message);
-    void debug(const std::string& message);
-    void info(const std::string& message);
-    void warning(const std::string& message);
-    void error(const std::string& message);
-} // namespace processing
+    struct Sketch
+    {
+        virtual ~Sketch() = default;
+        virtual void setup() = 0;
+        virtual void draw(f32 deltaTime) = 0;
+        virtual void destroy() = 0;
+    };
 
-namespace processing
-{
-    void close();
-    void close(int exitCode);
-    void restart();
-
-    void setExitCode(int exitCode);
-    int getExitCode();
-
-    void loop();
-    void noLoop();
-    void redraw();
+    extern std::unique_ptr<Sketch> createSketch();
 } // namespace processing
 
 namespace processing
@@ -48,41 +47,42 @@ namespace processing
     template <typename T>
     struct value2
     {
-        constexpr value2();
-        constexpr value2(T x, T y);
-        constexpr explicit value2(T scalar);
+        value2();
+        value2(T x, T y);
+        explicit value2(T scalar);
 
         template <typename U>
-        constexpr explicit value2(const value2<U>& other);
+        explicit value2(const value2<U>& other);
+
+        T length() const;
+        T lengthSquared() const;
+        T dot(const value2& other) const;
+
+        value2 perpendicular_cw() const;
+        value2 perpendicular_ccw() const;
+
+        value2 normalized() const;
+
+        bool operator==(const value2<T>& rhs) const = default;
+        bool operator!=(const value2<T>& rhs) const = default;
+
+        value2<T> operator+(const value2<T>& rhs) const;
+        value2<T> operator-(const value2<T>& rhs) const;
+        value2<T> operator*(const value2<T>& rhs) const;
+        value2<T> operator/(const value2<T>& rhs) const;
+
+        value2<T> operator+(T rhs) const;
+        value2<T> operator-(T rhs) const;
+        value2<T> operator*(T rhs) const;
+        value2<T> operator/(T rhs) const;
 
         T x, y;
     };
 
-    // clang-format off
-    template <typename T> T value2_length(const value2<T>& value);
-    template <typename T> constexpr T value2_length_squared(const value2<T>& value);
-    template <typename T> constexpr T value2_dot(const value2<T>& lhs, const value2<T>& rhs);
-    template <typename T> constexpr T value2_cross(const value2<T>& lhs, const value2<T>& rhs);
-    template <typename T> constexpr value2<T> value2_perpendicular_cw(const value2<T>& value);
-    template <typename T> constexpr value2<T> value2_perpendicular_ccw(const value2<T>& value);
-    template <typename T> value2<T> value2_normalized(const value2<T>& value);
-    template <typename T> void value2_normalize(value2<T>& value);
-
-    template <typename T> constexpr value2<T> operator-(const value2<T>& rhs);
-    template <typename T> constexpr value2<T> operator+(const value2<T>& lhs, const value2<T>& rhs);
-    template <typename T> constexpr value2<T> operator-(const value2<T>& lhs, const value2<T>& rhs);
-    template <typename T> constexpr value2<T> operator*(const value2<T>& lhs, const value2<T>& rhs);
-    template <typename T> constexpr value2<T> operator/(const value2<T>& lhs, const value2<T>& rhs);
-
-    template <typename T> constexpr value2<T> operator+(const value2<T>& lhs, T rhs);
-    template <typename T> constexpr value2<T> operator-(const value2<T>& lhs, T rhs);
-    template <typename T> constexpr value2<T> operator*(const value2<T>& lhs, T rhs);
-    template <typename T> constexpr value2<T> operator/(const value2<T>& lhs, T rhs);
-    // clang-format on
-
-    using int2 = value2<int32_t>;
-    using uint2 = value2<uint32_t>;
-    using float2 = value2<float>;
+    using double2 = value2<f64>;
+    using float2 = value2<f32>;
+    using uint2 = value2<u32>;
+    using int2 = value2<i32>;
 } // namespace processing
 
 namespace processing
@@ -90,19 +90,39 @@ namespace processing
     template <typename T>
     struct value3
     {
-        constexpr value3();
-        constexpr value3(T x, T y, T z);
-        constexpr explicit value3(T scalar);
+        value3();
+        value3(T x, T y, T z);
+        explicit value3(T scalar);
 
-        constexpr explicit value3(const value2<T>& xy, T z);
-        constexpr explicit value3(T x, const value2<T>& yz);
+        template <typename U>
+        explicit value3(const value3<U>& other);
+
+        explicit value3(const value2<T>& xy, T z);
+        explicit value3(T x, const value2<T>& yz);
+
+        T length() const;
+        T lengthSquared() const;
+
+        bool operator==(const value3& other) const = default;
+        bool operator!=(const value3& other) const = default;
+
+        value3<T> operator+(const value3& rhs) const;
+        value3<T> operator-(const value3& rhs) const;
+        value3<T> operator*(const value3& rhs) const;
+        value3<T> operator/(const value3& rhs) const;
+
+        value3<T> operator+(T rhs) const;
+        value3<T> operator-(T rhs) const;
+        value3<T> operator*(T rhs) const;
+        value3<T> operator/(T rhs) const;
 
         T x, y, z;
     };
 
-    using int3 = value3<int32_t>;
-    using uint3 = value3<uint32_t>;
-    using float3 = value3<float>;
+    using double3 = value3<f64>;
+    using float3 = value3<f32>;
+    using uint3 = value3<u32>;
+    using int3 = value3<i32>;
 } // namespace processing
 
 namespace processing
@@ -110,39 +130,36 @@ namespace processing
     template <typename T>
     struct value4
     {
+        value4();
+        value4(T x, T y, T z, T w);
+        explicit value4(T scalar);
+
+        template <typename U>
+        explicit value4(const value4<U>& other);
+
+        T length() const;
+        T lengthSquared() const;
+
+        bool operator==(const value4<T>& other) const = default;
+        bool operator!=(const value4<T>& other) const = default;
+
+        value4<T> operator+(const value4<T>& rhs) const;
+        value4<T> operator-(const value4<T>& rhs) const;
+        value4<T> operator*(const value4<T>& rhs) const;
+        value4<T> operator/(const value4<T>& rhs) const;
+
+        value4<T> operator+(T rhs) const;
+        value4<T> operator-(T rhs) const;
+        value4<T> operator*(T rhs) const;
+        value4<T> operator/(T rhs) const;
+
         T x, y, z, w;
     };
 
-    using int4 = value4<int32_t>;
-    using uint4 = value4<uint32_t>;
-    using float4 = value4<float>;
-} // namespace processing
-
-namespace processing
-{
-    struct matrix4x4
-    {
-        std::array<float, 16> data;
-    };
-
-    constexpr matrix4x4 matrix4x4_create(
-        float m00, float m01, float m02, float m03,
-        float m10, float m11, float m12, float m13,
-        float m20, float m21, float m22, float m23,
-        float m30, float m31, float m32, float m33
-    );
-
-    constexpr matrix4x4 matrix4x4_identity();
-
-    constexpr matrix4x4 matrix4x4_translate(float x, float y, float z);
-    constexpr matrix4x4 matrix4x4_scale(float x, float y, float z);
-    constexpr matrix4x4 matrix4x4_multiply(const matrix4x4& lhs, const matrix4x4& rhs);
-    constexpr matrix4x4 matrix4x4_orthographic(float left, float top, float width, float height, float near, float far);
-
-    constexpr float3 matrix4x4_transform_point(const matrix4x4& matrix, const float3& point);
-    constexpr float2 matrix4x4_transform_vector(const matrix4x4& matrix, const float2& vector);
-
-    matrix4x4 matrix4x4_rotation_z(float angle);
+    using double4 = value4<f64>;
+    using float4 = value4<f32>;
+    using uint4 = value4<u32>;
+    using int4 = value4<i32>;
 } // namespace processing
 
 namespace processing
@@ -150,16 +167,17 @@ namespace processing
     template <typename T>
     struct rect2
     {
-        constexpr rect2();
-        constexpr rect2(T left, T top, T width, T height);
+        rect2();
+        rect2(T left, T top, T width, T height);
+        rect2(const value2<T>& position, const value2<T>& size);
 
-        template <typename U>
-        constexpr rect2(const rect2<U>& other);
+        T right() const;
+        T bottom() const;
 
-        constexpr value2<T> center() const;
+        value2<T> center() const;
 
-        constexpr T right() const;
-        constexpr T bottom() const;
+        bool operator==(const rect2& other) const = default;
+        bool operator!=(const rect2& other) const = default;
 
         union
         {
@@ -182,528 +200,43 @@ namespace processing
         };
     };
 
-    // clang-format off
-    template <typename T> constexpr bool operator == (const rect2<T>& lhs, const rect2<T>& rhs);
-    template <typename T> constexpr bool operator != (const rect2<T>& lhs, const rect2<T>& rhs);
-    // clang-format on
-
-    using rect2i = rect2<int32_t>;
-    using rect2u = rect2<uint32_t>;
-    using rect2f = rect2<float>;
+    using rect2f = rect2<f32>;
+    using rect2d = rect2<f64>;
+    using rect2u = rect2<u32>;
+    using rect2i = rect2<i32>;
 } // namespace processing
 
 namespace processing
 {
-    enum class KeyCode
+    struct matrix4x4
     {
-        a,
-        b,
-        c,
-        d,
-        e,
-        f,
-        g,
-        h,
-        i,
-        j,
-        k,
-        l,
-        m,
-        n,
-        o,
-        p,
-        q,
-        r,
-        s,
-        t,
-        u,
-        v,
-        w,
-        x,
-        y,
-        z,
-        num1,
-        num2,
-        num3,
-        num4,
-        num5,
-        num6,
-        num7,
-        num8,
-        num9,
-        num0,
-        space,
-        minus,
-        equal,
-        leftBracket,
-        rightBracket,
-        backslash,
-        semicolon,
-        apostrophe,
-        graveAccent,
-        comma,
-        period,
-        slash,
-        world1,
-        world2,
-        escape,
-        f1,
-        f2,
-        f3,
-        f4,
-        f5,
-        f6,
-        f7,
-        f8,
-        f9,
-        f10,
-        f11,
-        f12,
-        f13,
-        f14,
-        f15,
-        f16,
-        f17,
-        f18,
-        f19,
-        f20,
-        f21,
-        f22,
-        f23,
-        f24,
-        f25,
-        up,
-        down,
-        left,
-        right,
-        leftShift,
-        rightShift,
-        leftControl,
-        rightControl,
-        leftAlt,
-        rightAlt,
-        tab,
-        enter,
-        backspace,
-        insert,
-        deleteKey,
-        pageUp,
-        pageDown,
-        home,
-        end,
-        kp0,
-        kp1,
-        kp2,
-        kp3,
-        kp4,
-        kp5,
-        kp6,
-        kp7,
-        kp8,
-        kp9,
-        kpDivide,
-        kpMultiply,
-        kpSubtract,
-        kpAdd,
-        kpDecimal,
-        kpEqual,
-        kpEnter,
-        printScreen,
-        numLock,
-        capsLock,
-        scrollLock,
-        pause,
-        leftSuper,
-        rightSuper,
-        menu,
-    };
+        matrix4x4();
 
-    struct Event
-    {
-        enum Type
-        {
-            closed,
-            window_resized,
-            framebuffer_resized,
-            mouse_moved,
-            mouse_wheel_scrolled,
-            key_pressed,
-            key_repeated,
-            key_released,
-        } type;
+        matrix4x4(
+            float m00, float m01, float m02, float m03,
+            float m10, float m11, float m12, float m13,
+            float m20, float m21, float m22, float m23,
+            float m30, float m31, float m32, float m33
+        );
 
-        struct SizeEvent
-        {
-            uint32_t width;
-            uint32_t height;
-        };
+        static matrix4x4 orthographic(f32 left, f32 top, f32 width, f32 height, f32 near, f32 far);
+        static matrix4x4 translation(f32 x, f32 y);
+        static matrix4x4 scaling(f32 x, f32 y);
+        static matrix4x4 rotation(f32 angle);
 
-        struct MouseMoveEvent
-        {
-            int32_t x;
-            int32_t y;
-        };
+        matrix4x4 combined(const matrix4x4& other) const;
 
-        struct KeyEvent
-        {
-            KeyCode code;
-        };
+        float2 transformPoint(const float2& point) const;
+        float3 transformPoint(const float3& point) const;
 
-        struct MouseWheelScrollEvent
-        {
-            double horizontalDelta;
-            double verticalDelta;
-        };
+        static const matrix4x4 identity;
 
-        union
-        {
-            SizeEvent size;
-            MouseMoveEvent mouse_move;
-            KeyEvent key;
-            MouseWheelScrollEvent mouse_wheel;
-        };
-    };
-
-    struct Sketch
-    {
-        virtual ~Sketch() = default;
-        virtual void event(const Event& event) = 0;
-        virtual void setup() = 0;
-        virtual void draw() = 0;
-        virtual void destroy() = 0;
-    };
-
-    extern std::unique_ptr<Sketch> createSketch();
-} // namespace processing
-
-namespace processing
-{
-    void setWindowSize(uint32_t width, uint32_t height);
-    uint2 getWindowSize();
-    void setWindowTitle(std::string_view title);
-    std::string getWindowTitle();
-    int2 getMousePosition();
-} // namespace processing
-
-namespace processing
-{
-    using color_t = struct
-    {
-        uint32_t value;
-    };
-
-    constexpr color_t color(int32_t red, int32_t green, int32_t blue, int32_t alpha = 255);
-    constexpr color_t color(int32_t grey, int32_t alpha = 255);
-    constexpr int32_t red(color_t color);
-    constexpr int32_t green(color_t color);
-    constexpr int32_t blue(color_t color);
-    constexpr int32_t alpha(color_t color);
-    constexpr int32_t brightness(color_t color);
-} // namespace processing
-
-namespace processing
-{
-    struct RenderTarget
-    {
-        virtual ~RenderTarget() = default;
-        virtual void activate() = 0;
-        virtual uint2 getSize() const = 0;
-        virtual uint32_t getFramebufferId() const = 0;
+        std::array<f32, 16> data;
     };
 } // namespace processing
 
 namespace processing
 {
-    struct BlendMode
-    {
-        enum class Factor
-        {
-            zero,
-            one,
-            srcColor,
-            oneMinusSrcColor,
-            dstColor,
-            oneMinusDstColor,
-            srcAlpha,
-            oneMinusSrcAlpha,
-            dstAlpha,
-            oneMinusDstAlpha
-        };
-
-        enum class Equation
-        {
-            add,
-            subtract,
-            reverseSubtract,
-            min,
-            max
-        };
-
-        constexpr BlendMode() = default;
-        constexpr BlendMode(Factor sourceFactor, Factor destinationFactor, Equation blendEquation = Equation::add);
-        constexpr BlendMode(Factor colorSourceFactor, Factor colorDestinationFactor, Equation colorBlendEquation, Factor alphaSourceFactor, Factor alphaDestinationFactor, Equation alphaBlendEquation);
-
-        constexpr bool operator==(const BlendMode& rhs) const = default;
-        constexpr bool operator!=(const BlendMode& rhs) const = default;
-
-        static const BlendMode alpha;
-        static const BlendMode add;
-        static const BlendMode multiply;
-        static const BlendMode opaque;
-        static const BlendMode none;
-        static const BlendMode additive;
-        static const BlendMode screen;
-        static const BlendMode subtract;
-        static const BlendMode premultipliedAlpha;
-
-        Factor colorSrcFactor{BlendMode::Factor::srcAlpha};
-        Factor colorDstFactor{BlendMode::Factor::oneMinusSrcAlpha};
-        Equation colorEquation{BlendMode::Equation::add};
-        Factor alphaSrcFactor{BlendMode::Factor::one};
-        Factor alphaDstFactor{BlendMode::Factor::oneMinusSrcAlpha};
-        Equation alphaEquation{BlendMode::Equation::add};
-    };
-} // namespace processing
-
-namespace processing
-{
-    struct Vertex
-    {
-        float3 position;
-        float2 texcoord;
-        float4 color;
-    };
-} // namespace processing
-
-namespace processing
-{
-    struct ResourceId
-    {
-        uint32_t value;
-    };
-
-    struct AssetId
-    {
-        size_t value;
-    };
-} // namespace processing
-
-namespace processing
-{
-    struct ShaderImpl
-    {
-        virtual ~ShaderImpl() = default;
-
-        virtual ResourceId getResourceId() const = 0;
-
-        virtual void uploadUniform(std::string_view name, float x) = 0;
-        virtual void uploadUniform(std::string_view name, float x, float y) = 0;
-        virtual void uploadUniform(std::string_view name, float x, float y, float z) = 0;
-        virtual void uploadUniform(std::string_view name, float x, float y, float z, float w) = 0;
-    };
-
-    class Shader
-    {
-    public:
-        Shader();
-        explicit Shader(AssetId assetId, std::weak_ptr<ShaderImpl> impl);
-
-        ResourceId getResourceId() const;
-        AssetId getAssetId() const;
-
-        void uploadUniform(std::string_view name, float x);
-        void uploadUniform(std::string_view name, float x, float y);
-        void uploadUniform(std::string_view name, float x, float y, float z);
-        void uploadUniform(std::string_view name, float x, float y, float z, float w);
-
-    private:
-        AssetId m_assetId;
-        std::weak_ptr<ShaderImpl> m_impl;
-    };
-
-    Shader loadShader(std::string_view vertexShaderSource, std::string_view fragmentShaderId);
-} // namespace processing
-
-namespace processing
-{
-    class PixelBuffer
-    {
-    public:
-        explicit PixelBuffer(uint32_t width, uint32_t height, uint8_t* data);
-
-        void set(uint32_t x, uint32_t y, color_t color);
-        color_t get(uint32_t x, uint32_t y) const;
-
-        const uint2& getSize() const;
-
-    private:
-        uint2 m_size;
-        std::span<uint8_t> m_data;
-    };
-} // namespace processing
-
-namespace processing
-{
-    enum class ExtendModeType
-    {
-        clamp,
-        repeat,
-        mirror,
-    };
-
-    struct ExtendMode
-    {
-        ExtendModeType s;
-        ExtendModeType t;
-
-        constexpr bool operator==(const ExtendMode& other) const = default;
-        constexpr bool operator!=(const ExtendMode& other) const = default;
-
-        static const ExtendMode clamp;
-        static const ExtendMode repeat;
-        static const ExtendMode mirror;
-    };
-
-    inline constexpr ExtendMode ExtendMode::clamp = {.s = ExtendModeType::clamp, .t = ExtendModeType::clamp};
-    inline constexpr ExtendMode ExtendMode::repeat = {.s = ExtendModeType::repeat, .t = ExtendModeType::repeat};
-    inline constexpr ExtendMode ExtendMode::mirror = {.s = ExtendModeType::mirror, .t = ExtendModeType::mirror};
-
-    enum class FilterModeType
-    {
-        nearest,
-        linear,
-    };
-
-    struct FilterMode
-    {
-        FilterModeType min;
-        FilterModeType mag;
-
-        constexpr bool operator==(const FilterMode& other) const = default;
-        constexpr bool operator!=(const FilterMode& other) const = default;
-
-        static const FilterMode nearest;
-        static const FilterMode linear;
-    };
-
-    inline constexpr FilterMode FilterMode::nearest = {.min = FilterModeType::nearest, .mag = FilterModeType::nearest};
-    inline constexpr FilterMode FilterMode::linear = {.min = FilterModeType::linear, .mag = FilterModeType::linear};
-
-    struct TextureImpl
-    {
-        virtual ~TextureImpl() = default;
-        virtual void setFilterMode(FilterMode mode) = 0;
-        virtual FilterMode getFilterMode() const = 0;
-        virtual void setExtendMode(ExtendMode mode) = 0;
-        virtual ExtendMode getExtendMode() const = 0;
-        virtual void modifyPixels(const std::function<void(PixelBuffer&)>& callback) = 0;
-        virtual void readPixels(const std::function<void(const PixelBuffer&)>& callback) = 0;
-        virtual uint2 getSize() const = 0;
-        virtual ResourceId getResourceId() const = 0;
-        virtual std::unique_ptr<TextureImpl> copy(uint32_t left, uint32_t top, uint32_t width, uint32_t height) = 0;
-    };
-
-    class Texture
-    {
-    public:
-        Texture();
-        explicit Texture(AssetId assetId, std::weak_ptr<TextureImpl> impl);
-
-        void setFilterMode(FilterMode mode);
-        FilterMode getFilterMode() const;
-        void setExtendMode(ExtendMode mode);
-        ExtendMode getExtendMode() const;
-
-        void modifyPixels(const std::function<void(PixelBuffer&)>& callback);
-        void readPixels(const std::function<void(const PixelBuffer&)>& callback);
-
-        uint2 getSize() const;
-        ResourceId getResourceId() const;
-        AssetId getAssetId() const;
-
-    private:
-        AssetId m_assetId;
-        std::weak_ptr<TextureImpl> m_impl;
-    };
-
-    Texture loadTexture(const std::filesystem::path& filepath);
-    Texture createTexture(uint32_t width, uint32_t height, const uint8_t* data);
-    Texture copyTexture(const Texture& texture, uint32_t left, uint32_t top, uint32_t width, uint32_t height);
-} // namespace processing
-
-namespace processing
-{
-    struct RenderbufferData
-    {
-        virtual ~RenderbufferData() = default;
-        virtual ResourceId getResourceId() const = 0;
-        virtual const rect2u& getViewport() const = 0;
-    };
-
-    struct RenderbufferImpl : RenderbufferData
-    {
-        virtual ~RenderbufferImpl() = default;
-        virtual const Texture& getTexture() const = 0;
-    };
-
-    class Renderbuffer
-    {
-    public:
-        Renderbuffer();
-        explicit Renderbuffer(AssetId assetId, std::weak_ptr<RenderbufferImpl> impl);
-
-        AssetId getAssetId() const;
-
-        ResourceId getResourceId() const;
-        const Texture& getTexture() const;
-        const rect2u& getViewport() const;
-
-    private:
-        AssetId m_assetId;
-        std::weak_ptr<RenderbufferImpl> m_impl;
-    };
-
-    Renderbuffer createRenderbuffer(uint32_t width, uint32_t height);
-} // namespace processing
-
-namespace processing
-{
-    struct RenderingSubmission
-    {
-        std::span<const Vertex> vertices;
-        std::span<const uint32_t> indices;
-        std::optional<ResourceId> shaderResourceId;
-        std::optional<ResourceId> textureResourceId;
-        BlendMode blendMode;
-    };
-
-    struct RenderingDetails
-    {
-        ResourceId renderbufferResourceId;
-        rect2u renderbufferViewport;
-        matrix4x4 projectionMatrix;
-    };
-
-    struct Renderer
-    {
-        virtual ~Renderer() = default;
-        virtual void activate(const RenderingDetails& renderingDetails) = 0;
-        virtual void beginDraw(const RenderingDetails& renderingDetails) = 0;
-        virtual void endDraw() = 0;
-        virtual void submit(const RenderingSubmission& submission) = 0;
-        virtual void flush() = 0;
-    };
-} // namespace processing
-
-namespace processing
-{
-    enum class StrokeJoin
-    {
-        miter,
-        bevel,
-        round,
-    };
-
     enum class StrokeCapStyle
     {
         butt,
@@ -720,318 +253,488 @@ namespace processing
         static const StrokeCap square;
         static const StrokeCap round;
     };
-
-    using RectMode = rect2f (*)(float, float, float, float);
-    RectMode rect_mode_ltwh();
-    RectMode rect_mode_ltrb();
-    RectMode rect_mode_center_size();
-
-    using EllipseMode = rect2f (*)(float, float, float, float);
-    EllipseMode ellipse_mode_ltwh();
-    EllipseMode ellipse_mode_ltrb();
-    EllipseMode ellipse_mode_center_radius();
-    EllipseMode ellipse_mode_center_diameter();
-
-    using ImageSourceMode = rect2f (*)(uint2, float, float, float, float);
-    ImageSourceMode image_source_mode_ltwh_normalized();
-    ImageSourceMode image_source_mode_ltwh_coordinates();
 } // namespace processing
 
 namespace processing
 {
-    void pushState();
-    void popState();
+    enum class StrokeJoin
+    {
+        miter,
+        bevel,
+        round,
+    };
 
-    rect2f getViewport();
+    enum class BlendMode
+    {
+        opaque,        // kein Blending
+        alpha,         // klassisches Alpha-Blending
+        premultiplied, // premultiplied alpha
+        additive,      // Glow / Partikel
+        multiply,      // Schatten / Darken
+        screen,        // Aufhellen
+        subtract,      // Spezialeffekte
+    };
 
-    void renderbuffer(Renderbuffer renderBuffer);
-    void noRenderbuffer();
+    enum class AngleMode
+    {
+        degrees,
+        radians,
+    };
 
-    void strokeJoin(StrokeJoin strokeJoin);
-    void strokeCap(StrokeCap strokeCap);
+    enum class RectMode
+    {
+        cornerSize,
+        corners,
+        centerSize,
+    };
 
-    void pushMatrix();
-    void popMatrix();
-    void resetMatrix();
-    matrix4x4& peekMatrix();
-    void translate(float x, float y);
-    void scale(float x, float y);
-    void rotate(float angle);
+    enum class EllipseMode
+    {
+        cornerDiameter,
+        cornerRadius,
+        corners,
+        centerRadius,
+        centerDiameter,
+    };
 
-    void blendMode(const BlendMode& blendMode);
-
-    void shader(Shader shaderProgram);
-    void noShader();
-
-    void background(const Texture& texture);
-    void background(int red, int green, int blue, int alpha = 255);
-    void background(int grey, int alpha = 255);
-    void background(color_t color);
-
-    void fill(int red, int green, int blue, int alpha = 255);
-    void fill(int grey, int alpha = 255);
-    void fill(color_t color);
-    void noFill();
-
-    void stroke(int red, int green, int blue, int alpha = 255);
-    void stroke(int grey, int alpha = 255);
-    void stroke(color_t color);
-    void noStroke();
-
-    void imageMode(RectMode imageMode);
-    void imageSourceMode(ImageSourceMode imageSourceMode);
-    void imageTint(int red, int green, int blue, int alpha = 255);
-    void imageTint(int grey, int alpha = 255);
-    void imageTint(color_t color);
-
-    void strokeWeight(float strokeWeight);
-    void rectMode(RectMode rectMode);
-    void ellipseMode(EllipseMode ellipseMode);
-
-    void rect(float left, float top, float width, float height);
-    void rect(float left, float top, float width, float height, float cornerRadius);
-    void rect(float left, float top, float width, float height, float cornerRadiusTopLeft, float cornerRadiusTopRight, float cornerRadiusBottomRight, float cornerRadiusBottomLeft);
-    void rect(float left, float top, float width, float height, float cornerRadiusTopLeftX, float cornerRadiusTopLeftY, float cornerRadiusTopRightX, float cornerRadiusTopRightY, float cornerRadiusBottomRightX, float cornerRadiusBottomRightY, float cornerRadiusBottomLeftX, float cornerRadiusBottomLeftY);
-
-    void square(float left, float top, float size);
-    void ellipse(float centerX, float centerY, float radiusX, float radiusY);
-    void circle(float centerX, float centerY, float radius);
-    void line(float x1, float y1, float x2, float y2);
-    void triangle(float x1, float y1, float x2, float y2, float x3, float y3);
-    void point(float x, float y);
-
-    void image(const Texture& texture, float x1, float y1);
-    void image(const Texture& texture, float x1, float y1, float x2, float y2);
-    void image(const Texture& texture, float x1, float y1, float x2, float y2, float sx1, float sy1, float sx2, float sy2);
+    enum class ImageSourceMode
+    {
+        normal,
+        size,
+    };
 } // namespace processing
 
-// #include <processing/processing.inl>
+namespace processing
+{
+    struct Color
+    {
+        Color();
+        Color(i32 red, i32 green, i32 blue, i32 alpha = 255);
+        Color(i32 grey, i32 alpha = 255);
 
-#endif // _PROCESSING_INCLUDE_LIBRARY_HPP_
+        i32 brightness() const;
+
+        u8 r, g, b, a;
+    };
+} // namespace processing
+
+namespace processing
+{
+    struct Vertex
+    {
+        float3 position;
+        float2 texcoord;
+        float4 color;
+    };
+
+    enum class VertexMode
+    {
+        points,
+        lines,
+        lineStrip,
+        lineLoop,
+        triangles,
+        triangleStrip,
+        triangleFan,
+    };
+
+    struct Vertices
+    {
+        VertexMode mode;
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> indices;
+    };
+} // namespace processing
+
+namespace processing
+{
+    struct ResourceId
+    {
+        u32 value;
+
+        inline constexpr bool operator==(const ResourceId& other) const = default;
+        inline constexpr bool operator!=(const ResourceId& other) const = default;
+    };
+
+    struct AssetId
+    {
+        usize value;
+
+        inline constexpr bool operator==(const AssetId& other) const = default;
+        inline constexpr bool operator!=(const AssetId& other) const = default;
+    };
+} // namespace processing
+
+namespace processing
+{
+    enum class FilterModeType
+    {
+        linear,
+        nearest,
+    };
+
+    struct FilterMode
+    {
+        FilterModeType min;
+        FilterModeType mag;
+
+        bool operator==(const FilterMode& other) const = default;
+        bool operator!=(const FilterMode& other) const = default;
+
+        static const FilterMode linear;
+        static const FilterMode nearest;
+    };
+} // namespace processing
+
+namespace processing
+{
+    enum class ExtendModeType
+    {
+        clamp,
+        repeat,
+        mirroredRepeat,
+    };
+
+    struct ExtendMode
+    {
+        ExtendModeType horizontal;
+        ExtendModeType vertical;
+
+        bool operator==(const ExtendMode& other) const = default;
+        bool operator!=(const ExtendMode& other) const = default;
+
+        static const ExtendMode clamp;
+        static const ExtendMode repeat;
+        static const ExtendMode mirroredRepeat;
+    };
+} // namespace processing
+
+namespace processing
+{
+    class PlatformImage;
+    class Pixels
+    {
+    public:
+        explicit Pixels(u32 width, u32 height, PlatformImage* parent, const std::vector<u8>& data);
+        void set(u32 x, u32 y, Color color);
+        Color get(u32 x, u32 y) const;
+
+        void commit();
+
+    private:
+        u32 m_width;
+        u32 m_height;
+        PlatformImage* m_parent;
+        std::vector<u8> m_data;
+    };
+
+    struct PlatformImage
+    {
+        virtual ~PlatformImage() = default;
+
+        virtual void setFilterMode(FilterMode mode) = 0;
+        virtual FilterMode getFilterMode() const = 0;
+
+        virtual void setExtendMode(ExtendMode mode) = 0;
+        virtual ExtendMode getExtendMode() const = 0;
+
+        virtual uint2 getSize() const = 0;
+        virtual Pixels loadPixels() = 0;
+
+        virtual ResourceId getResourceId() const = 0;
+    };
+
+    class Image
+    {
+    public:
+        Image();
+        explicit Image(AssetId assetId, std::shared_ptr<PlatformImage> image);
+
+        void setFilterMode(FilterMode mode);
+        FilterMode getFilterMode() const;
+
+        void setExtendMode(ExtendMode mode);
+        ExtendMode getExtendMode() const;
+
+        uint2 getSize() const;
+        Pixels loadPixels();
+
+        ResourceId getResourceId() const;
+        AssetId getAssetId() const;
+
+    private:
+        AssetId m_assetId;
+        std::shared_ptr<PlatformImage> m_impl;
+    };
+
+    Image createImage(u32 width, u32 height, const u8* data = nullptr, FilterMode filterMode = FilterMode::linear, ExtendMode extendMode = ExtendMode::clamp);
+    Image loadImage(const std::filesystem::path& filepath, FilterMode filterMode = FilterMode::linear, ExtendMode extendMode = ExtendMode::clamp);
+} // namespace processing
+
+namespace processing
+{
+    struct PlatformRenderbuffer
+    {
+        virtual ~PlatformRenderbuffer() = default;
+        virtual Image& getImage() = 0;
+        virtual uint2 getSize() const = 0;
+    };
+
+    class Renderbuffer
+    {
+    public:
+        explicit Renderbuffer(AssetId assetId, std::shared_ptr<PlatformRenderbuffer> impl);
+
+        Image& getImage();
+        uint2 getSize() const;
+        AssetId getAssetId() const;
+
+    private:
+        AssetId m_assetId;
+        std::shared_ptr<PlatformRenderbuffer> m_impl;
+    };
+
+    Renderbuffer createRenderbuffer(u32 width, u32 height, FilterMode filterMode = FilterMode::linear, ExtendMode extendMode = ExtendMode::clamp);
+} // namespace processing
+
+namespace processing
+{
+    struct PlatformShader
+    {
+        virtual ~PlatformShader() = default;
+        virtual ResourceId getResourceId() const = 0;
+    };
+
+    class Shader
+    {
+    public:
+        explicit Shader(AssetId assetId, std::shared_ptr<PlatformShader> impl);
+
+        ResourceId getResourceId() const;
+        AssetId getAssetId() const;
+
+    private:
+        AssetId m_assetId;
+        std::shared_ptr<PlatformShader> m_impl;
+    };
+
+    Shader createShader(std::string_view vertexShaderSource, std::string_view fragmentShaderSource);
+} // namespace processing
+
+namespace processing
+{
+    struct RenderStyle
+    {
+        Color fillColor;
+        Color strokeColor;
+        Color tintColor;
+
+        bool isFillEnabled;
+        bool isStrokeEnabled;
+
+        f32 strokeWeight;
+        StrokeCap strokeCap;
+        StrokeJoin strokeJoin;
+
+        BlendMode blendMode;
+        AngleMode angleMode;
+        RectMode rectMode;
+        EllipseMode ellipseMode;
+        RectMode imageMode;
+        ImageSourceMode imageSourceMode;
+
+        std::optional<Shader> shader;
+
+        RenderStyle();
+    };
+} // namespace processing
+
+namespace processing
+{
+    void quit();
+    void quit(i32 exitCode);
+    void restart();
+    void setExitCode(i32 exitCode);
+
+    void loop();
+    void noLoop();
+    void redraw();
+} // namespace processing
+
+namespace processing
+{
+    void randomSeed(u64 seed);
+    f32 random(f32 max);
+    f32 random(f32 min, f32 max);
+    f32 map(f32 value, f32 istart, f32 istop, f32 ostart, f32 ostop);
+} // namespace processing
+
+namespace processing
+{
+    int2 getMousePosition();
+} // namespace processing
+
+namespace processing
+{
+    void pushRenderbuffer(const Renderbuffer& renderbuffer);
+    void popRenderbuffer();
+
+    void push();
+    void pop();
+
+    void pushStyle(bool extendPreviousStyle = true);
+    void popStyle();
+    RenderStyle& peekStyle();
+
+    void pushMatrix(bool extendPreviousMatrix = true);
+    void popMatrix();
+    void resetMatrix();
+    void resetMatrix(const matrix4x4& matrix);
+    matrix4x4& peekMatrix();
+    void translate(f32 x, f32 y);
+    void scale(f32 x, f32 y);
+    void rotate(f32 rotation);
+
+    void blendMode(BlendMode mode);
+    void angleMode(AngleMode mode);
+    void rectMode(RectMode mode);
+    void ellipseMode(EllipseMode mode);
+    void imageMode(RectMode mode);
+    void imageSourceMode(ImageSourceMode mode);
+
+    void shader(const Shader& shader);
+    void noShader();
+
+    void fill(i32 red, i32 green, i32 blue, i32 alpha = 255);
+    void fill(i32 grey, i32 alpha = 255);
+    void fill(Color color);
+    void noFill();
+
+    void stroke(i32 red, i32 green, i32 blue, i32 alpha = 255);
+    void stroke(i32 grey, i32 alpha = 255);
+    void stroke(Color color);
+    void noStroke();
+
+    void strokeWeight(f32 strokeWeight);
+    void strokeCap(StrokeCap strokeCap);
+    void strokeJoin(StrokeJoin strokeJoin);
+
+    void tint(i32 red, i32 green, i32 blue, i32 alpha = 255);
+    void tint(i32 grey, i32 alpha = 255);
+    void tint(Color color);
+
+    void background(i32 red, i32 green, i32 blue, i32 alpha = 255);
+    void background(i32 grey, i32 alpha = 255);
+    void background(Color color);
+
+    void beginShape();
+    void endShape();
+    void vertex(f32 x, f32 y);
+    void vertex(f32 x, f32 y, f32 u, f32 v);
+    void bezierVertex(f32 x2, f32 y2, f32 x3, f32 y3);
+    void quadraticVertex(f32 cx, f32 cy, f32 x3, f32 y3);
+    void curveVertex(f32 x, f32 y);
+
+    void rect(f32 x1, f32 y1, f32 x2, f32 y2);
+    void square(f32 x1, f32 y1, f32 xy2);
+    void ellipse(f32 x1, f32 y1, f32 x2, f32 y2);
+    void circle(f32 x1, f32 y1, f32 xy2);
+    void triangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3);
+    void point(f32 x, f32 y);
+    void line(f32 x1, f32 y1, f32 x2, f32 y2);
+    void image(const Image& img, f32 x1, f32 y1);
+    void image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2);
+    void image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2, f32 sx1, f32 sy1, f32 sx2, f32 sy2);
+} // namespace processing
+
+#endif // _PROCESSING_INCLUDE_PROCESSING_HPP_
 
 #ifndef _PROCESSING_INCLUDE_PROCESSING_INL_
 #define _PROCESSING_INCLUDE_PROCESSING_INL_
 
+#include <numbers>
+
+namespace processing
+{
+    inline constexpr f32 PI = std::numbers::pi_v<f32>;
+    inline constexpr f32 TAU = 2.0f * PI;
+} // namespace processing
+
 namespace processing
 {
     // clang-format off
-    template <typename T> constexpr value2<T>::value2() : x(T{}), y(T{}) { }
-    template <typename T> constexpr value2<T>::value2(T x, T y) : x(x), y(y) { }
-    template <typename T> constexpr value2<T>::value2(T scalar) : x(scalar), y(scalar) { }
-    template <typename T> template <typename U> constexpr value2<T>::value2(const value2<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)) { }
-
-    template <typename T>
-    T value2_length(const value2<T>& value)
-    {
-        return std::hypot(value.x, value.y);
-    }
-
-    template <typename T>
-    constexpr T value2_dot(const value2<T>& lhs, const value2<T>& rhs)
-    {
-        return lhs.x * rhs.x + lhs.y * rhs.y;
-    }
-
-    template <typename T>
-    constexpr T value2_cross(const value2<T>& lhs, const value2<T>& rhs)
-    {
-        return lhs.x * rhs.y - lhs.y * rhs.x;
-    }
-
-    template <typename T>
-    constexpr T value2_length_squared(const value2<T>& value)
-    {
-        return value.x * value.x + value.y * value.y;
-    }
-
-    template <typename T>
-    constexpr value2<T> value2_perpendicular_cw(const value2<T>& value)
-    {
-        return { value.y, -value.x };
-    }
-
-    template <typename T>
-    constexpr value2<T> value2_perpendicular_ccw(const value2<T>& value)
-    {
-        return { -value.y, value.x };
-    }
-
-    template <typename T>
-    value2<T> value2_normalized(const value2<T>& value)
-    {
-        const T length = value2_length(value);
-        if (length != static_cast<T>(0)) {
-            return { static_cast<T>(value.x / length), static_cast<T>(value.y / length) };
-        }
-        return value;
-    }
-
-    template <typename T>
-    void value2_normalize(value2<T>& value)
-    {
-        return value = value2_normalized(value);
-    }
-
-    template <typename T> constexpr value2<T> operator-(const value2<T>& rhs) { return { -rhs.x, -rhs.y }; }
-    template <typename T> constexpr value2<T> operator+(const value2<T>& lhs, const value2<T>& rhs) { return { lhs.x + rhs.x, lhs.y + rhs.y }; }
-    template <typename T> constexpr value2<T> operator-(const value2<T>& lhs, const value2<T>& rhs) { return { lhs.x - rhs.x, lhs.y - rhs.y }; }
-    template <typename T> constexpr value2<T> operator*(const value2<T>& lhs, const value2<T>& rhs) { return { lhs.x * rhs.x, lhs.y * rhs.y }; }
-    template <typename T> constexpr value2<T> operator/(const value2<T>& lhs, const value2<T>& rhs) { return { lhs.x / rhs.x, lhs.y / rhs.y }; }
-
-    template <typename T> constexpr value2<T> operator+(const value2<T>& lhs, const T rhs) { return { lhs.x + rhs, lhs.y + rhs }; }
-    template <typename T> constexpr value2<T> operator-(const value2<T>& lhs, const T rhs) { return { lhs.x - rhs, lhs.y - rhs }; }
-    template <typename T> constexpr value2<T> operator*(const value2<T>& lhs, const T rhs) { return { lhs.x * rhs, lhs.y * rhs }; }
-    template <typename T> constexpr value2<T> operator/(const value2<T>& lhs, const T rhs) { return { lhs.x / rhs, lhs.y / rhs }; }
+    template <typename T> value2<T>::value2() : x(T{}), y(T{}) {}
+    template <typename T> value2<T>::value2(T x, T y) : x(x), y(y) {}
+    template <typename T> value2<T>::value2(const T scalar) : x(scalar), y(scalar) {}
+    template <typename T> template <typename U> value2<T>::value2(const value2<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)) {}
+    template <typename T> T value2<T>::length() const { return std::hypot(x, y); }
+    template <typename T> T value2<T>::lengthSquared() const { return x * x + y * y; }
+    template <typename T> T value2<T>::dot(const value2<T>& other) const { return x * other.x + y * other.y; }
+    template <typename T> value2<T> value2<T>::perpendicular_cw() const { return { y, -x }; }
+    template <typename T> value2<T> value2<T>::perpendicular_ccw() const { return { -y, x }; }
+    template <typename T> value2<T> value2<T>::normalized() const { const T len = length(); if (len != static_cast<T>(0.0)) { return { x / len, y / len }; } return *this; }
+    template <typename T> value2<T> value2<T>::operator+(const value2<T>& rhs) const { return { x + rhs.x, y + rhs.y }; }
+    template <typename T> value2<T> value2<T>::operator-(const value2<T>& rhs) const { return { x - rhs.x, y - rhs.y }; }
+    template <typename T> value2<T> value2<T>::operator*(const value2<T>& rhs) const { return { x * rhs.x, y * rhs.y }; }
+    template <typename T> value2<T> value2<T>::operator/(const value2<T>& rhs) const { return { x / rhs.x, y / rhs.y }; }
+    template <typename T> value2<T> value2<T>::operator+(T rhs) const { return { x + rhs, y + rhs }; }
+    template <typename T> value2<T> value2<T>::operator-(T rhs) const { return { x - rhs, y - rhs }; }
+    template <typename T> value2<T> value2<T>::operator*(T rhs) const { return { x * rhs, y * rhs }; }
+    template <typename T> value2<T> value2<T>::operator/(T rhs) const { return { x / rhs, y / rhs }; }
     // clang-format on
 } // namespace processing
 
 namespace processing
 {
     // clang-format off
-    template <typename T> constexpr value3<T>::value3() : x(T{}), y(T{}), z(T{}) { }
-    template <typename T> constexpr value3<T>::value3(const T x, const T y, const T z) : x(x), y(y), z(z) { }
-    template <typename T> constexpr value3<T>::value3(T scalar) : x(scalar), y(scalar), z(scalar) { }
-    template <typename T> constexpr value3<T>::value3(const value2<T>& xy, const T z) : x(xy.x), y(xy.y), z(z) {}
-    template <typename T> constexpr value3<T>::value3(const T x, const value2<T>& yz) : x(x), y(yz.x), z(yz.y) {}
+    template <typename T> value3<T>::value3() : x(T{}), y(T{}), z(T{}) {}
+    template <typename T> value3<T>::value3(T x, T y, T z) : x(x), y(y), z(z) {}
+    template <typename T> value3<T>::value3(T scalar) : x(scalar), y(scalar), z(scalar) {}
+    template <typename T> template <typename U> value3<T>::value3(const value3<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)), z(static_cast<T>(other.z)) {}
+    template <typename T> value3<T>::value3(const value2<T>& xy, T z) : x(xy.x), y(xy.y), z(z) {}
+    template <typename T> value3<T>::value3(T x, const value2<T>& yz) : x(x), y(yz.x), z(yz.y) {}
+    template <typename T> T value3<T>::length() const { return std::sqrt(lengthSquared()); }
+    template <typename T> T value3<T>::lengthSquared() const { return x * x + y * y + z * z; }
+    template <typename T> value3<T> value3<T>::operator+(const value3& rhs) const { return { x + rhs.x, y + rhs.y, z + rhs.z }; }
+    template <typename T> value3<T> value3<T>::operator-(const value3& rhs) const { return { x - rhs.x, y - rhs.y, z - rhs.z }; }
+    template <typename T> value3<T> value3<T>::operator*(const value3& rhs) const { return { x * rhs.x, y * rhs.y, z * rhs.z }; }
+    template <typename T> value3<T> value3<T>::operator/(const value3& rhs) const { return { x / rhs.x, y / rhs.y, z / rhs.z }; }
+    template <typename T> value3<T> value3<T>::operator+(T rhs) const { return { x + rhs, y + rhs, z + rhs }; }
+    template <typename T> value3<T> value3<T>::operator-(T rhs) const { return { x - rhs, y - rhs, z - rhs }; }
+    template <typename T> value3<T> value3<T>::operator*(T rhs) const { return { x * rhs, y * rhs, z * rhs }; }
+    template <typename T> value3<T> value3<T>::operator/(T rhs) const { return { x / rhs, y / rhs, z / rhs }; }
     // clang-format on
 } // namespace processing
 
 namespace processing
 {
     // clang-format off
-    constexpr matrix4x4 matrix4x4_create(
-        float m00, float m01, float m02, float m03,
-        float m10, float m11, float m12, float m13,
-        float m20, float m21, float m22, float m23,
-        float m30, float m31, float m32, float m33
-    )
-    {
-        return matrix4x4 {
-            .data = {
-                m00, m01, m02, m03,
-                m10, m11, m12, m13,
-                m20, m21, m22, m23,
-                m30, m31, m32, m33,
-            }
-        };
-    }
-
-    constexpr matrix4x4 matrix4x4_identity()
-    {
-        return matrix4x4_create(
-            1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f
-        );
-    }
-
-    constexpr matrix4x4 matrix4x4_translate(float x, float y, float z)
-    {
-        return matrix4x4_create(
-            1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            x, y, z, 1.0f
-        );
-    }
-
-    constexpr matrix4x4 matrix4x4_scale(float x, float y, float z) {
-        return matrix4x4_create(
-            x, 0.0f, 0.0f, 0.0f,
-            0.0f, y, 0.0f, 0.0f,
-            0.0f, 0.0f, z, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f
-        );
-    }
-
-    constexpr matrix4x4 matrix4x4_multiply(const matrix4x4 &lhs, const matrix4x4 &rhs)
-    {
-        matrix4x4 result;
-
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                result.data[i * 4 + j] =
-                    lhs.data[i * 4 + 0] * rhs.data[0 * 4 + j] +
-                    lhs.data[i * 4 + 1] * rhs.data[1 * 4 + j] +
-                    lhs.data[i * 4 + 2] * rhs.data[2 * 4 + j] +
-                    lhs.data[i * 4 + 3] * rhs.data[3 * 4 + j];
-            }
-        }
-
-        return result;
-    }
-
-    constexpr matrix4x4 matrix4x4_orthographic(float left, float top, float width, float height, float near, float far) {
-        const float right = left + width;
-        const float bottom = top + height;
-
-        return matrix4x4_create(
-            2.0f / (right - left),  0.0f,                      0.0f,                      0.0f,
-            0.0f,                   2.0f / (top - bottom),    0.0f,                      0.0f,
-            0.0f,                   0.0f,                     -2.0f / (far - near),      0.0f,
-           -(right + left) / (right - left),
-           -(top + bottom) / (top - bottom),
-           -(far + near) / (far - near),
-            1.0f
-        );
-    }
-
-    constexpr float3 matrix4x4_transform_point(const matrix4x4 &matrix, const float3 &point) {
-        return {
-            matrix.data[0] * point.x + matrix.data[4] * point.y + matrix.data[8] * point.z + matrix.data[12],
-            matrix.data[1] * point.x + matrix.data[5] * point.y + matrix.data[9] * point.z + matrix.data[13],
-            matrix.data[2] * point.x + matrix.data[6] * point.y + matrix.data[10] * point.z + matrix.data[14],
-        };
-    }
-
-    constexpr float2 matrix4x4_transform_vector(const matrix4x4 &matrix, const float2 &vector) {
-        return {
-            matrix.data[0] * vector.x + matrix.data[4] * vector.y,
-            matrix.data[1] * vector.x + matrix.data[5] * vector.y,
-        };
-    }
-
-    inline matrix4x4 matrix4x4_rotation_z(float angle)
-    {
-        const float radians = angle * PI / 180.0f;
-        const float cos = std::cos(radians);
-        const float sin = std::sin(radians);
-
-        return matrix4x4_create(
-            cos, sin, 0.0f, 0.0f,
-            -sin, cos, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f
-        );
-    }
+    template <typename T> value4<T>::value4() : x(T{}), y(T{}), z(T{}), w(T{}) {}
+    template <typename T> value4<T>::value4(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) {}
+    template <typename T> value4<T>::value4(T scalar) : x(scalar), y(scalar), z(scalar), w(scalar) {}
+    template <typename T> template <typename U> value4<T>::value4(const value4<U>& other) : x(static_cast<T>(other.x)), y(static_cast<T>(other.y)), z(static_cast<T>(other.z)), w(static_cast<T>(other.w)) {}
+    template <typename T> T value4<T>::length() const { return std::sqrt(lengthSquared()); }
+    template <typename T> T value4<T>::lengthSquared() const { return x * x + y * y + z * z + w * w; }
+    template <typename T> value4<T> value4<T>::operator+(const value4& rhs) const { return { x + rhs.x, y + rhs.y, z + rhs.z, w + rhs.w }; }
+    template <typename T> value4<T> value4<T>::operator-(const value4& rhs) const { return { x - rhs.x, y - rhs.y, z - rhs.z, w - rhs.w }; }
+    template <typename T> value4<T> value4<T>::operator*(const value4& rhs) const { return { x * rhs.x, y * rhs.y, z * rhs.z, w * rhs.w }; }
+    template <typename T> value4<T> value4<T>::operator/(const value4& rhs) const { return { x / rhs.x, y / rhs.y, z / rhs.z, w / rhs.w }; }
+    template <typename T> value4<T> value4<T>::operator+(T rhs) const { return { x + rhs, y + rhs, z + rhs, w + rhs }; }
+    template <typename T> value4<T> value4<T>::operator-(T rhs) const { return { x - rhs, y - rhs, z - rhs, w - rhs }; }
+    template <typename T> value4<T> value4<T>::operator*(T rhs) const { return { x * rhs, y * rhs, z * rhs, w * rhs }; }
+    template <typename T> value4<T> value4<T>::operator/(T rhs) const { return { x / rhs, y / rhs, z / rhs, w / rhs }; }
     // clang-format on
 } // namespace processing
 
 namespace processing
 {
     // clang-format off
-    template <typename T> constexpr rect2<T>::rect2() : left(T{}), top(T{}), width(T{}), height(T{}) {}
-    template <typename T> constexpr rect2<T>::rect2(T left, T top, T width, T height) : left(left), top(top), width(width), height(height) {}
-    template <typename T> template <typename U> constexpr rect2<T>::rect2(const rect2<U>& other): left(static_cast<T>(other.left)), top(static_cast<T>(other.top)), width(static_cast<T>(other.width)), height(static_cast<T>(other.height)) {}
-    template <typename T> constexpr value2<T> rect2<T>::center() const { return { left + width / 2, top + height / 2 }; }
-    template <typename T> constexpr T rect2<T>::right() const { return left + width; }
-    template <typename T> constexpr T rect2<T>::bottom() const { return top + height; }
-    template <typename T> constexpr bool operator == (const rect2<T>& lhs, const rect2<T>& rhs) { return lhs.left == rhs.left and lhs.top == rhs.top and lhs.width == rhs.width and lhs.height == rhs.height; }
-    template <typename T> constexpr bool operator != (const rect2<T>& lhs, const rect2<T>& rhs) { return lhs.left != rhs.left or lhs.top != rhs.top or lhs.width != rhs.width or lhs.height != rhs.height; }
-    // clang-format on
-} // namespace processing
-
-namespace processing
-{
-    // clang-format off
-    constexpr color_t color(int32_t red, int32_t green, int32_t blue, int32_t alpha) { return color_t{ .value = (uint32_t)(red << 24) | (uint32_t)(green << 16) | (uint32_t)(blue << 8) | (uint32_t)alpha }; }
-    constexpr color_t color(int32_t grey, int32_t alpha) { return color(grey, grey, grey, alpha); }
-    constexpr int32_t red(color_t color) { return (color.value & 0xFF000000) >> 24; }
-    constexpr int32_t green(color_t color) { return (color.value & 0x00FF0000) >> 16; }
-    constexpr int32_t blue(color_t color) { return (color.value & 0x0000FF00) >> 8; }
-    constexpr int32_t alpha(color_t color) { return (color.value & 0x000000FF); }
-    constexpr int32_t brightness(color_t color) { return static_cast<int32_t>(0.2126) * static_cast<float>(red(color)) + static_cast<int32_t>(0.7152 * green(color)) + static_cast<int32_t>(0.0722 * blue(color)); }
+    template <typename T> rect2<T>::rect2(): left(static_cast<T>(0)), top(static_cast<T>(0)), width(static_cast<T>(0)), height(static_cast<T>(0)) {}
+    template <typename T> rect2<T>::rect2(T left, T top, T width, T height): left(left), top(top), width(width), height(height) {}
+    template <typename T> rect2<T>::rect2(const value2<T>& position, const value2<T>& size): position(position), size(size) {}
+    template <typename T> T rect2<T>::right() const { return left + width; }
+    template <typename T> T rect2<T>::bottom() const { return top + height; }
+    template <typename T> value2<T> rect2<T>::center() const { return position + size / 2; }
     // clang-format on
 } // namespace processing
 
@@ -1044,44 +747,15 @@ namespace processing
 
 namespace processing
 {
-    // clang-format off
-    // inline constexpr Shader INVALID_SHADER_HANDLE = { .id = 0 };
-    // inline constexpr RenderBuffer INVALID_RENDER_BUFFER = { .id = 0 };
-    // inline constexpr Texture INVALID_TEXTURE = { .id = 0 };
-    // clang-format on
+    inline constexpr FilterMode FilterMode::linear = {.min = FilterModeType::linear, .mag = FilterModeType::linear};
+    inline constexpr FilterMode FilterMode::nearest = {.min = FilterModeType::nearest, .mag = FilterModeType::nearest};
 } // namespace processing
 
 namespace processing
 {
-    constexpr BlendMode::BlendMode(Factor sourceFactor, Factor destinationFactor, Equation blendEquation)
-        : colorSrcFactor(sourceFactor),
-          colorDstFactor(destinationFactor),
-          colorEquation(blendEquation),
-          alphaSrcFactor(sourceFactor),
-          alphaDstFactor(destinationFactor),
-          alphaEquation(blendEquation)
-    {
-    }
-
-    constexpr BlendMode::BlendMode(Factor colorSourceFactor, Factor colorDestinationFactor, Equation colorBlendEquation, Factor alphaSourceFactor, Factor alphaDestinationFactor, Equation alphaBlendEquation)
-        : colorSrcFactor(colorSourceFactor),
-          colorDstFactor(colorDestinationFactor),
-          colorEquation(colorBlendEquation),
-          alphaSrcFactor(alphaSourceFactor),
-          alphaDstFactor(alphaDestinationFactor),
-          alphaEquation(alphaBlendEquation)
-    {
-    }
-
-    inline constexpr BlendMode BlendMode::alpha{Factor::srcAlpha, Factor::oneMinusSrcAlpha};
-    inline constexpr BlendMode BlendMode::add{Factor::srcAlpha, Factor::one};
-    inline constexpr BlendMode BlendMode::multiply{Factor::dstColor, Factor::zero};
-    inline constexpr BlendMode BlendMode::opaque{Factor::one, Factor::zero};
-    inline constexpr BlendMode BlendMode::none{Factor::one, Factor::zero};
-    inline constexpr BlendMode BlendMode::additive{Factor::one, Factor::one};
-    inline constexpr BlendMode BlendMode::screen{Factor::one, Factor::oneMinusSrcColor};
-    inline constexpr BlendMode BlendMode::subtract{Factor::srcAlpha, Factor::one, Equation::reverseSubtract};
-    inline constexpr BlendMode BlendMode::premultipliedAlpha{Factor::one, Factor::oneMinusSrcAlpha};
+    inline constexpr ExtendMode ExtendMode::clamp = {.horizontal = ExtendModeType::clamp, .vertical = ExtendModeType::clamp};
+    inline constexpr ExtendMode ExtendMode::repeat = {.horizontal = ExtendModeType::repeat, .vertical = ExtendModeType::repeat};
+    inline constexpr ExtendMode ExtendMode::mirroredRepeat = {.horizontal = ExtendModeType::mirroredRepeat, .vertical = ExtendModeType::mirroredRepeat};
 } // namespace processing
 
 #endif // _PROCESSING_INCLUDE_PROCESSING_INL_

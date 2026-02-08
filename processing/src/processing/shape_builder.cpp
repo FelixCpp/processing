@@ -35,11 +35,11 @@ namespace processing
 
     StrokeSegment segment_between_points(const float2& previous, const float2& current, const float2& next, const float strokeWeight, const float miterLimit, const bool isClockwise)
     {
-        const float2 dirPrev = value2_normalized(current - previous);
-        const float2 dirNext = value2_normalized(next - current);
+        const float2 dirPrev = (current - previous).normalized();
+        const float2 dirNext = (next - current).normalized();
 
-        const float2 nPrev = isClockwise ? value2_perpendicular_cw(dirPrev) : value2_perpendicular_ccw(dirPrev);
-        const float2 nNext = isClockwise ? value2_perpendicular_cw(dirNext) : value2_perpendicular_ccw(dirNext);
+        const float2 nPrev = isClockwise ? dirPrev.perpendicular_cw() : dirPrev.perpendicular_ccw();
+        const float2 nNext = isClockwise ? dirNext.perpendicular_cw() : dirNext.perpendicular_ccw();
 
         const float halfStrokeWeight = strokeWeight * 0.5f;
 
@@ -48,8 +48,8 @@ namespace processing
         const float2 nextOuter = current + nNext * halfStrokeWeight;
         const float2 nextInner = current - nNext * halfStrokeWeight;
 
-        const float2 bisector = value2_normalized(nPrev + nNext);
-        float dotProduct = value2_dot(bisector, nNext);
+        const float2 bisector = (nPrev + nNext).normalized();
+        float dotProduct = bisector.dot(nNext);
 
         constexpr float epsilon = std::numeric_limits<float>::epsilon();
         if (std::abs(dotProduct) < epsilon)
@@ -60,11 +60,10 @@ namespace processing
         const float maxMiterLength = halfStrokeWeight * miterLimit;
 
         float miterLength = halfStrokeWeight / dotProduct;
-        bool miterLimitExceeded = false;
-        if (std::abs(miterLength) > maxMiterLength)
+        const bool miterLimitExceeded = std::abs(miterLength) > maxMiterLength;
+        if (miterLimitExceeded)
         {
             miterLength = maxMiterLength * (miterLength > 0 ? 1.0f : -1.0f);
-            miterLimitExceeded = true;
         }
 
         const float2 outerIntersection = current + bisector * miterLength;
@@ -192,7 +191,7 @@ namespace processing
                         sweepAngle -= TAU;
                     while (sweepAngle < -PI)
                         sweepAngle += TAU;
-                    const size_t numSegments = 8;
+                    const size_t numSegments = 4;
                     const float angleStepSize = sweepAngle / static_cast<float>(numSegments);
                     const float radius = properties.strokeWeight * 0.5f;
 
@@ -241,39 +240,6 @@ namespace processing
             .texcoords = std::move(texcoords),
             .indices = std::move(indices),
         };
-    }
-} // namespace processing
-
-namespace processing
-{
-    static constexpr float4 float4_from_color(color_t color)
-    {
-        return float4{
-            .x = static_cast<float>(red(color)) / 255.0f,
-            .y = static_cast<float>(green(color)) / 255.0f,
-            .z = static_cast<float>(blue(color)) / 255.0f,
-            .w = static_cast<float>(alpha(color)) / 255.0f,
-        };
-    }
-
-    Shape shape_from_contour(const Contour& contour, const matrix4x4& transform, color_t color, float depth)
-    {
-        assert(contour.positions.size() == contour.texcoords.size() and "Contour must contain the same number of positions as texcoords");
-
-        Shape shape;
-        shape.vertices.reserve(contour.positions.size());
-        shape.indices.append_range(contour.indices);
-
-        for (size_t i = 0; i < contour.positions.size(); ++i)
-        {
-            shape.vertices.push_back(Vertex{
-                .position = matrix4x4_transform_point(transform, float3(contour.positions[i], depth)),
-                .texcoord = contour.texcoords[i],
-                .color = float4_from_color(color),
-            });
-        }
-
-        return shape;
     }
 } // namespace processing
 
@@ -613,8 +579,8 @@ namespace processing
     {
         const float2 start = {x1, y1};
         const float2 end = {x2, y2};
-        const float2 direction = value2_normalized(end - start);
-        const float2 offset = value2_perpendicular_cw(direction) * strokeWeight * 0.5f;
+        const float2 direction = (end - start).normalized();
+        const float2 offset = direction.perpendicular_cw() * strokeWeight * 0.5f;
 
         const float circumference = PI * strokeWeight;
         const size_t segments = std::max(4, static_cast<int>(circumference / 4.0f));
@@ -731,11 +697,18 @@ namespace processing
             const float sourceRight = sourceLeft + sourceWidth;
             const float sourceBottom = sourceTop + sourceHeight;
 
+            //     contour.texcoords = {
+            //         {sourceLeft, sourceTop},
+            //         {sourceRight, sourceTop},
+            //         {sourceRight, sourceBottom},
+            //         {sourceLeft, sourceBottom},
+            //     };
+
             contour.texcoords = {
-                {sourceLeft, sourceTop},
-                {sourceRight, sourceTop},
-                {sourceRight, sourceBottom},
                 {sourceLeft, sourceBottom},
+                {sourceRight, sourceBottom},
+                {sourceRight, sourceTop},
+                {sourceLeft, sourceTop},
             };
         }
 
