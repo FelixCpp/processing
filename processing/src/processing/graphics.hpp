@@ -25,23 +25,6 @@ namespace processing
 
 namespace processing
 {
-    struct GraphicsLayer
-    {
-        f32 currentDepth;
-        NeverEmptyStack<RenderStyle> renderStyles;
-        NeverEmptyStack<matrix4x4> metrics;
-        Renderbuffer renderbuffer;
-    };
-
-    struct GraphicsData
-    {
-        NeverEmptyStack<GraphicsLayer> layers;
-        std::shared_ptr<DefaultRenderer> renderer;
-    };
-} // namespace processing
-
-namespace processing
-{
     void initGraphics(u32 width, u32 height);
     void beginDraw();
     void endDraw(u32 width, u32 height);

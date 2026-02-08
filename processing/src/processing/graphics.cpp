@@ -3,34 +3,89 @@
 
 #include <glad/gl.h>
 
+#include <unordered_map>
+
 namespace processing
 {
-    inline static std::unique_ptr<GraphicsData> s_graphics;
+    void blit(u32 width, u32 height, const Framebuffer& fb)
+    {
+        glViewport(0, 0, width, height);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, fb.getResourceId().value);
+        glBlitFramebuffer(0, 0, fb.getSize().x, fb.getSize().y, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    }
+} // namespace processing
+
+namespace processing
+{
     inline static constexpr f32 MIN_DEPTH = -1.0f;
     inline static constexpr f32 MAX_DEPTH = 1.0f;
     inline static constexpr f32 DEPTH_INCREMENT = 1.0f / 20'000.0f;
 
-    void blit(u32 width, u32 height, const Renderbuffer& rb)
+    struct RenderbufferImpl : PlatformRenderbuffer
     {
-        glViewport(0, 0, width, height);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, rb.getResourceId().value);
-        glBlitFramebuffer(0, 0, rb.getSize().x, rb.getSize().y, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    }
+        explicit RenderbufferImpl(const u32 width, const u32 height, const FilterMode filterMode, const ExtendMode extendMode)
+            : currentDepth{MIN_DEPTH},
+              renderStyles{RenderStyle()},
+              metrics{matrix4x4::identity},
+              framebuffer{createFramebuffer(width, height, filterMode, extendMode)}
+        {
+        }
 
-    GraphicsLayer createGraphicsLayer(const Renderbuffer& renderbuffer)
-    {
-        return GraphicsLayer{
-            .currentDepth = MIN_DEPTH,
-            .renderStyles = NeverEmptyStack<RenderStyle>{RenderStyle()},
-            .metrics = NeverEmptyStack<matrix4x4>{matrix4x4::identity},
-            .renderbuffer = renderbuffer,
-        };
-    }
+        virtual Image& getImage() override
+        {
+            return framebuffer.getImage();
+        }
 
-    inline GraphicsLayer& peekLayer()
+        virtual uint2 getSize() const override
+        {
+            return framebuffer.getSize();
+        }
+
+        f32 currentDepth;
+        NeverEmptyStack<RenderStyle> renderStyles;
+        NeverEmptyStack<matrix4x4> metrics;
+        Framebuffer framebuffer;
+    };
+
+    class RenderbufferRegistry
     {
-        return s_graphics->layers.peek();
+    public:
+        explicit RenderbufferRegistry()
+            : m_nextAssetId(1)
+        {
+        }
+
+        AssetId insert(std::shared_ptr<RenderbufferImpl> impl)
+        {
+            const AssetId insertionId = AssetId{m_nextAssetId};
+            m_assets.emplace(std::make_pair(insertionId.value, std::move(impl)));
+            ++m_nextAssetId;
+            return insertionId;
+        }
+
+        RenderbufferImpl& get(const AssetId& assetId)
+        {
+            return *m_assets.at(assetId.value);
+        }
+
+    private:
+        std::unordered_map<usize, std::shared_ptr<RenderbufferImpl>> m_assets;
+        usize m_nextAssetId;
+    };
+
+    struct GraphicsData
+    {
+        RenderbufferRegistry renderbuffers;
+        NeverEmptyStack<usize> renderbufferIds;
+        std::shared_ptr<DefaultRenderer> renderer;
+    };
+
+    inline static std::unique_ptr<GraphicsData> s_graphics;
+
+    inline RenderbufferImpl& peekRenderbuffer()
+    {
+        return s_graphics->renderbuffers.get(AssetId{s_graphics->renderbufferIds.peek()});
     }
 } // namespace processing
 
@@ -38,9 +93,13 @@ namespace processing
 {
     void initGraphics(const u32 width, const u32 height)
     {
+        auto registry = RenderbufferRegistry{};
+        AssetId initialBufferId = registry.insert(std::make_shared<RenderbufferImpl>(width, height, FilterMode::linear, ExtendMode::clamp));
+
         s_graphics = std::unique_ptr<GraphicsData>{
             new GraphicsData{
-                .layers = NeverEmptyStack<GraphicsLayer>{createGraphicsLayer(createRenderbuffer(width, height))},
+                .renderbuffers = std::move(registry),
+                .renderbufferIds = NeverEmptyStack<usize>{initialBufferId.value},
                 .renderer = DefaultRenderer::create(),
             },
         };
@@ -48,16 +107,16 @@ namespace processing
 
     void beginDraw()
     {
-        // TODO(Felix): Maybe detect some unreleased resources (push without pop for styles, matrics shaders or renderbuffers)?
-        GraphicsLayer& layer = peekLayer();
-        layer.currentDepth = MIN_DEPTH;
-        s_graphics->renderer->beginDraw(layer.renderbuffer);
+        RenderbufferImpl& renderbuffer = peekRenderbuffer();
+        renderbuffer.currentDepth = MIN_DEPTH;
+        s_graphics->renderer->beginDraw(renderbuffer.framebuffer);
     }
 
     void endDraw(u32 width, u32 height)
     {
+        // TODO(Felix): Maybe detect some unreleased resources (push without pop for styles, matrics shaders or renderbuffers)?
         s_graphics->renderer->endDraw();
-        blit(width, height, s_graphics->layers.peek().renderbuffer);
+        blit(width, height, peekRenderbuffer().framebuffer);
     }
 } // namespace processing
 
@@ -161,26 +220,62 @@ namespace processing
 
 namespace processing
 {
-    f32 getNextDepth(GraphicsLayer& layer)
+    f32 getNextDepth(RenderbufferImpl& data)
     {
-        const f32 depth = layer.currentDepth;
-        layer.currentDepth += 1.0f / 20'000.0f;
+        const f32 depth = data.currentDepth;
+        data.currentDepth += 1.0f / 20'000.0f;
         return depth;
     }
 
-    RenderState getRenderState(const RenderStyle& style, const GraphicsLayer& layer, const std::optional<Image>& image = std::nullopt)
+    RenderState getRenderState(const RenderStyle& style, const RenderbufferImpl& renderbuffer, const std::optional<Image>& image = std::nullopt)
     {
         return RenderState{
             .blendMode = style.blendMode,
             .shader = style.shader,
             .image = image,
-            .transform = matrix4x4::orthographic(0.0f, 0.0f, layer.renderbuffer.getSize().x, layer.renderbuffer.getSize().y, -1.0f, 1.0f),
+            .transform = matrix4x4::orthographic(0.0f, 0.0f, renderbuffer.framebuffer.getSize().x, renderbuffer.framebuffer.getSize().y, -1.0f, 1.0f),
         };
     }
 } // namespace processing
 
 namespace processing
 {
+    Renderbuffer createRenderbuffer(const u32 width, const u32 height, const FilterMode filterMode, const ExtendMode extendMode)
+    {
+        auto impl = std::make_shared<RenderbufferImpl>(width, height, filterMode, extendMode);
+        auto assetId = s_graphics->renderbuffers.insert(impl);
+        return Renderbuffer{assetId, impl};
+    }
+} // namespace processing
+
+namespace processing
+{
+    void pushRenderbuffer(const Renderbuffer& renderbufferId)
+    {
+        // Flush the rendering state
+        s_graphics->renderer->endDraw();
+        s_graphics->renderbufferIds.push(renderbufferId.getAssetId().value);
+
+        // Activate the new render buffer
+        {
+            const RenderbufferImpl& renderbuffer = peekRenderbuffer();
+            s_graphics->renderer->beginDraw(renderbuffer.framebuffer);
+        }
+    }
+
+    void popRenderbuffer()
+    {
+        // Flush the rendering state & pop the current renderbuffer from the stack.
+        s_graphics->renderer->endDraw();
+        s_graphics->renderbufferIds.pop();
+
+        // Reactivate Graphicsrenderbuffer below the recently popped one.
+        {
+            const RenderbufferImpl& renderbuffer = peekRenderbuffer();
+            s_graphics->renderer->beginDraw(renderbuffer.framebuffer);
+        }
+    }
+
     void push()
     {
         pushStyle();
@@ -197,39 +292,39 @@ namespace processing
     {
         if (extendPreviousStyle)
         {
-            peekLayer().renderStyles.push(peekStyle());
+            peekRenderbuffer().renderStyles.push(peekStyle());
         }
         else
         {
-            peekLayer().renderStyles.push(RenderStyle());
+            peekRenderbuffer().renderStyles.push(RenderStyle());
         }
     }
 
     void popStyle()
     {
-        peekLayer().renderStyles.pop();
+        peekRenderbuffer().renderStyles.pop();
     }
 
     RenderStyle& peekStyle()
     {
-        return peekLayer().renderStyles.peek();
+        return peekRenderbuffer().renderStyles.peek();
     }
 
     void pushMatrix(const bool extendPreviousMatrix)
     {
         if (extendPreviousMatrix)
         {
-            peekLayer().metrics.push(peekMatrix());
+            peekRenderbuffer().metrics.push(peekMatrix());
         }
         else
         {
-            peekLayer().metrics.push(matrix4x4::identity);
+            peekRenderbuffer().metrics.push(matrix4x4::identity);
         }
     }
 
     void popMatrix()
     {
-        peekLayer().metrics.pop();
+        peekRenderbuffer().metrics.pop();
     }
 
     void resetMatrix()
@@ -244,7 +339,7 @@ namespace processing
 
     matrix4x4& peekMatrix()
     {
-        return peekLayer().metrics.peek();
+        return peekRenderbuffer().metrics.peek();
     }
 
     void translate(const f32 x, const f32 y)
@@ -290,29 +385,6 @@ namespace processing
     void imageSourceMode(ImageSourceMode mode)
     {
         peekStyle().imageSourceMode = mode;
-    }
-
-    void renderbuffer(const Renderbuffer& renderbuffer)
-    {
-        // Flush the current render state
-        s_graphics->renderer->endDraw();
-
-        // Push a new graphics layer onto the stack and activate it
-        s_graphics->layers.push(createGraphicsLayer(renderbuffer));
-        s_graphics->renderer->beginDraw(renderbuffer);
-    }
-
-    void noRenderbuffer()
-    {
-        // Flush the rendering state & pop the current layer from the stack.
-        s_graphics->renderer->endDraw();
-        s_graphics->layers.pop();
-
-        // Reactivate Graphicslayer below the recently popped one.
-        {
-            GraphicsLayer& layer = peekLayer();
-            s_graphics->renderer->beginDraw(layer.renderbuffer);
-        }
     }
 
     void shader(const Shader& shader)
@@ -411,18 +483,18 @@ namespace processing
 
     void background(Color color)
     {
-        GraphicsLayer& layer = peekLayer();
-        const float2 size = float2{layer.renderbuffer.getSize()};
+        RenderbufferImpl& renderbuffer = peekRenderbuffer();
+        const float2 size = float2{renderbuffer.framebuffer.getSize()};
 
         const RenderStyle& style = peekStyle();
         const RectPath path = path_rect(rect2f{0.0f, 0.0f, size.x, size.y});
         const Contour contour = contour_rect_fill(path);
-        const Vertices vertices = vertices_from_contour(contour, matrix4x4::identity, color, getNextDepth(layer));
+        const Vertices vertices = vertices_from_contour(contour, matrix4x4::identity, color, getNextDepth(renderbuffer));
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        s_graphics->renderer->render(vertices, getRenderState(style, layer));
+        s_graphics->renderer->render(vertices, getRenderState(style, renderbuffer));
     }
 
     void beginShape()
@@ -455,7 +527,7 @@ namespace processing
 
     void rect(f32 x1, f32 y1, f32 x2, f32 y2)
     {
-        GraphicsLayer& layer = peekLayer();
+        RenderbufferImpl& renderbuffer = peekRenderbuffer();
         const RenderStyle& style = peekStyle();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = convert_to_rect(style.rectMode, x1, y1, x2, y2);
@@ -464,15 +536,15 @@ namespace processing
         if (style.isFillEnabled)
         {
             const Contour contour = contour_rect_fill(path);
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth(layer));
-            s_graphics->renderer->render(vertices, getRenderState(style, layer));
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth(renderbuffer));
+            s_graphics->renderer->render(vertices, getRenderState(style, renderbuffer));
         }
 
         if (style.isStrokeEnabled)
         {
             const Contour contour = contour_rect_stroke(path, get_stroke_properties(style));
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth(layer));
-            s_graphics->renderer->render(vertices, getRenderState(style, layer));
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth(renderbuffer));
+            s_graphics->renderer->render(vertices, getRenderState(style, renderbuffer));
         }
     }
 
@@ -483,7 +555,7 @@ namespace processing
 
     void ellipse(f32 x1, f32 y1, f32 x2, f32 y2)
     {
-        GraphicsLayer& layer = peekLayer();
+        RenderbufferImpl& renderbuffer = peekRenderbuffer();
         const RenderStyle& style = peekStyle();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = ellipse_to_rect(style.ellipseMode, x1, y1, x2, y2);
@@ -499,15 +571,15 @@ namespace processing
         if (style.isFillEnabled)
         {
             const Contour contour = contour_ellipse_fill(path);
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth(layer));
-            s_graphics->renderer->render(vertices, getRenderState(style, layer));
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth(renderbuffer));
+            s_graphics->renderer->render(vertices, getRenderState(style, renderbuffer));
         }
 
         if (style.isStrokeEnabled)
         {
             const Contour contour = contour_ellipse_stroke(path, get_stroke_properties(style));
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth(layer));
-            s_graphics->renderer->render(vertices, getRenderState(style, layer));
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth(renderbuffer));
+            s_graphics->renderer->render(vertices, getRenderState(style, renderbuffer));
         }
     }
 
@@ -518,7 +590,7 @@ namespace processing
 
     void triangle(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3)
     {
-        GraphicsLayer& layer = peekLayer();
+        RenderbufferImpl& renderbuffer = peekRenderbuffer();
         const RenderStyle& style = peekStyle();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = ellipse_to_rect(style.ellipseMode, x1, y1, x2, y2);
@@ -531,21 +603,21 @@ namespace processing
         if (style.isFillEnabled)
         {
             const Contour contour = contour_triangle_fill(path);
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth(layer));
-            s_graphics->renderer->render(vertices, getRenderState(style, layer));
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth(renderbuffer));
+            s_graphics->renderer->render(vertices, getRenderState(style, renderbuffer));
         }
 
         if (style.isStrokeEnabled)
         {
             const Contour contour = contour_triangle_stroke(path, get_stroke_properties(style));
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth(layer));
-            s_graphics->renderer->render(vertices, getRenderState(style, layer));
+            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth(renderbuffer));
+            s_graphics->renderer->render(vertices, getRenderState(style, renderbuffer));
         }
     }
 
     void point(f32 x, f32 y)
     {
-        GraphicsLayer& layer = peekLayer();
+        RenderbufferImpl& renderbuffer = peekRenderbuffer();
         const RenderStyle& style = peekStyle();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = ellipse_to_rect(EllipseMode::centerDiameter, x, y, style.strokeWeight, style.strokeWeight);
@@ -559,20 +631,20 @@ namespace processing
         });
 
         const Contour contour = contour_ellipse_fill(path);
-        const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth(layer));
-        s_graphics->renderer->render(vertices, getRenderState(style, layer));
+        const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth(renderbuffer));
+        s_graphics->renderer->render(vertices, getRenderState(style, renderbuffer));
     }
 
     void line(f32 x1, f32 y1, f32 x2, f32 y2)
     {
-        GraphicsLayer& layer = peekLayer();
+        RenderbufferImpl& renderbuffer = peekRenderbuffer();
         const RenderStyle& style = peekStyle();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = ellipse_to_rect(style.ellipseMode, x1, y1, x2, y2);
 
         const Contour contour = contour_line(x1, y1, x2, y2, style.strokeWeight, style.strokeCap);
-        const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth(layer));
-        s_graphics->renderer->render(vertices, getRenderState(style, layer));
+        const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth(renderbuffer));
+        s_graphics->renderer->render(vertices, getRenderState(style, renderbuffer));
     }
 
     void image(const Image& img, f32 x1, f32 y1)
@@ -583,19 +655,19 @@ namespace processing
 
     void image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2)
     {
-        GraphicsLayer& layer = peekLayer();
+        RenderbufferImpl& renderbuffer = peekRenderbuffer();
         const RenderStyle& style = peekStyle();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = convert_to_rect(style.imageMode, x1, y1, x2, y2);
 
         const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, 0.0f, 0.0f, 1.0f, 1.0f);
-        const Vertices vertices = vertices_from_contour(contour, matrix, style.tintColor, getNextDepth(layer));
-        s_graphics->renderer->render(vertices, getRenderState(style, layer, img));
+        const Vertices vertices = vertices_from_contour(contour, matrix, style.tintColor, getNextDepth(renderbuffer));
+        s_graphics->renderer->render(vertices, getRenderState(style, renderbuffer, img));
     }
 
     void image(const Image& img, f32 x1, f32 y1, f32 x2, f32 y2, f32 sx1, f32 sy1, f32 sx2, f32 sy2)
     {
-        GraphicsLayer& layer = peekLayer();
+        RenderbufferImpl& renderbuffer = peekRenderbuffer();
         const auto [imgWidth, imgHeight] = img.getSize();
         const RenderStyle& style = peekStyle();
         const matrix4x4& matrix = peekMatrix();
@@ -603,7 +675,7 @@ namespace processing
         const rect2f source = image_source_to_rect(style.imageSourceMode, static_cast<f32>(imgWidth), static_cast<f32>(imgHeight), sx1, sy1, sx2, sy2);
 
         const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, source.left, source.top, source.width, source.height);
-        const Vertices vertices = vertices_from_contour(contour, matrix, style.tintColor, getNextDepth(layer));
-        s_graphics->renderer->render(vertices, getRenderState(style, layer, img));
+        const Vertices vertices = vertices_from_contour(contour, matrix, style.tintColor, getNextDepth(renderbuffer));
+        s_graphics->renderer->render(vertices, getRenderState(style, renderbuffer, img));
     }
 } // namespace processing

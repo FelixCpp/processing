@@ -179,10 +179,10 @@ namespace processing
         return std::unique_ptr<DefaultRenderer>(new DefaultRenderer(vertexArrayId, vertexBufferId, elementBufferId, std::move(whiteImage), std::move(defaultShader)));
     }
 
-    void DefaultRenderer::beginDraw(const Renderbuffer& renderbuffer)
+    void DefaultRenderer::beginDraw(const Framebuffer& framebuffer)
     {
-        glViewport(0, 0, renderbuffer.getSize().x, renderbuffer.getSize().y);
-        glBindFramebuffer(GL_FRAMEBUFFER, renderbuffer.getResourceId().value);
+        glViewport(0, 0, framebuffer.getSize().x, framebuffer.getSize().y);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.getResourceId().value);
     }
 
     void DefaultRenderer::endDraw()
@@ -192,7 +192,6 @@ namespace processing
 
     void DefaultRenderer::render(const Vertices& vertices, const RenderState& renderState)
     {
-
         const ResourceId shaderId = std::invoke(
             [this, &renderState]()
             {

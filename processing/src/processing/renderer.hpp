@@ -2,13 +2,13 @@
 #define _PROCESSING_INCLUDE_RENDERER_HPP_
 
 #include <processing/processing.hpp>
+#include <processing/framebuffer.hpp>
 
 namespace processing
 {
     struct RenderState
     {
         BlendMode blendMode;
-        // Renderbuffer renderbuffer;
         std::optional<Shader> shader;
         std::optional<Image> image;
         matrix4x4 transform;
@@ -19,7 +19,7 @@ namespace processing
     public:
         static std::unique_ptr<DefaultRenderer> create();
 
-        void beginDraw(const Renderbuffer& buffer);
+        void beginDraw(const Framebuffer& buffer);
         void endDraw();
 
         void render(const Vertices& vertices, const RenderState& state);

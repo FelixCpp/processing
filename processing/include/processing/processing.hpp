@@ -351,11 +351,17 @@ namespace processing
     struct ResourceId
     {
         u32 value;
+
+        inline constexpr bool operator==(const ResourceId& other) const = default;
+        inline constexpr bool operator!=(const ResourceId& other) const = default;
     };
 
     struct AssetId
     {
         usize value;
+
+        inline constexpr bool operator==(const AssetId& other) const = default;
+        inline constexpr bool operator!=(const AssetId& other) const = default;
     };
 } // namespace processing
 
@@ -472,17 +478,15 @@ namespace processing
         virtual ~PlatformRenderbuffer() = default;
         virtual Image& getImage() = 0;
         virtual uint2 getSize() const = 0;
-        virtual ResourceId getResourceId() const = 0;
     };
 
-    struct Renderbuffer
+    class Renderbuffer
     {
     public:
         explicit Renderbuffer(AssetId assetId, std::shared_ptr<PlatformRenderbuffer> impl);
 
         Image& getImage();
         uint2 getSize() const;
-        ResourceId getResourceId() const;
         AssetId getAssetId() const;
 
     private:
@@ -572,6 +576,9 @@ namespace processing
 
 namespace processing
 {
+    void pushRenderbuffer(const Renderbuffer& renderbuffer);
+    void popRenderbuffer();
+
     void push();
     void pop();
 
@@ -595,8 +602,6 @@ namespace processing
     void imageMode(RectMode mode);
     void imageSourceMode(ImageSourceMode mode);
 
-    void renderbuffer(const Renderbuffer& renderbuffer);
-    void noRenderbuffer();
     void shader(const Shader& shader);
     void noShader();
 

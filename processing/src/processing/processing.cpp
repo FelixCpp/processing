@@ -1,7 +1,6 @@
 #include <processing/processing.hpp>
 #include <processing/graphics.hpp>
 #include <processing/image.hpp>
-#include <processing/renderbuffer.hpp>
 #include <processing/renderer.hpp>
 #include <processing/shader.hpp>
 
@@ -24,7 +23,6 @@ namespace processing
         GLFWwindow* window;
 
         ImageAssetHandler images;
-        RenderbufferAssetHandler renderbuffers;
         ShaderAssetHandler shaders;
 
         std::unique_ptr<Sketch> sketch;
@@ -227,14 +225,6 @@ namespace processing
     Image loadImage(const std::filesystem::path& filepath, FilterMode filterMode, ExtendMode extendMode)
     {
         return s_data.images.loadImage(filepath, filterMode, extendMode);
-    }
-} // namespace processing
-
-namespace processing
-{
-    Renderbuffer createRenderbuffer(const u32 width, const u32 height, const FilterMode filterMode, const ExtendMode extendMode)
-    {
-        return s_data.renderbuffers.create(width, height, filterMode, extendMode);
     }
 } // namespace processing
 
