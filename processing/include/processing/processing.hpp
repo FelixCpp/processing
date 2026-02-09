@@ -302,6 +302,18 @@ namespace processing
         normal,
         size,
     };
+
+    enum class ShapeMode
+    {
+        points,
+        linesStrip,
+        lineLoop,
+        triangles,
+        triangleStrip,
+        triangleFan,
+        quads,
+        quadStrip,
+    };
 } // namespace processing
 
 namespace processing
@@ -628,11 +640,11 @@ namespace processing
     void background(i32 grey, i32 alpha = 255);
     void background(Color color);
 
-    void beginShape();
-    void endShape();
+    void beginShape(ShapeMode mode);
+    void endShape(bool closed = true);
     void vertex(f32 x, f32 y);
     void vertex(f32 x, f32 y, f32 u, f32 v);
-    void bezierVertex(f32 x2, f32 y2, f32 x3, f32 y3);
+    void bezierVertex(f32 x2, f32 y2, f32 x3, f32 y3, f32 x4, f32 y4);
     void quadraticVertex(f32 cx, f32 cy, f32 x3, f32 y3);
     void curveVertex(f32 x, f32 y);
 

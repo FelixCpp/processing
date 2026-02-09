@@ -22,6 +22,14 @@ namespace processing
     inline static constexpr f32 MAX_DEPTH = 1.0f;
     inline static constexpr f32 DEPTH_INCREMENT = 1.0f / 20'000.0f;
 
+    struct ShapeBuilderPoint
+    {
+        float2 position;
+        float2 texcoord;
+        Color fillColor;
+        Color strokeColor;
+    };
+
     struct GraphicsData
     {
         std::unordered_map<usize, f32> depths;
@@ -31,6 +39,11 @@ namespace processing
 
         NeverEmptyStack<usize> assetIds;
         usize nextAssetId;
+
+        ShapeMode shapeMode;
+        bool shapeStarted;
+        std::vector<ShapeBuilderPoint> points;
+        std::vector<float2> curvePoints;
 
         std::shared_ptr<DefaultRenderer> renderer;
     };
@@ -48,8 +61,9 @@ namespace processing
 
 namespace processing
 {
-    struct RenderbufferImpl : PlatformRenderbuffer
+    class RenderbufferImpl : public PlatformRenderbuffer
     {
+    public:
         explicit RenderbufferImpl(const AssetId assetId)
             : m_assetId{assetId}
         {
@@ -77,28 +91,7 @@ namespace processing
 
 namespace processing
 {
-    void initGraphics(const u32 width, const u32 height)
-    {
-        s_graphics = std::unique_ptr<GraphicsData>{
-            new GraphicsData{
-                .depths = {{0, MIN_DEPTH}},
-                .renderStyles = {{0, NeverEmptyStack<RenderStyle>{RenderStyle()}}},
-                .metrics = {{0, NeverEmptyStack<matrix4x4>{matrix4x4::identity}}},
-                .framebuffers = {{0, createFramebuffer(width, height, FilterMode::linear, ExtendMode::clamp)}},
-                .assetIds = NeverEmptyStack<usize>{0},
-                .nextAssetId = 1,
-                .renderer = DefaultRenderer::create(),
-            },
-        };
-    }
-
-    void beginDraw()
-    {
-        peekDepth() = MIN_DEPTH;
-        s_graphics->renderer->beginDraw(peekFramebuffer());
-    }
-
-    void endDraw(u32 width, u32 height)
+    void warnMemoryLeaks()
     {
 #ifndef NDEBUG
         if (s_graphics->metrics.at(peekAssetId().value).size() > 1)
@@ -112,9 +105,46 @@ namespace processing
             fprintf(stdout, "RenderStyles have not been released properly");
             fflush(stdout);
         }
-#endif
 
-        // TODO(Felix): Maybe detect some unreleased resources (push without pop for styles, matrics shaders or renderbuffers)?
+        if (not s_graphics->points.empty())
+        {
+            fprintf(stdout, "Shape builder is in building stage");
+            fflush(stdout);
+        }
+#endif
+    }
+} // namespace processing
+
+namespace processing
+{
+    void initGraphics(const u32 width, const u32 height)
+    {
+        s_graphics = std::unique_ptr<GraphicsData>{
+            new GraphicsData{
+                .depths = {{0, MIN_DEPTH}},
+                .renderStyles = {{0, NeverEmptyStack<RenderStyle>{RenderStyle()}}},
+                .metrics = {{0, NeverEmptyStack<matrix4x4>{matrix4x4::identity}}},
+                .framebuffers = {{0, createFramebuffer(width, height, FilterMode::linear, ExtendMode::clamp)}},
+                .assetIds = NeverEmptyStack<usize>{0},
+                .nextAssetId = 1,
+                .shapeMode = ShapeMode::points,
+                .shapeStarted = false,
+                .points = {},
+                .curvePoints = {},
+                .renderer = DefaultRenderer::create(),
+            },
+        };
+    }
+
+    void beginDraw()
+    {
+        peekDepth() = MIN_DEPTH;
+        s_graphics->renderer->beginDraw(peekFramebuffer());
+    }
+
+    void endDraw(u32 width, u32 height)
+    {
+        warnMemoryLeaks();
         s_graphics->renderer->endDraw();
         blit(width, height, peekFramebuffer());
     }
@@ -274,6 +304,8 @@ namespace processing
 
     void popRenderbuffer()
     {
+        warnMemoryLeaks();
+
         // Flush the rendering state & pop the current renderbuffer from the stack.
         s_graphics->renderer->endDraw();
         s_graphics->assetIds.pop();
@@ -504,32 +536,154 @@ namespace processing
         s_graphics->renderer->render(vertices, getRenderState());
     }
 
-    void beginShape()
+    void beginShape(const ShapeMode mode)
     {
+        s_graphics->points.clear();
+        s_graphics->curvePoints.clear();
+        s_graphics->shapeMode = mode;
+        s_graphics->shapeStarted = true;
     }
 
-    void endShape()
+    void endShape(const bool closed)
     {
+        if (not s_graphics->shapeStarted) return;
+        s_graphics->shapeStarted = false;
+
+        switch (s_graphics->shapeMode)
+        {
+                // clang-format off
+            case ShapeMode::points:
+            {
+            } break;
+
+            case ShapeMode::linesStrip:
+            {
+            }
+            case ShapeMode::lineLoop:
+            case ShapeMode::triangles:
+            case ShapeMode::triangleStrip:
+            case ShapeMode::triangleFan:
+            case ShapeMode::quads:
+            case ShapeMode::quadStrip:
+                break;
+                // clang-format on
+        }
     }
 
     void vertex(f32 x, f32 y)
     {
+        vertex(x, y, 0.0f, 0.0f);
     }
 
     void vertex(f32 x, f32 y, f32 u, f32 v)
     {
+        if (not s_graphics->shapeStarted) return;
+
+        const RenderStyle& style = peekStyle();
+
+        ShapeBuilderPoint point = {
+            .position = float2{x, y},
+            .texcoord = {u, v},
+            .fillColor = style.fillColor,
+            .strokeColor = style.strokeColor,
+        };
+
+        s_graphics->points.emplace_back(std::move(point));
     }
 
-    void bezierVertex(f32 x2, f32 y2, f32 x3, f32 y3)
+    void bezierVertex(f32 x2, f32 y2, f32 x3, f32 y3, f32 x4, f32 y4)
     {
+        if (!s_graphics->shapeStarted || s_graphics->points.empty()) return;
+
+        // Letzter Punkt ist der Start der Bezier-Kurve
+        float2 p1 = s_graphics->points.back().position;
+        float2 p2(x2, y2);
+        float2 p3(x3, y3);
+        float2 p4(x4, y4);
+
+        // Generiere Punkte entlang der kubischen Bezier-Kurve
+        int segments = 20;
+        for (int i = 1; i <= segments; i++)
+        {
+            float t = i / (float)segments;
+            float t2 = t * t;
+            float t3 = t2 * t;
+            float mt = 1.0f - t;
+            float mt2 = mt * mt;
+            float mt3 = mt2 * mt;
+
+            // Kubische Bezier-Formel: B(t) = (1-t)³P1 + 3(1-t)²tP2 + 3(1-t)t²P3 + t³P4
+            float x = mt3 * p1.x + 3 * mt2 * t * p2.x + 3 * mt * t2 * p3.x + t3 * p4.x;
+            float y = mt3 * p1.y + 3 * mt2 * t * p2.y + 3 * mt * t2 * p3.y + t3 * p4.y;
+
+            vertex(x, y);
+        }
     }
 
     void quadraticVertex(f32 cx, f32 cy, f32 x3, f32 y3)
     {
+        if (!s_graphics->shapeStarted || s_graphics->points.empty()) return;
+
+        // Letzter Punkt ist der Start
+        float2 p1 = s_graphics->points.back().position;
+        float2 p2(cx, cy); // Kontrollpunkt
+        float2 p3(x3, y3); // Endpunkt
+
+        // Generiere Punkte entlang der quadratischen Bezier-Kurve
+        int segments = 20;
+        for (int i = 1; i <= segments; i++)
+        {
+            float t = i / (float)segments;
+            float t2 = t * t;
+            float mt = 1.0f - t;
+            float mt2 = mt * mt;
+
+            // Quadratische Bezier-Formel: B(t) = (1-t)²P1 + 2(1-t)tP2 + t²P3
+            float x = mt2 * p1.x + 2 * mt * t * p2.x + t2 * p3.x;
+            float y = mt2 * p1.y + 2 * mt * t * p2.y + t2 * p3.y;
+
+            vertex(x, y);
+        }
     }
 
     void curveVertex(f32 x, f32 y)
     {
+        if (!s_graphics->shapeStarted) return;
+
+        // Sammle Punkte für Catmull-Rom Spline
+        s_graphics->curvePoints.push_back(float2(x, y));
+
+        // Brauchen mindestens 4 Punkte für Catmull-Rom
+        if (s_graphics->curvePoints.size() >= 4)
+        {
+            usize n = s_graphics->curvePoints.size();
+            float2 p0 = s_graphics->curvePoints[n - 4];
+            float2 p1 = s_graphics->curvePoints[n - 3];
+            float2 p2 = s_graphics->curvePoints[n - 2];
+            float2 p3 = s_graphics->curvePoints[n - 1];
+
+            // Generiere Kurve zwischen p1 und p2
+            int segments = 20;
+            for (int i = 0; i <= segments; i++)
+            {
+                float t = i / (float)segments;
+                float t2 = t * t;
+                float t3 = t2 * t;
+
+                // Catmull-Rom Spline Matrix
+                float x = 0.5f * ((2 * p1.x) +
+                                  (-p0.x + p2.x) * t +
+                                  (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+                                  (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+
+                float y = 0.5f * ((2 * p1.y) +
+                                  (-p0.y + p2.y) * t +
+                                  (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+                                  (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+
+                vertex(x, y);
+            }
+        }
     }
 
     void rect(f32 x1, f32 y1, f32 x2, f32 y2)
