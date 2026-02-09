@@ -106,7 +106,7 @@ namespace processing
             fflush(stdout);
         }
 
-        if (not s_graphics->points.empty())
+        if (s_graphics->shapeStarted)
         {
             fprintf(stdout, "Shape builder is in building stage");
             fflush(stdout);
@@ -162,26 +162,26 @@ namespace processing
         };
     }
 
-    Vertices vertices_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth)
-    {
-        Vertices shape;
-        shape.mode = VertexMode::triangles;
-        shape.vertices.reserve(contour.positions.size());
-        shape.indices.append_range(contour.indices);
-
-        const float4 col = float4_from_color(color);
-
-        for (size_t i = 0; i < contour.positions.size(); ++i)
-        {
-            shape.vertices.push_back(Vertex{
-                .position = float3{transform.transformPoint(contour.positions[i]), depth},
-                .texcoord = contour.texcoords[i],
-                .color = col,
-            });
-        }
-
-        return shape;
-    }
+    // Vertices vertices_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth)
+    // {
+    //     Vertices shape;
+    //     shape.mode = VertexMode::triangles;
+    //     shape.vertices.reserve(contour.positions.size());
+    //     shape.indices.append_range(contour.indices);
+    //
+    //     const float4 col = float4_from_color(color);
+    //
+    //     for (size_t i = 0; i < contour.positions.size(); ++i)
+    //     {
+    //         shape.vertices.push_back(Vertex{
+    //             .position = float3{transform.transformPoint(contour.positions[i]), depth},
+    //             .texcoord = contour.texcoords[i],
+    //             .color = col,
+    //         });
+    //     }
+    //
+    //     return shape;
+    // }
 
     Vertices vertices_from_polygon_contour(const PolygonContour& contour, const matrix4x4& transform, f32 depth)
     {
@@ -543,11 +543,18 @@ namespace processing
     void background(Color color)
     {
         const float2 size = float2{peekFramebuffer().getSize()};
+        const std::array points = {
+            float2{0.0f, 0.0f},
+            float2{size.x, 0.0f},
+            float2{size.x, size.y},
+            float2{0.0f, size.y},
+        };
+
+        const std::array colors = {color, color, color, color};
 
         const RenderStyle& style = peekStyle();
-        const RectPath path = path_rect(rect2f{0.0f, 0.0f, size.x, size.y});
-        const Contour contour = contour_rect_fill(path);
-        const Vertices vertices = vertices_from_contour(contour, matrix4x4::identity, color, getNextDepth());
+        const PolygonContour contour = contour_polygon_quad_fill(points, colors);
+        const Vertices vertices = vertices_from_polygon_contour(contour, matrix4x4::identity, getNextDepth());
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -573,7 +580,13 @@ namespace processing
         for (size_t i = 0; i < points.size(); ++i)
         {
             const ShapeBuilderPoint& point = points[i];
-            const PolygonContour contour = contour_polygon_ellipse_fill(point.position, Radius::circular(style.strokeWeight), 32, point.strokeColor);
+            const EllipsePath path = path_ellipse({
+                .center = point.position,
+                .radius = Radius::circular(style.strokeWeight),
+                .segments = 32,
+            });
+
+            const PolygonContour contour = contour_polygon_ellipse_fill(path, point.strokeColor);
             const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
             render(vertices, renderState);
         }
@@ -947,20 +960,27 @@ namespace processing
         const RenderStyle& style = peekStyle();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = convert_to_rect(style.rectMode, x1, y1, x2, y2);
-        const RectPath path = path_rect(boundary);
+        const std::array points = {
+            float2{boundary.left, boundary.top},
+            float2{boundary.right(), boundary.top},
+            float2{boundary.right(), boundary.bottom()},
+            float2{boundary.left, boundary.bottom()},
+        };
 
         if (style.isFillEnabled)
         {
-            const Contour contour = contour_rect_fill(path);
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth());
-            s_graphics->renderer->render(vertices, getRenderState());
+            const std::array<Color, 4> colors = {style.fillColor, style.fillColor, style.fillColor, style.fillColor};
+            const PolygonContour contour = contour_polygon_quad_fill(points, colors);
+            const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
+            render(vertices, getRenderState());
         }
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_rect_stroke(path, get_stroke_properties(style));
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
-            s_graphics->renderer->render(vertices, getRenderState());
+            const std::array<Color, 4> colors = {style.strokeColor, style.strokeColor, style.strokeColor, style.strokeColor};
+            const PolygonContour contour = contour_polygon_quad_stroke(points, colors, get_stroke_properties(style));
+            const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
+            render(vertices, getRenderState());
         }
     }
 
@@ -985,16 +1005,16 @@ namespace processing
 
         if (style.isFillEnabled)
         {
-            const Contour contour = contour_ellipse_fill(path);
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth());
-            s_graphics->renderer->render(vertices, getRenderState());
+            const PolygonContour contour = contour_polygon_ellipse_fill(path, style.fillColor);
+            const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
+            render(vertices, getRenderState());
         }
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_ellipse_stroke(path, get_stroke_properties(style));
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
-            s_graphics->renderer->render(vertices, getRenderState());
+            const PolygonContour contour = contour_polygon_ellipse_stroke(path, style.strokeColor, get_stroke_properties(style));
+            const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
+            render(vertices, getRenderState());
         }
     }
 
@@ -1008,24 +1028,26 @@ namespace processing
         const RenderStyle& style = peekStyle();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = ellipse_to_rect(style.ellipseMode, x1, y1, x2, y2);
-        const TrianglePath path = path_triangle({
-            .a = {x1, y1},
-            .b = {x2, y2},
-            .c = {x3, y3},
-        });
+        const std::array path = {
+            float2{x1, y1},
+            float2{x2, y2},
+            float2{x3, y3},
+        };
 
         if (style.isFillEnabled)
         {
-            const Contour contour = contour_triangle_fill(path);
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.fillColor, getNextDepth());
-            s_graphics->renderer->render(vertices, getRenderState());
+            const std::array colors = {style.fillColor, style.fillColor, style.fillColor};
+            const PolygonContour contour = contour_polygon_triangle_fill(path, colors);
+            const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
+            render(vertices, getRenderState());
         }
 
         if (style.isStrokeEnabled)
         {
-            const Contour contour = contour_triangle_stroke(path, get_stroke_properties(style));
-            const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
-            s_graphics->renderer->render(vertices, getRenderState());
+            const std::array colors = {style.strokeColor, style.strokeColor, style.strokeColor};
+            const PolygonContour contour = contour_polygon_triangle_stroke(path, colors, get_stroke_properties(style));
+            const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
+            render(vertices, getRenderState());
         }
     }
 
@@ -1043,20 +1065,21 @@ namespace processing
             .segments = 32,
         });
 
-        const Contour contour = contour_ellipse_fill(path);
-        const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
-        s_graphics->renderer->render(vertices, getRenderState());
+        const PolygonContour contour = contour_polygon_ellipse_fill(path, style.strokeColor);
+        const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
+        render(vertices, getRenderState());
     }
 
     void line(f32 x1, f32 y1, f32 x2, f32 y2)
     {
         const RenderStyle& style = peekStyle();
         const matrix4x4& matrix = peekMatrix();
-        const rect2f boundary = ellipse_to_rect(style.ellipseMode, x1, y1, x2, y2);
+        const std::array points = {float2{x1, y1}, float2{x2, y2}};
+        const std::array colors = {style.strokeColor, style.strokeColor};
 
-        const Contour contour = contour_line(x1, y1, x2, y2, style.strokeWeight, style.strokeCap);
-        const Vertices vertices = vertices_from_contour(contour, matrix, style.strokeColor, getNextDepth());
-        s_graphics->renderer->render(vertices, getRenderState());
+        const PolygonContour contour = contour_polygon_line(points, colors, style.strokeWeight, style.strokeCap);
+        const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
+        render(vertices, getRenderState());
     }
 
     void image(const Image& img, f32 x1, f32 y1)
@@ -1070,9 +1093,16 @@ namespace processing
         const RenderStyle& style = peekStyle();
         const matrix4x4& matrix = peekMatrix();
         const rect2f boundary = convert_to_rect(style.imageMode, x1, y1, x2, y2);
+        const std::array<float2, 4> points = {
+            float2{boundary.top, boundary.left},
+            float2{boundary.right(), boundary.top},
+            float2{boundary.right(), boundary.bottom()},
+            float2{boundary.left, boundary.bottom()},
+        };
 
-        const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, 0.0f, 0.0f, 1.0f, 1.0f);
-        const Vertices vertices = vertices_from_contour(contour, matrix, style.tintColor, getNextDepth());
+        const std::array colors = {style.tintColor, style.tintColor, style.tintColor, style.tintColor};
+        const PolygonContour contour = contour_polygon_image(points, colors, rect2f{0.0f, 0.0f, 1.0f, 1.0f});
+        const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
         s_graphics->renderer->render(vertices, getRenderState(img));
     }
 
@@ -1084,8 +1114,16 @@ namespace processing
         const rect2f boundary = convert_to_rect(style.imageMode, x1, y1, x2, y2);
         const rect2f source = image_source_to_rect(style.imageSourceMode, static_cast<f32>(imgWidth), static_cast<f32>(imgHeight), sx1, sy1, sx2, sy2);
 
-        const Contour contour = contour_image(boundary.left, boundary.top, boundary.width, boundary.height, source.left, source.top, source.width, source.height);
-        const Vertices vertices = vertices_from_contour(contour, matrix, style.tintColor, getNextDepth());
+        const std::array<float2, 4> points = {
+            float2{boundary.top, boundary.left},
+            float2{boundary.right(), boundary.top},
+            float2{boundary.right(), boundary.bottom()},
+            float2{boundary.left, boundary.bottom()},
+        };
+
+        const std::array colors = {style.tintColor, style.tintColor, style.tintColor, style.tintColor};
+        const PolygonContour contour = contour_polygon_image(points, colors, source);
+        const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
         s_graphics->renderer->render(vertices, getRenderState(img));
     }
 } // namespace processing

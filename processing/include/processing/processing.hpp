@@ -62,6 +62,7 @@ namespace processing
         value2 perpendicular_ccw() const;
 
         value2 normalized() const;
+        value2 rotated(f32 angleInRadians) const;
 
         bool operator==(const value2<T>& rhs) const = default;
         bool operator!=(const value2<T>& rhs) const = default;
@@ -687,6 +688,7 @@ namespace processing
     template <typename T> value2<T> value2<T>::perpendicular_cw() const { return { y, -x }; }
     template <typename T> value2<T> value2<T>::perpendicular_ccw() const { return { -y, x }; }
     template <typename T> value2<T> value2<T>::normalized() const { const T len = length(); if (len != static_cast<T>(0.0)) { return { x / len, y / len }; } return *this; }
+    template <typename T> value2<T> value2<T>::rotated(const f32 angleInRadians) const { const float c = std::cos(angleInRadians); const float s = std::sin(angleInRadians); return { static_cast<T>(x * c - y * s), static_cast<T>(x * s + y * c) }; }
     template <typename T> value2<T> value2<T>::operator+(const value2<T>& rhs) const { return { x + rhs.x, y + rhs.y }; }
     template <typename T> value2<T> value2<T>::operator-(const value2<T>& rhs) const { return { x - rhs.x, y - rhs.y }; }
     template <typename T> value2<T> value2<T>::operator*(const value2<T>& rhs) const { return { x * rhs.x, y * rhs.y }; }

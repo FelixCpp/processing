@@ -8,6 +8,7 @@ namespace processing
     struct StrokeSegment
     {
         float2 point;
+        Color color;
 
         float2 interInner;
         float2 interOuter;
@@ -19,7 +20,7 @@ namespace processing
         bool miterLimitExceeded;
     };
 
-    constexpr float compute_signed_area(const std::vector<float2>& points)
+    constexpr float compute_signed_area(const std::span<const float2>& points)
     {
         float area = 0.0f;
 
@@ -33,7 +34,15 @@ namespace processing
         return area;
     }
 
-    StrokeSegment segment_between_points(const float2& previous, const float2& current, const float2& next, const float strokeWeight, const float miterLimit, const bool isClockwise)
+    StrokeSegment segment_between_points(
+        const float2& previous,
+        const float2& current,
+        const float2& next,
+        const Color& currentColor,
+        const float strokeWeight,
+        const float miterLimit,
+        const bool isClockwise
+    )
     {
         const float2 dirPrev = (current - previous).normalized();
         const float2 dirNext = (next - current).normalized();
@@ -71,6 +80,7 @@ namespace processing
 
         return {
             .point = current,
+            .color = currentColor,
             .interInner = innerIntersection,
             .interOuter = outerIntersection,
             .prevOuter = prevOuter,
@@ -81,7 +91,7 @@ namespace processing
         };
     }
 
-    static std::vector<StrokeSegment> compute_stroke_segments(const std::vector<float2>& points, const float strokeWeight, const float miterLimit)
+    static std::vector<StrokeSegment> compute_stroke_segments(const std::span<const float2>& points, const std::span<const Color>& colors, const float strokeWeight, const float miterLimit)
     {
         std::vector<StrokeSegment> segments;
         segments.reserve(points.size());
@@ -98,22 +108,23 @@ namespace processing
             const float2& nextPt = points[nextIdx];
             const float2& currPt = points[currIdx];
 
-            segments.push_back(segment_between_points(prevPt, currPt, nextPt, strokeWeight, miterLimit, isClockwise));
+            segments.push_back(segment_between_points(prevPt, currPt, nextPt, colors[currIdx], strokeWeight, miterLimit, isClockwise));
         }
 
         return segments;
     }
 
-    static Contour contour_stroke_from_path(const std::vector<float2>& points, const StrokeProperties& properties)
+    static PolygonContour contour_stroke_from_path(const std::span<const float2>& points, const std::span<const Color>& colors, const StrokeProperties& properties)
     {
         if (points.size() < 3)
         {
             return {};
         }
 
-        const std::vector<StrokeSegment> segments = compute_stroke_segments(points, properties.strokeWeight, properties.miterLimit);
+        const std::vector<StrokeSegment> segments = compute_stroke_segments(points, colors, properties.strokeWeight, properties.miterLimit);
         std::vector<float2> positions;
         std::vector<float2> texcoords;
+        std::vector<Color> cols;
         std::vector<uint32_t> indices;
 
         for (size_t i = 0; i < segments.size(); ++i)
@@ -133,6 +144,11 @@ namespace processing
                 positions.push_back(curr.interInner);
                 positions.push_back(next.interInner);
                 positions.push_back(next.prevOuter);
+
+                cols.push_back(curr.color);
+                cols.push_back(curr.color);
+                cols.push_back(next.color);
+                cols.push_back(next.color);
 
                 indices.push_back(idxStart + 0);
                 indices.push_back(idxStart + 1);
@@ -156,9 +172,16 @@ namespace processing
                     positions.push_back(curr.prevOuter);
                     positions.push_back(curr.interOuter);
                     positions.push_back(curr.nextOuter);
+
+                    cols.push_back(curr.color);
+                    cols.push_back(curr.color);
+                    cols.push_back(curr.color);
+                    cols.push_back(curr.color);
+
                     indices.push_back(idxStart + 0);
                     indices.push_back(idxStart + 1);
                     indices.push_back(idxStart + 2);
+
                     indices.push_back(idxStart + 2);
                     indices.push_back(idxStart + 3);
                     indices.push_back(idxStart + 0);
@@ -171,6 +194,11 @@ namespace processing
                     positions.push_back(curr.interInner);
                     positions.push_back(curr.prevOuter);
                     positions.push_back(curr.nextOuter);
+
+                    cols.push_back(curr.color);
+                    cols.push_back(curr.color);
+                    cols.push_back(curr.color);
+
                     indices.push_back(idxStart + 0);
                     indices.push_back(idxStart + 1);
                     indices.push_back(idxStart + 2);
@@ -197,6 +225,7 @@ namespace processing
 
                     const size_t idxStart = positions.size();
                     positions.push_back(center);
+                    cols.push_back(curr.color);
                     const size_t centerIdx = idxStart;
 
                     for (size_t j = 0; j <= numSegments; ++j)
@@ -208,6 +237,7 @@ namespace processing
                         };
 
                         positions.push_back(arcPoint);
+                        cols.push_back(curr.color);
                     }
 
                     for (size_t j = 0; j < numSegments; ++j)
@@ -218,6 +248,7 @@ namespace processing
                     }
 
                     positions.push_back(curr.interInner);
+                    cols.push_back(curr.color);
                     const size_t innerIdx = positions.size() - 1;
 
                     indices.push_back(centerIdx);
@@ -236,487 +267,53 @@ namespace processing
         texcoords.resize(positions.size(), {});
 
         return {
-            .positions = std::move(positions),
+            .points = std::move(positions),
             .texcoords = std::move(texcoords),
+            .colors = std::move(cols),
             .indices = std::move(indices),
         };
     }
 } // namespace processing
 
-namespace processing
-{
-    RectPath path_rect(const rect2f& boundary)
-    {
-        const float left = boundary.left;
-        const float top = boundary.top;
-        const float right = boundary.right();
-        const float bottom = boundary.bottom();
-
-        return RectPath{
-            .boundary = boundary,
-            .points = {
-                {left, top},
-                {right, top},
-                {right, bottom},
-                {left, bottom},
-            }
-        };
-    }
-
-    Contour contour_rect_fill(const RectPath& path)
-    {
-        return {
-            .positions = path.points,
-            .texcoords = {
-                {0.0f, 0.0f},
-                {1.0f, 0.0f},
-                {1.0f, 1.0f},
-                {0.0f, 1.0f},
-            },
-            .indices = {0, 1, 2, 2, 3, 0}
-        };
-    }
-
-    Contour contour_rect_stroke(const RectPath& path, const StrokeProperties& properties)
-    {
-        return contour_stroke_from_path(path.points, properties);
-    }
-} // namespace processing
-
-namespace processing
-{
-    EllipsePath path_ellipse(const EllipseSpecification& specification)
-    {
-        if (specification.segments < 3)
-        {
-            return EllipsePath{
-                .specification = {},
-                .points = {},
-            };
-        }
-
-        std::vector<float2> points;
-
-        for (size_t i = 0; i < specification.segments; ++i)
-        {
-            const float angle = 2.0f * PI * i / specification.segments;
-            const float x = specification.center.x + std::cos(angle) * specification.radius.x;
-            const float y = specification.center.y + std::sin(angle) * specification.radius.y;
-
-            points.push_back({x, y});
-        }
-
-        return EllipsePath{
-            .specification = specification,
-            .points = std::move(points)
-        };
-    }
-
-    Contour contour_ellipse_fill(const EllipsePath& path)
-    {
-        const float left = path.specification.center.x - path.specification.radius.x;
-        const float right = path.specification.center.x + path.specification.radius.x;
-        const float top = path.specification.center.y - path.specification.radius.y;
-        const float bottom = path.specification.center.y + path.specification.radius.y;
-        const float width = right - left;
-        const float height = bottom - top;
-
-        Contour c;
-
-        c.positions.emplace_back(path.specification.center);
-        c.texcoords.emplace_back(0.5f, 0.5f);
-
-        for (size_t i = 0; i < path.points.size(); ++i)
-        {
-            const float2& point = path.points[i];
-            c.positions.emplace_back(point);
-
-            const float tx = (point.x - left) / width;
-            const float ty = (point.y - top) / height;
-            c.texcoords.emplace_back(tx, ty);
-        }
-
-        for (size_t i = 1; i <= path.points.size(); ++i)
-        {
-            c.indices.push_back(0);
-            c.indices.push_back(i);
-            c.indices.push_back(i < path.points.size() ? i + 1 : 1);
-        }
-
-        return c;
-    }
-
-    Contour contour_ellipse_stroke(const EllipsePath& path, const StrokeProperties& properties)
-    {
-        return contour_stroke_from_path(path.points, properties);
-    }
-} // namespace processing
-
-namespace processing
-{
-    TrianglePath path_triangle(const TriangleSpecification& specification)
-    {
-        return {
-            .specification = specification,
-            .points = {
-                specification.a,
-                specification.b,
-                specification.c
-            },
-        };
-    }
-
-    Contour contour_triangle_fill(const TrianglePath& path)
-    {
-        Contour c;
-
-        c.positions = path.points;
-
-        float minX = path.points[0].x;
-        float minY = path.points[0].y;
-        float maxX = path.points[0].x;
-        float maxY = path.points[0].y;
-
-        for (size_t i = 1; i < path.points.size(); ++i)
-        {
-            minX = std::min(minX, path.points[i].x);
-            minY = std::min(minY, path.points[i].y);
-            maxX = std::max(maxX, path.points[i].x);
-            maxY = std::max(maxY, path.points[i].y);
-        }
-
-        const float width = maxX - minX;
-        const float height = maxY - minY;
-
-        c.texcoords.reserve(path.points.size());
-        for (size_t i = 0; i < path.points.size(); ++i)
-        {
-            const float tx = (path.points[i].x - minX) / width;
-            const float ty = (path.points[i].y - minY) / height;
-            c.texcoords.emplace_back(tx, ty);
-        }
-
-        c.indices = {0, 1, 2};
-
-        return c;
-    }
-
-    Contour contour_triangle_stroke(const TrianglePath& path, const StrokeProperties& properties)
-    {
-        return contour_stroke_from_path(path.points, properties);
-    }
-} // namespace processing
-
-namespace processing
-{
-    RoundedRectPath path_rounded_rect(const RoundedRectSpecification& roundedRect)
-    {
-        constexpr size_t SEGMENTS = 8;
-
-        const float right = roundedRect.boundary.right();
-        const float bottom = roundedRect.boundary.bottom();
-
-        const auto clamp_radius = [&](const Radius& radius)
-        {
-            const float x = std::max(0.0f, std::min(radius.x, roundedRect.boundary.width * 0.5f));
-            const float y = std::max(0.0f, std::min(radius.y, roundedRect.boundary.height * 0.5f));
-            return Radius{x, y};
-        };
-
-        const Radius topLeft = clamp_radius(roundedRect.topLeft);
-        const Radius topRight = clamp_radius(roundedRect.topRight);
-        const Radius bottomRight = clamp_radius(roundedRect.bottomRight);
-        const Radius bottomLeft = clamp_radius(roundedRect.bottomLeft);
-
-        const auto append_arc_or_corner = [&](std::vector<float2>& path, float cx, float cy, const Radius& radius, float cornerX, float cornerY, float startAngle, float endAngle)
-        {
-            if (radius.x <= 0.0f || radius.y <= 0.0f)
-            {
-                path.emplace_back(cornerX, cornerY);
-                return;
-            }
-
-            for (size_t i = 0; i <= SEGMENTS; ++i)
-            {
-                float t = static_cast<float>(i) / SEGMENTS;
-                float a = startAngle + (endAngle - startAngle) * t;
-
-                path.emplace_back(
-                    cx + std::cos(a) * radius.x,
-                    cy + std::sin(a) * radius.y
-                );
-            }
-        };
-
-        std::vector<float2> path;
-        path.reserve(SEGMENTS * 4 + 4);
-
-        append_arc_or_corner(
-            path,
-            roundedRect.boundary.left + topLeft.x,
-            roundedRect.boundary.top + topLeft.y,
-            topLeft,
-            roundedRect.boundary.left, roundedRect.boundary.top,
-            PI, PI * 1.5f
-        );
-
-        append_arc_or_corner(
-            path,
-            right - topRight.x,
-            roundedRect.boundary.top + topRight.y,
-            topRight,
-            right, roundedRect.boundary.top,
-            PI * 1.5f, PI * 2.0f
-        );
-
-        append_arc_or_corner(
-            path,
-            right - bottomRight.x,
-            bottom - bottomRight.y,
-            bottomRight,
-            right, bottom,
-            0.0f, PI * 0.5f
-        );
-
-        append_arc_or_corner(
-            path,
-            roundedRect.boundary.left + bottomLeft.x,
-            bottom - bottomLeft.y,
-            bottomLeft,
-            roundedRect.boundary.left, bottom,
-            PI * 0.5f, PI
-        );
-
-        return RoundedRectPath{
-            .specification = roundedRect,
-            .points = std::move(path),
-        };
-    }
-
-    Contour contour_rounded_rect_fill(const RoundedRectPath& path)
-    {
-        const auto [roundedRect, positions] = path;
-        Contour c;
-
-        const float2 center = roundedRect.boundary.center();
-        c.positions.push_back(center);
-        c.texcoords.push_back({0.5f, 0.5f});
-
-        for (const float2& p : positions)
-        {
-            c.positions.push_back(p);
-
-            const float tx = (p.x - roundedRect.boundary.left) / roundedRect.boundary.width;
-            const float ty = (p.y - roundedRect.boundary.top) / roundedRect.boundary.height;
-            c.texcoords.emplace_back(tx, ty);
-        }
-
-        const size_t ringStart = 1;
-        const size_t ringCount = c.positions.size() - 1;
-        for (size_t i = 0; i < ringCount; ++i)
-        {
-            const size_t a = ringStart + i;
-            const size_t b = ringStart + (i + 1) % ringCount;
-            c.indices.push_back(0);
-            c.indices.push_back(static_cast<uint32_t>(a));
-            c.indices.push_back(static_cast<uint32_t>(b));
-        }
-
-        return c;
-    }
-
-    Contour contour_rounded_rect_stroke(const RoundedRectPath& path, const StrokeProperties& properties)
-    {
-        return contour_stroke_from_path(path.points, properties);
-    }
-} // namespace processing
-
-namespace processing
-{
-    Contour contour_quad_fill(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4)
-    {
-        return {
-            .positions = {
-                {x1, y1},
-                {x2, y2},
-                {x3, y3},
-                {x4, y4},
-            },
-            .texcoords = {
-                {0.0f, 0.0f},
-                {1.0f, 0.0f},
-                {1.0f, 1.0f},
-                {0.0f, 1.0f},
-            },
-            .indices = {0, 1, 2, 2, 3, 0}
-        };
-    }
-
-    Contour contour_quad_stroke(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, const StrokeProperties& properties)
-    {
-        const std::vector<float2> positions = {
-            {x1, y1},
-            {x2, y2},
-            {x3, y3},
-            {x4, y4},
-        };
-
-        return contour_stroke_from_path(positions, properties);
-    }
-
-    inline float2 value2_rotated(float2 v, float angle)
-    {
-        const float c = std::cos(angle);
-        const float s = std::sin(angle);
-
-        return float2{
-            v.x * c - v.y * s,
-            v.x * s + v.y * c
-        };
-    }
-
-    Contour contour_line(float x1, float y1, float x2, float y2, float strokeWeight, StrokeCap strokeCap)
-    {
-        const float2 start = {x1, y1};
-        const float2 end = {x2, y2};
-        const float2 direction = (end - start).normalized();
-        const float2 offset = direction.perpendicular_cw() * strokeWeight * 0.5f;
-
-        const float circumference = PI * strokeWeight;
-        const size_t segments = std::max(4, static_cast<int>(circumference / 4.0f));
-
-        std::vector<float2> positions;
-        switch (strokeCap.start)
-        {
-            case StrokeCapStyle::butt:
-            {
-                positions.emplace_back(start - offset);
-                positions.emplace_back(start + offset);
-                break;
-            }
-
-            case StrokeCapStyle::square:
-            {
-                const float2 extend = direction * strokeWeight * 0.5f;
-                positions.emplace_back(start - extend - offset);
-                positions.emplace_back(start - extend + offset);
-                break;
-            }
-
-            case StrokeCapStyle::round:
-            {
-                for (size_t i = 0; i <= segments; ++i)
-                {
-                    float angle = PI * i / segments;
-                    float2 dir = value2_rotated(offset, angle);
-                    positions.emplace_back(start - dir);
-                }
-                break;
-            }
-        }
-
-        const size_t startPositionsCount = positions.size();
-
-        switch (strokeCap.end)
-        {
-            case StrokeCapStyle::butt:
-            {
-                positions.emplace_back(end - offset);
-                positions.emplace_back(end + offset);
-                break;
-            }
-
-            case StrokeCapStyle::square:
-            {
-                const float2 extend = direction * strokeWeight * 0.5f;
-                positions.emplace_back(end + extend - offset);
-                positions.emplace_back(end + extend + offset);
-                break;
-            }
-
-            case StrokeCapStyle::round:
-            {
-                for (size_t i = 0; i <= segments; ++i)
-                {
-                    float angle = PI * i / segments;
-                    float2 dir = value2_rotated(offset, PI - angle);
-                    positions.emplace_back(end + dir);
-                }
-                break;
-            }
-        }
-
-        const size_t endPositionsCount = positions.size() - startPositionsCount;
-        const size_t maxCount = std::max(startPositionsCount, endPositionsCount);
-
-        std::vector<uint32_t> indices;
-        for (size_t i = 0; i < maxCount; ++i)
-        {
-            const size_t left1 = std::min(i, startPositionsCount - 1);
-            const size_t left2 = std::min(i + 1, startPositionsCount - 1);
-            const size_t right1 = startPositionsCount + std::min(i, endPositionsCount - 1);
-            const size_t right2 = startPositionsCount + std::min(i + 1, endPositionsCount - 1);
-
-            // Erstes Dreieck
-            indices.emplace_back(left1);
-            indices.emplace_back(right1);
-            indices.emplace_back(left2);
-
-            // Zweites Dreieck
-            indices.emplace_back(left2);
-            indices.emplace_back(right1);
-            indices.emplace_back(right2);
-        }
-
-        std::vector<float2> texcoords(positions.size());
-
-        return Contour{
-            .positions = std::move(positions),
-            .texcoords = std::move(texcoords),
-            .indices = std::move(indices)
-        };
-    }
-
-    Contour contour_image(float left, float top, float width, float height, float sourceLeft, float sourceTop, float sourceWidth, float sourceHeight)
-    {
-        Contour contour;
-
-        {
-            const float right = left + width;
-            const float bottom = top + height;
-
-            contour.positions = {
-                {left, top},
-                {right, top},
-                {right, bottom},
-                {left, bottom},
-            };
-        }
-
-        {
-            const float sourceRight = sourceLeft + sourceWidth;
-            const float sourceBottom = sourceTop + sourceHeight;
-
-            //     contour.texcoords = {
-            //         {sourceLeft, sourceTop},
-            //         {sourceRight, sourceTop},
-            //         {sourceRight, sourceBottom},
-            //         {sourceLeft, sourceBottom},
-            //     };
-
-            contour.texcoords = {
-                {sourceLeft, sourceBottom},
-                {sourceRight, sourceBottom},
-                {sourceRight, sourceTop},
-                {sourceLeft, sourceTop},
-            };
-        }
-
-        contour.indices = {0, 1, 2, 2, 3, 0};
-
-        return contour;
-    }
-} // namespace processing
+// Contour contour_image(float left, float top, float width, float height, float sourceLeft, float sourceTop, float sourceWidth, float sourceHeight)
+// {
+//     Contour contour;
+//
+//     {
+//         const float right = left + width;
+//         const float bottom = top + height;
+//
+//         contour.positions = {
+//             {left, top},
+//             {right, top},
+//             {right, bottom},
+//             {left, bottom},
+//         };
+//     }
+//
+//     {
+//         const float sourceRight = sourceLeft + sourceWidth;
+//         const float sourceBottom = sourceTop + sourceHeight;
+//
+//         //     contour.texcoords = {
+//         //         {sourceLeft, sourceTop},
+//         //         {sourceRight, sourceTop},
+//         //         {sourceRight, sourceBottom},
+//         //         {sourceLeft, sourceBottom},
+//         //     };
+//
+//         contour.texcoords = {
+//             {sourceLeft, sourceBottom},
+//             {sourceRight, sourceBottom},
+//             {sourceRight, sourceTop},
+//             {sourceLeft, sourceTop},
+//         };
+//     }
+//
+//     contour.indices = {0, 1, 2, 2, 3, 0};
+//
+//     return contour;
+// }
 
 namespace processing
 {
@@ -737,56 +334,78 @@ namespace processing
 
     PolygonContour contour_polygon_quad_stroke(const std::span<const float2, 4>& points, const std::span<const Color, 4>& colors, const StrokeProperties& properties)
     {
-        return PolygonContour{};
+        return contour_stroke_from_path(points, colors, properties);
     }
 } // namespace processing
 
 namespace processing
 {
-    PolygonContour contour_polygon_ellipse_fill(float2 center, Radius radius, size_t segments, Color color)
+    EllipsePath path_ellipse(const EllipseProperties& properties)
     {
-        const float left = center.x - radius.x;
-        const float right = center.x + radius.x;
-        const float top = center.y - radius.y;
-        const float bottom = center.y + radius.y;
+        std::vector<float2> points;
+        for (usize i = 0; i < properties.segments; ++i)
+        {
+            const f32 angle = 2.0f * PI * i / static_cast<f32>(properties.segments);
+            const f32 x = properties.center.x + std::cos(angle) * properties.radius.x;
+            const f32 y = properties.center.y + std::sin(angle) * properties.radius.y;
+
+            points.emplace_back(x, y);
+        }
+
+        return EllipsePath{
+            .properties = properties,
+            .points = points,
+        };
+    }
+
+    PolygonContour contour_polygon_ellipse_fill(const EllipsePath& path, Color color)
+    {
+        const float left = path.properties.center.x - path.properties.radius.x;
+        const float right = path.properties.center.x + path.properties.radius.x;
+        const float top = path.properties.center.y - path.properties.radius.y;
+        const float bottom = path.properties.center.y + path.properties.radius.y;
         const float width = right - left;
         const float height = bottom - top;
 
-        PolygonContour c;
+        std::vector<float2> points;
+        std::vector<float2> texcoords;
+        std::vector<Color> colors;
 
-        c.points.emplace_back(center);
-        c.texcoords.emplace_back(0.5f, 0.5f);
-        c.colors.emplace_back(color);
+        points.emplace_back(left + width * 0.5f, top + height * 0.5f);
+        texcoords.emplace_back(0.5f, 0.5f);
+        colors.emplace_back(color);
 
-        for (size_t i = 0; i < segments; ++i)
+        for (size_t i = 0; i < path.properties.segments; ++i)
         {
-            const float angle = 2.0f * PI * i / static_cast<float>(segments);
-            const float x = center.x + std::cos(angle) * radius.x;
-            const float y = center.y + std::sin(angle) * radius.y;
-
-            const float2 point = {x, y};
-            c.points.emplace_back(point);
+            const float2& point = path.points[i];
+            points.emplace_back(point);
 
             const float tx = (point.x - left) / width;
             const float ty = (point.y - top) / height;
-            c.texcoords.emplace_back(tx, ty);
-
-            c.colors.emplace_back(color);
+            texcoords.emplace_back(tx, ty);
+            colors.emplace_back(color);
         }
 
-        for (size_t i = 1; i <= segments; ++i)
+        std::vector<u32> indices;
+        for (size_t i = 1; i <= path.properties.segments; ++i)
         {
-            c.indices.push_back(0);
-            c.indices.push_back(i);
-            c.indices.push_back(i < segments ? i + 1 : 1);
+            indices.push_back(0);
+            indices.push_back(i);
+            indices.push_back(i < path.properties.segments ? i + 1 : 1);
         }
 
-        return c;
+        return PolygonContour{
+            .points = std::move(points),
+            .texcoords = std::move(texcoords),
+            .colors = std::move(colors),
+            .indices = std::move(indices),
+        };
     }
 
-    PolygonContour contour_polygon_ellipse_stroke(float2 center, Radius radius, size_t segments, Color color, const StrokeProperties& properties)
+    PolygonContour contour_polygon_ellipse_stroke(const EllipsePath& path, Color color, const StrokeProperties& properties)
     {
-        return PolygonContour{};
+        std::vector<Color> colors(path.points.size(), color);
+        return contour_stroke_from_path(path.points, colors, properties);
     }
 } // namespace processing
 
@@ -827,7 +446,7 @@ namespace processing
 
     PolygonContour contour_polygon_triangle_stroke(const std::span<const float2, 3>& points, const std::span<const Color, 3>& colors, const StrokeProperties& properties)
     {
-        return PolygonContour{};
+        return contour_stroke_from_path(points, colors, properties);
     }
 } // namespace processing
 
@@ -867,7 +486,7 @@ namespace processing
                 for (size_t i = 0; i <= segments; ++i)
                 {
                     float angle = PI * i / segments;
-                    float2 dir = value2_rotated(offset, angle);
+                    float2 dir = offset.rotated(angle);
                     positions.emplace_back(start - dir);
                 }
                 break;
@@ -899,7 +518,7 @@ namespace processing
                 for (size_t i = 0; i <= segments; ++i)
                 {
                     float angle = PI * i / segments;
-                    float2 dir = value2_rotated(offset, PI - angle);
+                    float2 dir = offset.rotated(PI - angle);
                     positions.emplace_back(end + dir);
                 }
                 break;
@@ -942,6 +561,24 @@ namespace processing
 
 namespace processing
 {
+    PolygonContour contour_polygon_image(const std::span<const float2, 4>& points, const std::span<const Color>& colors, const rect2f& sourceRect)
+    {
+        return PolygonContour{
+            .points = std::vector<float2>{points.begin(), points.end()},
+            .texcoords = {
+                float2{sourceRect.left, sourceRect.top},
+                float2{sourceRect.right(), sourceRect.top},
+                float2{sourceRect.right(), sourceRect.bottom()},
+                float2{sourceRect.left, sourceRect.bottom()},
+            },
+            .colors = std::vector<Color>{colors.begin(), colors.end()},
+            .indices = {0, 1, 2, 2, 3, 0}
+        };
+    }
+} // namespace processing
+
+namespace processing
+{
     PolygonContour contour_polygon_polygon_fill(const std::span<const float2>& points, const std::span<const float2>& texcoords, const std::span<const Color>& colors)
     {
         std::vector<uint32_t> indices;
@@ -956,8 +593,8 @@ namespace processing
         };
     }
 
-    PolygonContour contour_polygon_polygon_stroke(const std::span<const float2>& points, const std::span<const float2>& texcoords, const std::span<const Color>& colors, const StrokeProperties& strokeProperties)
+    PolygonContour contour_polygon_polygon_stroke(const std::span<const float2>& points, const std::span<const Color>& colors, const StrokeProperties& properties)
     {
-        return PolygonContour{};
+        return contour_stroke_from_path(points, colors, properties);
     }
 } // namespace processing
