@@ -144,7 +144,7 @@ namespace processing
             }
 
             StrokeJoin join = properties.strokeJoin;
-            if (join == StrokeJoin::miter && curr.miterLimitExceeded)
+            if (join == StrokeJoin::miter and curr.miterLimitExceeded)
                 join = StrokeJoin::bevel;
 
             switch (join)
@@ -715,5 +715,249 @@ namespace processing
         contour.indices = {0, 1, 2, 2, 3, 0};
 
         return contour;
+    }
+} // namespace processing
+
+namespace processing
+{
+    PolygonContour contour_polygon_quad_fill(const std::span<const float2, 4>& points, const std::span<const Color, 4>& colors)
+    {
+        return PolygonContour{
+            .points = std::vector<float2>{points.begin(), points.end()},
+            .texcoords = {
+                {0.0f, 0.0f},
+                {1.0f, 0.0f},
+                {1.0f, 1.0f},
+                {0.0f, 1.0f},
+            },
+            .colors = std::vector<Color>{colors.begin(), colors.end()},
+            .indices = {0, 1, 2, 2, 3, 0}
+        };
+    }
+
+    PolygonContour contour_polygon_quad_stroke(const std::span<const float2, 4>& points, const std::span<const Color, 4>& colors, const StrokeProperties& properties)
+    {
+        return PolygonContour{};
+    }
+} // namespace processing
+
+namespace processing
+{
+    PolygonContour contour_polygon_ellipse_fill(float2 center, Radius radius, size_t segments, Color color)
+    {
+        const float left = center.x - radius.x;
+        const float right = center.x + radius.x;
+        const float top = center.y - radius.y;
+        const float bottom = center.y + radius.y;
+        const float width = right - left;
+        const float height = bottom - top;
+
+        PolygonContour c;
+
+        c.points.emplace_back(center);
+        c.texcoords.emplace_back(0.5f, 0.5f);
+        c.colors.emplace_back(color);
+
+        for (size_t i = 0; i < segments; ++i)
+        {
+            const float angle = 2.0f * PI * i / static_cast<float>(segments);
+            const float x = center.x + std::cos(angle) * radius.x;
+            const float y = center.y + std::sin(angle) * radius.y;
+
+            const float2 point = {x, y};
+            c.points.emplace_back(point);
+
+            const float tx = (point.x - left) / width;
+            const float ty = (point.y - top) / height;
+            c.texcoords.emplace_back(tx, ty);
+
+            c.colors.emplace_back(color);
+        }
+
+        for (size_t i = 1; i <= segments; ++i)
+        {
+            c.indices.push_back(0);
+            c.indices.push_back(i);
+            c.indices.push_back(i < segments ? i + 1 : 1);
+        }
+
+        return c;
+    }
+
+    PolygonContour contour_polygon_ellipse_stroke(float2 center, Radius radius, size_t segments, Color color, const StrokeProperties& properties)
+    {
+        return PolygonContour{};
+    }
+} // namespace processing
+
+namespace processing
+{
+    PolygonContour contour_polygon_triangle_fill(const std::span<const float2, 3>& points, const std::span<const Color, 3>& colors)
+    {
+        float minX = points[0].x;
+        float minY = points[0].y;
+        float maxX = points[0].x;
+        float maxY = points[0].y;
+
+        for (size_t i = 1; i < points.size(); ++i)
+        {
+            minX = std::min(minX, points[i].x);
+            minY = std::min(minY, points[i].y);
+            maxX = std::max(maxX, points[i].x);
+            maxY = std::max(maxY, points[i].y);
+        }
+
+        const float width = maxX - minX;
+        const float height = maxY - minY;
+
+        PolygonContour contour;
+        contour.points.append_range(points);
+        contour.colors.append_range(colors);
+        contour.texcoords.reserve(points.size());
+        for (size_t i = 0; i < points.size(); ++i)
+        {
+            const float tx = (points[i].x - minX) / width;
+            const float ty = (points[i].y - minY) / height;
+            contour.texcoords.emplace_back(tx, ty);
+        }
+
+        contour.indices = {0, 1, 2};
+        return contour;
+    }
+
+    PolygonContour contour_polygon_triangle_stroke(const std::span<const float2, 3>& points, const std::span<const Color, 3>& colors, const StrokeProperties& properties)
+    {
+        return PolygonContour{};
+    }
+} // namespace processing
+
+namespace processing
+{
+    PolygonContour contour_polygon_line(const std::span<const float2, 2>& points, const std::span<const Color, 2>& colors, float strokeWeight, StrokeCap strokeCap)
+    {
+        const float2 start = points[0];
+        const float2 end = points[1];
+        const float2 direction = (end - start).normalized();
+        const float2 offset = direction.perpendicular_cw() * strokeWeight * 0.5f;
+
+        const float circumference = PI * strokeWeight;
+        const size_t segments = std::max(4, static_cast<int>(circumference / 4.0f));
+
+        std::vector<float2> positions;
+        std::vector<Color> cols;
+        switch (strokeCap.start)
+        {
+            case StrokeCapStyle::butt:
+            {
+                positions.emplace_back(start - offset);
+                positions.emplace_back(start + offset);
+                break;
+            }
+
+            case StrokeCapStyle::square:
+            {
+                const float2 extend = direction * strokeWeight * 0.5f;
+                positions.emplace_back(start - extend - offset);
+                positions.emplace_back(start - extend + offset);
+                break;
+            }
+
+            case StrokeCapStyle::round:
+            {
+                for (size_t i = 0; i <= segments; ++i)
+                {
+                    float angle = PI * i / segments;
+                    float2 dir = value2_rotated(offset, angle);
+                    positions.emplace_back(start - dir);
+                }
+                break;
+            }
+        }
+
+        const size_t startPositionsCount = positions.size();
+        cols.insert(cols.end(), startPositionsCount, colors[0]);
+
+        switch (strokeCap.end)
+        {
+            case StrokeCapStyle::butt:
+            {
+                positions.emplace_back(end - offset);
+                positions.emplace_back(end + offset);
+                break;
+            }
+
+            case StrokeCapStyle::square:
+            {
+                const float2 extend = direction * strokeWeight * 0.5f;
+                positions.emplace_back(end + extend - offset);
+                positions.emplace_back(end + extend + offset);
+                break;
+            }
+
+            case StrokeCapStyle::round:
+            {
+                for (size_t i = 0; i <= segments; ++i)
+                {
+                    float angle = PI * i / segments;
+                    float2 dir = value2_rotated(offset, PI - angle);
+                    positions.emplace_back(end + dir);
+                }
+                break;
+            }
+        }
+
+        const size_t endPositionsCount = positions.size() - startPositionsCount;
+        const size_t maxCount = std::max(startPositionsCount, endPositionsCount);
+        cols.insert(cols.end(), endPositionsCount, colors[0]);
+
+        std::vector<uint32_t> indices;
+        for (size_t i = 0; i < maxCount; ++i)
+        {
+            const size_t left1 = std::min(i, startPositionsCount - 1);
+            const size_t left2 = std::min(i + 1, startPositionsCount - 1);
+            const size_t right1 = startPositionsCount + std::min(i, endPositionsCount - 1);
+            const size_t right2 = startPositionsCount + std::min(i + 1, endPositionsCount - 1);
+
+            // Erstes Dreieck
+            indices.emplace_back(left1);
+            indices.emplace_back(right1);
+            indices.emplace_back(left2);
+
+            // Zweites Dreieck
+            indices.emplace_back(left2);
+            indices.emplace_back(right1);
+            indices.emplace_back(right2);
+        }
+
+        std::vector<float2> texcoords(positions.size());
+
+        return PolygonContour{
+            .points = std::move(positions),
+            .texcoords = std::move(texcoords),
+            .colors = std::move(cols),
+            .indices = std::move(indices)
+        };
+    }
+} // namespace processing
+
+namespace processing
+{
+    PolygonContour contour_polygon_polygon_fill(const std::span<const float2>& points, const std::span<const float2>& texcoords, const std::span<const Color>& colors)
+    {
+        std::vector<uint32_t> indices;
+        for (size_t i = 0; i < points.size(); ++i)
+            indices.emplace_back(i);
+
+        return PolygonContour{
+            .points = std::vector<float2>{points.begin(), points.end()},
+            .texcoords = std::vector<float2>{texcoords.begin(), texcoords.end()},
+            .colors = std::vector<Color>{colors.begin(), colors.end()},
+            .indices = std::move(indices),
+        };
+    }
+
+    PolygonContour contour_polygon_polygon_stroke(const std::span<const float2>& points, const std::span<const float2>& texcoords, const std::span<const Color>& colors, const StrokeProperties& strokeProperties)
+    {
+        return PolygonContour{};
     }
 } // namespace processing

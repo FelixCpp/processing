@@ -182,6 +182,25 @@ namespace processing
 
         return shape;
     }
+
+    Vertices vertices_from_polygon_contour(const PolygonContour& contour, const matrix4x4& transform, f32 depth)
+    {
+        Vertices shape;
+        shape.mode = VertexMode::triangles;
+        shape.vertices.reserve(contour.points.size());
+        shape.indices.append_range(contour.indices);
+
+        for (size_t i = 0; i < contour.points.size(); ++i)
+        {
+            shape.vertices.push_back(Vertex{
+                .position = float3{transform.transformPoint(contour.points[i]), depth},
+                .texcoord = contour.texcoords[i],
+                .color = float4_from_color(contour.colors[i]),
+            });
+        }
+
+        return shape;
+    }
 } // namespace processing
 
 namespace processing
@@ -544,30 +563,267 @@ namespace processing
         s_graphics->shapeStarted = true;
     }
 
+    void render(const Vertices& vertices, const RenderState& state)
+    {
+        s_graphics->renderer->render(vertices, state);
+    }
+
+    void renderPoints(const std::span<const ShapeBuilderPoint>& points, const RenderStyle& style, const matrix4x4& transform, const RenderState& renderState)
+    {
+        for (size_t i = 0; i < points.size(); ++i)
+        {
+            const ShapeBuilderPoint& point = points[i];
+            const PolygonContour contour = contour_polygon_ellipse_fill(point.position, Radius::circular(style.strokeWeight), 32, point.strokeColor);
+            const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+            render(vertices, renderState);
+        }
+    }
+
+    void renderLines(const std::span<const ShapeBuilderPoint>& points, const RenderStyle& style, const matrix4x4& transform, const RenderState& renderState)
+    {
+        for (usize i = 0; i + 1 < points.size(); i += 2)
+        {
+            const ShapeBuilderPoint& a = points[i + 0];
+            const ShapeBuilderPoint& b = points[i + 1];
+            const PolygonContour contour = contour_polygon_line(
+                std::array{a.position, b.position},
+                std::array{a.strokeColor, b.strokeColor},
+                style.strokeWeight, style.strokeCap
+            );
+
+            const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+            render(vertices, renderState);
+        }
+    }
+
+    void renderLineStrip(const std::span<const ShapeBuilderPoint>& points, const RenderStyle& style, const matrix4x4& transform, const RenderState& renderState)
+    {
+        for (size_t i = 0; i + 1 < points.size(); i++)
+        {
+            const ShapeBuilderPoint& a = points[i + 0];
+            const ShapeBuilderPoint& b = points[i + 1];
+            const PolygonContour contour = contour_polygon_line(
+                std::array{a.position, b.position},
+                std::array{a.strokeColor, b.strokeColor},
+                style.strokeWeight, style.strokeCap
+            );
+
+            const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+            render(vertices, renderState);
+        }
+    }
+
+    void renderLineLoop(const std::span<const ShapeBuilderPoint>& points, const RenderStyle& style, const matrix4x4& transform, const RenderState& renderState)
+    {
+        for (size_t i = 0; i + 1 < points.size(); i++)
+        {
+            const ShapeBuilderPoint& a = points[i + 0];
+            const ShapeBuilderPoint& b = points[i + 1];
+            const PolygonContour contour = contour_polygon_line(
+                std::array{a.position, b.position},
+                std::array{a.strokeColor, b.strokeColor},
+                style.strokeWeight, style.strokeCap
+            );
+
+            const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+            render(vertices, renderState);
+        }
+    }
+
+    void renderTriangles(const std::span<const ShapeBuilderPoint>& points, const RenderStyle& style, const matrix4x4& transform, const RenderState& renderState)
+    {
+        for (size_t i = 0; i + 2 < points.size(); i += 3)
+        {
+            const ShapeBuilderPoint& a = points[i + 0];
+            const ShapeBuilderPoint& b = points[i + 1];
+            const ShapeBuilderPoint& c = points[i + 2];
+
+            if (style.isFillEnabled)
+            {
+                const PolygonContour contour = contour_polygon_triangle_fill(
+                    std::array{a.position, b.position, c.position},
+                    std::array{a.fillColor, b.fillColor, c.fillColor}
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+
+            if (style.isStrokeEnabled)
+            {
+                const PolygonContour contour = contour_polygon_triangle_stroke(
+                    std::array{a.position, b.position, c.position},
+                    std::array{a.strokeColor, b.strokeColor, c.strokeColor},
+                    get_stroke_properties(style)
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+        }
+    }
+
+    void renderTriangleStrip(const std::span<const ShapeBuilderPoint>& points, const RenderStyle& style, const matrix4x4& transform, const RenderState& renderState)
+    {
+        for (size_t i = 0; i + 2 < s_graphics->points.size(); i++)
+        {
+            const ShapeBuilderPoint& a = points[i + 0];
+            const ShapeBuilderPoint& b = points[i + 1];
+            const ShapeBuilderPoint& c = points[i + 2];
+
+            if (style.isFillEnabled)
+            {
+                const PolygonContour contour = contour_polygon_triangle_fill(
+                    std::array{a.position, b.position, c.position},
+                    std::array{a.fillColor, b.fillColor, c.fillColor}
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+
+            if (style.isStrokeEnabled)
+            {
+                const PolygonContour contour = contour_polygon_triangle_stroke(
+                    std::array{a.position, b.position, c.position},
+                    std::array{a.fillColor, b.fillColor, c.fillColor},
+                    get_stroke_properties(style)
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+        }
+    }
+
+    void renderTriangleFan(const std::span<const ShapeBuilderPoint>& points, const RenderStyle& style, const matrix4x4& transform, const RenderState& renderState)
+    {
+        if (points.size() < 3) return;
+
+        const ShapeBuilderPoint& a = points[0];
+
+        for (size_t i = 1; i + 1 < s_graphics->points.size(); i++)
+        {
+            const ShapeBuilderPoint& b = points[i + 1];
+            const ShapeBuilderPoint& c = points[i + 2];
+
+            if (style.isFillEnabled)
+            {
+                const PolygonContour contour = contour_polygon_triangle_fill(
+                    std::array{a.position, b.position, c.position},
+                    std::array{a.fillColor, b.fillColor, c.fillColor}
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+
+            if (style.isStrokeEnabled)
+            {
+                const PolygonContour contour = contour_polygon_triangle_stroke(
+                    std::array{a.position, b.position, c.position},
+                    std::array{a.fillColor, b.fillColor, c.fillColor},
+                    get_stroke_properties(style)
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+        }
+    }
+
+    void renderQuads(const std::span<const ShapeBuilderPoint>& points, const RenderStyle& style, const matrix4x4& transform, const RenderState& renderState)
+    {
+        for (size_t i = 0; i + 3 < points.size(); i += 4)
+        {
+            const ShapeBuilderPoint& a = points[i + 0];
+            const ShapeBuilderPoint& b = points[i + 1];
+            const ShapeBuilderPoint& c = points[i + 2];
+            const ShapeBuilderPoint& d = points[i + 3];
+
+            if (style.isFillEnabled)
+            {
+                const PolygonContour contour = contour_polygon_quad_fill(
+                    std::array{a.position, b.position, c.position, d.position},
+                    std::array{a.fillColor, b.fillColor, c.fillColor, d.fillColor}
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+
+            if (style.isStrokeEnabled)
+            {
+                const PolygonContour contour = contour_polygon_quad_stroke(
+                    std::array{a.position, b.position, c.position, d.position},
+                    std::array{a.strokeColor, b.strokeColor, c.strokeColor, d.strokeColor},
+                    get_stroke_properties(style)
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+        }
+    }
+
+    void renderQuadStrip(const std::span<const ShapeBuilderPoint>& points, const RenderStyle& style, const matrix4x4& transform, const RenderState& renderState)
+    {
+        for (size_t i = 0; i + 3 < points.size(); i += 2)
+        {
+            const ShapeBuilderPoint& a = points[i + 0];
+            const ShapeBuilderPoint& b = points[i + 1];
+            const ShapeBuilderPoint& c = points[i + 2];
+            const ShapeBuilderPoint& d = points[i + 3];
+
+            if (style.isFillEnabled)
+            {
+                const PolygonContour contour = contour_polygon_quad_fill(
+                    std::array{a.position, b.position, c.position, d.position},
+                    std::array{a.fillColor, b.fillColor, c.fillColor, d.fillColor}
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+
+            if (style.isStrokeEnabled)
+            {
+                const PolygonContour contour = contour_polygon_quad_stroke(
+                    std::array{a.position, b.position, c.position, d.position},
+                    std::array{a.strokeColor, b.strokeColor, c.strokeColor, d.strokeColor},
+                    get_stroke_properties(style)
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+        }
+    }
+
     void endShape(const bool closed)
     {
         if (not s_graphics->shapeStarted) return;
-        s_graphics->shapeStarted = false;
+
+        const RenderStyle& style = peekStyle();
+        const matrix4x4& transform = peekMatrix();
+        const RenderState renderState = getRenderState();
 
         switch (s_graphics->shapeMode)
         {
                 // clang-format off
-            case ShapeMode::points:
-            {
-            } break;
-
-            case ShapeMode::linesStrip:
-            {
-            }
-            case ShapeMode::lineLoop:
-            case ShapeMode::triangles:
-            case ShapeMode::triangleStrip:
-            case ShapeMode::triangleFan:
-            case ShapeMode::quads:
-            case ShapeMode::quadStrip:
-                break;
+            case ShapeMode::points: { renderPoints(s_graphics->points, style, transform, renderState); } break;
+            case ShapeMode::lines: { renderLines(s_graphics->points, style, transform, renderState); } break;
+            case ShapeMode::linesStrip: { renderLineStrip(s_graphics->points, style, transform, renderState); } break;
+            case ShapeMode::lineLoop: { renderLineLoop(s_graphics->points, style, transform, renderState); } break;
+            case ShapeMode::triangles: { renderTriangles(s_graphics->points, style, transform, renderState); } break;
+            case ShapeMode::triangleStrip: { renderTriangleStrip(s_graphics->points, style, transform, renderState); } break;
+            case ShapeMode::triangleFan: { renderTriangleFan(s_graphics->points, style, transform, renderState); } break;
+            case ShapeMode::quads: { renderQuads(s_graphics->points, style, transform, renderState); } break;
+            case ShapeMode::quadStrip: { renderQuadStrip(s_graphics->points, style, transform, renderState); } break;
                 // clang-format on
         }
+
+        s_graphics->shapeStarted = false;
     }
 
     void vertex(f32 x, f32 y)

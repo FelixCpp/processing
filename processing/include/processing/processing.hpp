@@ -306,6 +306,7 @@ namespace processing
     enum class ShapeMode
     {
         points,
+        lines,
         linesStrip,
         lineLoop,
         triangles,
