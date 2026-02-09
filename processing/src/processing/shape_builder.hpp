@@ -6,6 +6,7 @@
 #include <vector>
 #include <span>
 #include <cstdint>
+#include <functional>
 
 namespace processing
 {
@@ -44,10 +45,15 @@ namespace processing
 
 namespace processing
 {
+    using StrokeJoinLookup = std::function<StrokeJoin(usize)>;
+    using StrokeWeightLookup = std::function<f32(usize)>;
+
     struct StrokeProperties
     {
-        StrokeJoin strokeJoin;
-        float strokeWeight;
+        // StrokeJoin strokeJoin;
+        StrokeJoinLookup strokeJoin;
+        StrokeWeightLookup strokeWeight;
+        // float strokeWeight;
         float miterLimit;
     };
 

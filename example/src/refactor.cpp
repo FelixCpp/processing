@@ -65,36 +65,36 @@ struct DemoApp : Sketch
         }
         popRenderbuffer();
 
-        background(255);
-        image(buffer.getImage(), 100.0f, 100.0f, 600.0f, 600.0f);
+        // background(255);
+        // image(buffer.getImage(), 100.0f, 100.0f, 600.0f, 600.0f);
 
-        background(0);
-        image(buffer.getImage(), 0, 0);
-
-        // Halbtransparente Kopie leicht versetzt (Ghosting-Effekt)
-        tint(255, 150);
-        image(buffer.getImage(), 5, 5);
+        // background(0);
+        // image(buffer.getImage(), 0, 0);
         //
-        // Weitere versetzte Kopie für Trail-Effekt
-        tint(255, 80);
-        image(buffer.getImage(), -5, -5);
-
-        tint(255, 255); // Reset tint
-
-        // Kleine Vorschau in der Ecke (Picture-in-Picture)
-        pushMatrix();
-        translate(650, 450);
-        scale(0.2, 0.2);
-        tint(255, 200);
-        image(buffer.getImage(), 0, 0);
-        tint(255, 255);
-        popMatrix();
-
-        // Umrandung für die Vorschau
-        noFill();
-        stroke(255);
-        strokeWeight(2);
-        rect(650, 450, 160, 120);
+        // // Halbtransparente Kopie leicht versetzt (Ghosting-Effekt)
+        // tint(255, 150);
+        // image(buffer.getImage(), 5, 5);
+        // //
+        // // Weitere versetzte Kopie für Trail-Effekt
+        // tint(255, 80);
+        // image(buffer.getImage(), -5, -5);
+        //
+        // tint(255, 255); // Reset tint
+        //
+        // // Kleine Vorschau in der Ecke (Picture-in-Picture)
+        // pushMatrix();
+        // translate(650, 450);
+        // scale(0.2, 0.2);
+        // tint(255, 200);
+        // image(buffer.getImage(), 0, 0);
+        // tint(255, 255);
+        // popMatrix();
+        //
+        // // Umrandung für die Vorschau
+        // noFill();
+        // stroke(255);
+        // strokeWeight(2);
+        // rect(650, 450, 160, 120);
 
         angle += 0.02;
     }

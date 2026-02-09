@@ -21,6 +21,7 @@ namespace processing
     inline static constexpr f32 MIN_DEPTH = -1.0f;
     inline static constexpr f32 MAX_DEPTH = 1.0f;
     inline static constexpr f32 DEPTH_INCREMENT = 1.0f / 20'000.0f;
+    inline static constexpr f32 MITER_LIMIT = 4.0f;
 
     struct ShapeBuilderPoint
     {
@@ -28,6 +29,8 @@ namespace processing
         float2 texcoord;
         Color fillColor;
         Color strokeColor;
+        StrokeJoin strokeJoin;
+        f32 strokeWeight;
     };
 
     struct GraphicsData
@@ -138,15 +141,19 @@ namespace processing
 
     void beginDraw()
     {
-        peekDepth() = MIN_DEPTH;
         s_graphics->renderer->beginDraw(peekFramebuffer());
     }
 
     void endDraw(u32 width, u32 height)
     {
-        warnMemoryLeaks();
         s_graphics->renderer->endDraw();
         blit(width, height, peekFramebuffer());
+
+        warnMemoryLeaks();
+
+        peekDepth() = MIN_DEPTH;
+        peekRenderStyles().reset(RenderStyle());
+        peekMetrics().reset(matrix4x4::identity);
     }
 } // namespace processing
 
@@ -257,13 +264,28 @@ namespace processing
         }
     }
 
-    inline static constexpr StrokeProperties get_stroke_properties(const RenderStyle& style)
+    inline static constexpr StrokeProperties get_stroke_properties(const RenderStyle& style, const StrokeJoinLookup& strokeJoin, const StrokeWeightLookup& strokeWeight)
     {
         return StrokeProperties{
-            .strokeJoin = style.strokeJoin,
-            .strokeWeight = style.strokeWeight,
-            .miterLimit = 4.0f,
+            .strokeJoin = strokeJoin,
+            .strokeWeight = strokeWeight,
+            .miterLimit = MITER_LIMIT,
         };
+    }
+
+    inline static constexpr StrokeProperties get_stroke_properties(const RenderStyle& style)
+    {
+        return get_stroke_properties(
+            style,
+            [strokeJoin = style.strokeJoin](const usize _)
+            {
+                return strokeJoin;
+            },
+            [strokeWeight = style.strokeWeight](const usize _)
+            {
+                return strokeWeight;
+            }
+        );
     }
 } // namespace processing
 
@@ -628,10 +650,10 @@ namespace processing
 
     void renderLineLoop(const std::span<const ShapeBuilderPoint>& points, const RenderStyle& style, const matrix4x4& transform, const RenderState& renderState)
     {
-        for (size_t i = 0; i + 1 < points.size(); i++)
+        for (size_t i = 0; i < points.size(); i++)
         {
             const ShapeBuilderPoint& a = points[i + 0];
-            const ShapeBuilderPoint& b = points[i + 1];
+            const ShapeBuilderPoint& b = points[(i + 1) % points.size()];
             const PolygonContour contour = contour_polygon_line(
                 std::array{a.position, b.position},
                 std::array{a.strokeColor, b.strokeColor},
@@ -664,10 +686,22 @@ namespace processing
 
             if (style.isStrokeEnabled)
             {
+                const StrokeProperties strokeProperties = get_stroke_properties(
+                    style,
+                    [&points](const usize index)
+                    {
+                        return points[index].strokeJoin;
+                    },
+                    [&points](const usize index)
+                    {
+                        return points[index].strokeWeight;
+                    }
+                );
+
                 const PolygonContour contour = contour_polygon_triangle_stroke(
                     std::array{a.position, b.position, c.position},
                     std::array{a.strokeColor, b.strokeColor, c.strokeColor},
-                    get_stroke_properties(style)
+                    strokeProperties
                 );
 
                 const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
@@ -697,10 +731,22 @@ namespace processing
 
             if (style.isStrokeEnabled)
             {
+                const StrokeProperties strokeProperties = get_stroke_properties(
+                    style,
+                    [&points](const usize index)
+                    {
+                        return points[index].strokeJoin;
+                    },
+                    [&points](const usize index)
+                    {
+                        return points[index].strokeWeight;
+                    }
+                );
+
                 const PolygonContour contour = contour_polygon_triangle_stroke(
                     std::array{a.position, b.position, c.position},
                     std::array{a.fillColor, b.fillColor, c.fillColor},
-                    get_stroke_properties(style)
+                    strokeProperties
                 );
 
                 const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
@@ -733,10 +779,22 @@ namespace processing
 
             if (style.isStrokeEnabled)
             {
+                const StrokeProperties strokeProperties = get_stroke_properties(
+                    style,
+                    [&points](const usize index)
+                    {
+                        return points[index].strokeJoin;
+                    },
+                    [&points](const usize index)
+                    {
+                        return points[index].strokeWeight;
+                    }
+                );
+
                 const PolygonContour contour = contour_polygon_triangle_stroke(
                     std::array{a.position, b.position, c.position},
                     std::array{a.fillColor, b.fillColor, c.fillColor},
-                    get_stroke_properties(style)
+                    strokeProperties
                 );
 
                 const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
@@ -767,10 +825,22 @@ namespace processing
 
             if (style.isStrokeEnabled)
             {
+                const StrokeProperties strokeProperties = get_stroke_properties(
+                    style,
+                    [&points](const usize index)
+                    {
+                        return points[index].strokeJoin;
+                    },
+                    [&points](const usize index)
+                    {
+                        return points[index].strokeWeight;
+                    }
+                );
+
                 const PolygonContour contour = contour_polygon_quad_stroke(
                     std::array{a.position, b.position, c.position, d.position},
                     std::array{a.strokeColor, b.strokeColor, c.strokeColor, d.strokeColor},
-                    get_stroke_properties(style)
+                    strokeProperties
                 );
 
                 const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
@@ -801,10 +871,22 @@ namespace processing
 
             if (style.isStrokeEnabled)
             {
+                const StrokeProperties strokeProperties = get_stroke_properties(
+                    style,
+                    [&points](const usize index)
+                    {
+                        return points[index].strokeJoin;
+                    },
+                    [&points](const usize index)
+                    {
+                        return points[index].strokeWeight;
+                    }
+                );
+
                 const PolygonContour contour = contour_polygon_quad_stroke(
                     std::array{a.position, b.position, c.position, d.position},
                     std::array{a.strokeColor, b.strokeColor, c.strokeColor, d.strokeColor},
-                    get_stroke_properties(style)
+                    strokeProperties
                 );
 
                 const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
@@ -826,7 +908,7 @@ namespace processing
                 // clang-format off
             case ShapeMode::points: { renderPoints(s_graphics->points, style, transform, renderState); } break;
             case ShapeMode::lines: { renderLines(s_graphics->points, style, transform, renderState); } break;
-            case ShapeMode::linesStrip: { renderLineStrip(s_graphics->points, style, transform, renderState); } break;
+            case ShapeMode::lineStrip: { renderLineStrip(s_graphics->points, style, transform, renderState); } break;
             case ShapeMode::lineLoop: { renderLineLoop(s_graphics->points, style, transform, renderState); } break;
             case ShapeMode::triangles: { renderTriangles(s_graphics->points, style, transform, renderState); } break;
             case ShapeMode::triangleStrip: { renderTriangleStrip(s_graphics->points, style, transform, renderState); } break;
@@ -855,6 +937,8 @@ namespace processing
             .texcoord = {u, v},
             .fillColor = style.fillColor,
             .strokeColor = style.strokeColor,
+            .strokeJoin = style.strokeJoin,
+            .strokeWeight = style.strokeWeight,
         };
 
         s_graphics->points.emplace_back(std::move(point));
@@ -953,6 +1037,24 @@ namespace processing
                 vertex(x, y);
             }
         }
+    }
+
+    void bezier(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, f32 x4, f32 y4)
+    {
+        beginShape(ShapeMode::lineStrip);
+        vertex(x1, y1);
+        bezierVertex(x2, y2, x3, y3, x4, y4);
+        endShape();
+    }
+
+    void curve(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, f32 x4, f32 y4)
+    {
+        beginShape(ShapeMode::lineStrip);
+        vertex(x1, y1);
+        curveVertex(x2, y2);
+        curveVertex(x3, y3);
+        curveVertex(x4, y4);
+        endShape();
     }
 
     void rect(f32 x1, f32 y1, f32 x2, f32 y2)

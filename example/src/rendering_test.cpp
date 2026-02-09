@@ -12,21 +12,16 @@ struct RendererTest : Sketch
         background(20, 20, 40);
 
         noFill();
-        strokeWeight(15.0f);
-        strokeJoin(StrokeJoin::round);
 
-        beginShape(ShapeMode::quads);
-        stroke(255, 0, 0);
-        vertex(getMousePosition().x, getMousePosition().y);
-        stroke(0, 255, 0);
-        vertex(300.0f, 100.0f);
-        stroke(0, 0, 255);
-        vertex(300.0f, 300.0f);
-        vertex(100.0f, 300.0f);
-        endShape(true);
-
-        // rectMode(RectMode::centerSize);
-        // rect(getMousePosition().x, getMousePosition().y, 300.0f, 300.0f);
+        stroke(255, 102, 0);
+        line(340, 80, 40, 40);
+        line(360, 360, 60, 320);
+        stroke(255);
+        bezier(340, 80, 40, 40, 360, 360, 60, 320);
+        // beginShape(ShapeMode::lineStrip);
+        // vertex(340, 80);
+        // bezierVertex(40, 40, 360, 360, 60, 320);
+        // endShape();
     }
 
     void destroy() override

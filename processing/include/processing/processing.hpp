@@ -265,6 +265,23 @@ namespace processing
         round,
     };
 
+    // struct StrokeJoin
+    // {
+    //     struct Miter
+    //     {
+    //         float limit;
+    //     };
+    //
+    //     struct Bevel
+    //     {
+    //     };
+    //
+    //     struct Round
+    //     {
+    //         usize resolution;
+    //     }
+    // };
+
     enum class BlendMode
     {
         opaque,        // kein Blending
@@ -308,7 +325,7 @@ namespace processing
     {
         points,
         lines,
-        linesStrip,
+        lineStrip,
         lineLoop,
         triangles,
         triangleStrip,
@@ -649,6 +666,9 @@ namespace processing
     void bezierVertex(f32 x2, f32 y2, f32 x3, f32 y3, f32 x4, f32 y4);
     void quadraticVertex(f32 cx, f32 cy, f32 x3, f32 y3);
     void curveVertex(f32 x, f32 y);
+
+    void bezier(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, f32 x4, f32 y4);
+    void curve(f32 x1, f32 y1, f32 x2, f32 y2, f32 x3, f32 y3, f32 x4, f32 y4);
 
     void rect(f32 x1, f32 y1, f32 x2, f32 y2);
     void square(f32 x1, f32 y1, f32 xy2);

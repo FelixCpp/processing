@@ -15,6 +15,7 @@ namespace processing
         explicit NeverEmptyStack(const T& initialValue);
         void push(const T& value);
         void pop();
+        void reset(const T& value);
         T& peek();
 
         usize size() const;
@@ -59,6 +60,17 @@ namespace processing
         {
             m_values.pop();
         }
+    }
+
+    template <typename T>
+    void NeverEmptyStack<T>::reset(const T& value)
+    {
+        while (not m_values.empty())
+        {
+            m_values.pop();
+        }
+
+        m_defaultValue = value;
     }
 
     template <typename T>

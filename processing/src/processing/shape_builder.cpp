@@ -9,6 +9,7 @@ namespace processing
     {
         float2 point;
         Color color;
+        f32 strokeWeight;
 
         float2 interInner;
         float2 interOuter;
@@ -81,6 +82,7 @@ namespace processing
         return {
             .point = current,
             .color = currentColor,
+            .strokeWeight = strokeWeight,
             .interInner = innerIntersection,
             .interOuter = outerIntersection,
             .prevOuter = prevOuter,
@@ -91,7 +93,7 @@ namespace processing
         };
     }
 
-    static std::vector<StrokeSegment> compute_stroke_segments(const std::span<const float2>& points, const std::span<const Color>& colors, const float strokeWeight, const float miterLimit)
+    static std::vector<StrokeSegment> compute_stroke_segments(const std::span<const float2>& points, const std::span<const Color>& colors, const StrokeWeightLookup& strokeWeight, const float miterLimit)
     {
         std::vector<StrokeSegment> segments;
         segments.reserve(points.size());
@@ -108,7 +110,7 @@ namespace processing
             const float2& nextPt = points[nextIdx];
             const float2& currPt = points[currIdx];
 
-            segments.push_back(segment_between_points(prevPt, currPt, nextPt, colors[currIdx], strokeWeight, miterLimit, isClockwise));
+            segments.push_back(segment_between_points(prevPt, currPt, nextPt, colors[currIdx], strokeWeight(currIdx), miterLimit, isClockwise));
         }
 
         return segments;
@@ -159,7 +161,7 @@ namespace processing
                 indices.push_back(idxStart + 0);
             }
 
-            StrokeJoin join = properties.strokeJoin;
+            StrokeJoin join = properties.strokeJoin(currIdx);
             if (join == StrokeJoin::miter and curr.miterLimitExceeded)
                 join = StrokeJoin::bevel;
 
@@ -221,7 +223,7 @@ namespace processing
                         sweepAngle += TAU;
                     const size_t numSegments = 4;
                     const float angleStepSize = sweepAngle / static_cast<float>(numSegments);
-                    const float radius = properties.strokeWeight * 0.5f;
+                    const float radius = curr.strokeWeight * 0.5f;
 
                     const size_t idxStart = positions.size();
                     positions.push_back(center);
@@ -274,46 +276,6 @@ namespace processing
         };
     }
 } // namespace processing
-
-// Contour contour_image(float left, float top, float width, float height, float sourceLeft, float sourceTop, float sourceWidth, float sourceHeight)
-// {
-//     Contour contour;
-//
-//     {
-//         const float right = left + width;
-//         const float bottom = top + height;
-//
-//         contour.positions = {
-//             {left, top},
-//             {right, top},
-//             {right, bottom},
-//             {left, bottom},
-//         };
-//     }
-//
-//     {
-//         const float sourceRight = sourceLeft + sourceWidth;
-//         const float sourceBottom = sourceTop + sourceHeight;
-//
-//         //     contour.texcoords = {
-//         //         {sourceLeft, sourceTop},
-//         //         {sourceRight, sourceTop},
-//         //         {sourceRight, sourceBottom},
-//         //         {sourceLeft, sourceBottom},
-//         //     };
-//
-//         contour.texcoords = {
-//             {sourceLeft, sourceBottom},
-//             {sourceRight, sourceBottom},
-//             {sourceRight, sourceTop},
-//             {sourceLeft, sourceTop},
-//         };
-//     }
-//
-//     contour.indices = {0, 1, 2, 2, 3, 0};
-//
-//     return contour;
-// }
 
 namespace processing
 {
@@ -566,10 +528,10 @@ namespace processing
         return PolygonContour{
             .points = std::vector<float2>{points.begin(), points.end()},
             .texcoords = {
-                float2{sourceRect.left, sourceRect.top},
-                float2{sourceRect.right(), sourceRect.top},
-                float2{sourceRect.right(), sourceRect.bottom()},
                 float2{sourceRect.left, sourceRect.bottom()},
+                float2{sourceRect.right(), sourceRect.bottom()},
+                float2{sourceRect.right(), sourceRect.top},
+                float2{sourceRect.left, sourceRect.top},
             },
             .colors = std::vector<Color>{colors.begin(), colors.end()},
             .indices = {0, 1, 2, 2, 3, 0}
