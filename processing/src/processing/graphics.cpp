@@ -169,27 +169,6 @@ namespace processing
         };
     }
 
-    // Vertices vertices_from_contour(const Contour& contour, const matrix4x4& transform, Color color, float depth)
-    // {
-    //     Vertices shape;
-    //     shape.mode = VertexMode::triangles;
-    //     shape.vertices.reserve(contour.positions.size());
-    //     shape.indices.append_range(contour.indices);
-    //
-    //     const float4 col = float4_from_color(color);
-    //
-    //     for (size_t i = 0; i < contour.positions.size(); ++i)
-    //     {
-    //         shape.vertices.push_back(Vertex{
-    //             .position = float3{transform.transformPoint(contour.positions[i]), depth},
-    //             .texcoord = contour.texcoords[i],
-    //             .color = col,
-    //         });
-    //     }
-    //
-    //     return shape;
-    // }
-
     Vertices vertices_from_polygon_contour(const PolygonContour& contour, const matrix4x4& transform, f32 depth)
     {
         Vertices shape;
@@ -264,28 +243,13 @@ namespace processing
         }
     }
 
-    inline static constexpr StrokeProperties get_stroke_properties(const RenderStyle& style, const StrokeJoinLookup& strokeJoin, const StrokeWeightLookup& strokeWeight)
-    {
-        return StrokeProperties{
-            .strokeJoin = strokeJoin,
-            .strokeWeight = strokeWeight,
-            .miterLimit = MITER_LIMIT,
-        };
-    }
-
     inline static constexpr StrokeProperties get_stroke_properties(const RenderStyle& style)
     {
-        return get_stroke_properties(
-            style,
-            [strokeJoin = style.strokeJoin](const usize _)
-            {
-                return strokeJoin;
-            },
-            [strokeWeight = style.strokeWeight](const usize _)
-            {
-                return strokeWeight;
-            }
-        );
+        return StrokeProperties{
+            .strokeJoin = style.strokeJoin,
+            .strokeWeight = style.strokeWeight,
+            .miterLimit = MITER_LIMIT,
+        };
     }
 } // namespace processing
 
@@ -605,7 +569,6 @@ namespace processing
             const EllipsePath path = path_ellipse({
                 .center = point.position,
                 .radius = Radius::circular(style.strokeWeight),
-                .segments = 32,
             });
 
             const PolygonContour contour = contour_polygon_ellipse_fill(path, point.strokeColor);
@@ -686,22 +649,10 @@ namespace processing
 
             if (style.isStrokeEnabled)
             {
-                const StrokeProperties strokeProperties = get_stroke_properties(
-                    style,
-                    [&points](const usize index)
-                    {
-                        return points[index].strokeJoin;
-                    },
-                    [&points](const usize index)
-                    {
-                        return points[index].strokeWeight;
-                    }
-                );
-
                 const PolygonContour contour = contour_polygon_triangle_stroke(
                     std::array{a.position, b.position, c.position},
                     std::array{a.strokeColor, b.strokeColor, c.strokeColor},
-                    strokeProperties
+                    get_stroke_properties(style)
                 );
 
                 const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
@@ -731,22 +682,10 @@ namespace processing
 
             if (style.isStrokeEnabled)
             {
-                const StrokeProperties strokeProperties = get_stroke_properties(
-                    style,
-                    [&points](const usize index)
-                    {
-                        return points[index].strokeJoin;
-                    },
-                    [&points](const usize index)
-                    {
-                        return points[index].strokeWeight;
-                    }
-                );
-
                 const PolygonContour contour = contour_polygon_triangle_stroke(
                     std::array{a.position, b.position, c.position},
                     std::array{a.fillColor, b.fillColor, c.fillColor},
-                    strokeProperties
+                    get_stroke_properties(style)
                 );
 
                 const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
@@ -779,22 +718,10 @@ namespace processing
 
             if (style.isStrokeEnabled)
             {
-                const StrokeProperties strokeProperties = get_stroke_properties(
-                    style,
-                    [&points](const usize index)
-                    {
-                        return points[index].strokeJoin;
-                    },
-                    [&points](const usize index)
-                    {
-                        return points[index].strokeWeight;
-                    }
-                );
-
                 const PolygonContour contour = contour_polygon_triangle_stroke(
                     std::array{a.position, b.position, c.position},
                     std::array{a.fillColor, b.fillColor, c.fillColor},
-                    strokeProperties
+                    get_stroke_properties(style)
                 );
 
                 const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
@@ -825,22 +752,10 @@ namespace processing
 
             if (style.isStrokeEnabled)
             {
-                const StrokeProperties strokeProperties = get_stroke_properties(
-                    style,
-                    [&points](const usize index)
-                    {
-                        return points[index].strokeJoin;
-                    },
-                    [&points](const usize index)
-                    {
-                        return points[index].strokeWeight;
-                    }
-                );
-
                 const PolygonContour contour = contour_polygon_quad_stroke(
                     std::array{a.position, b.position, c.position, d.position},
                     std::array{a.strokeColor, b.strokeColor, c.strokeColor, d.strokeColor},
-                    strokeProperties
+                    get_stroke_properties(style)
                 );
 
                 const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
@@ -871,22 +786,10 @@ namespace processing
 
             if (style.isStrokeEnabled)
             {
-                const StrokeProperties strokeProperties = get_stroke_properties(
-                    style,
-                    [&points](const usize index)
-                    {
-                        return points[index].strokeJoin;
-                    },
-                    [&points](const usize index)
-                    {
-                        return points[index].strokeWeight;
-                    }
-                );
-
                 const PolygonContour contour = contour_polygon_quad_stroke(
                     std::array{a.position, b.position, c.position, d.position},
                     std::array{a.strokeColor, b.strokeColor, c.strokeColor, d.strokeColor},
-                    strokeProperties
+                    get_stroke_properties(style)
                 );
 
                 const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
@@ -1102,7 +1005,6 @@ namespace processing
                 .x = boundary.width * 0.5f,
                 .y = boundary.height * 0.5f,
             },
-            .segments = 32,
         });
 
         if (style.isFillEnabled)
@@ -1164,7 +1066,6 @@ namespace processing
                 .x = boundary.width * 0.5f,
                 .y = boundary.height * 0.5f,
             },
-            .segments = 32,
         });
 
         const PolygonContour contour = contour_polygon_ellipse_fill(path, style.strokeColor);

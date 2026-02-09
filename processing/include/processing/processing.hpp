@@ -265,32 +265,15 @@ namespace processing
         round,
     };
 
-    // struct StrokeJoin
-    // {
-    //     struct Miter
-    //     {
-    //         float limit;
-    //     };
-    //
-    //     struct Bevel
-    //     {
-    //     };
-    //
-    //     struct Round
-    //     {
-    //         usize resolution;
-    //     }
-    // };
-
     enum class BlendMode
     {
-        opaque,        // kein Blending
-        alpha,         // klassisches Alpha-Blending
-        premultiplied, // premultiplied alpha
-        additive,      // Glow / Partikel
-        multiply,      // Schatten / Darken
-        screen,        // Aufhellen
-        subtract,      // Spezialeffekte
+        opaque,
+        alpha,
+        premultiplied,
+        additive,
+        multiply,
+        screen,
+        subtract,
     };
 
     enum class AngleMode

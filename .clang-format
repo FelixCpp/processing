@@ -29,7 +29,7 @@ AlwaysBreakAfterReturnType: None
 
 # Control flow
 AllowShortIfStatementsOnASingleLine: AllIfsAndElse
-AllowShortLoopsOnASingleLine: false
+AllowShortLoopsOnASingleLine: true
 AllowShortBlocksOnASingleLine: Never
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None

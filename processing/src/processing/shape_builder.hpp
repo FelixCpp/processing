@@ -6,7 +6,6 @@
 #include <vector>
 #include <span>
 #include <cstdint>
-#include <functional>
 
 namespace processing
 {
@@ -27,33 +26,21 @@ namespace processing
 
     struct Radius
     {
-        float x;
-        float y;
+        f32 x;
+        f32 y;
 
-        inline static constexpr Radius circular(float radius)
-        {
-            return {.x = radius, .y = radius};
-        }
-
-        inline static constexpr Radius elliptical(float x, float y)
-        {
-            return {.x = x, .y = y};
-        }
+        inline static constexpr Radius circular(float radius);
+        inline static constexpr Radius elliptical(float x, float y);
     };
 
 } // namespace processing
 
 namespace processing
 {
-    using StrokeJoinLookup = std::function<StrokeJoin(usize)>;
-    using StrokeWeightLookup = std::function<f32(usize)>;
-
     struct StrokeProperties
     {
-        // StrokeJoin strokeJoin;
-        StrokeJoinLookup strokeJoin;
-        StrokeWeightLookup strokeWeight;
-        // float strokeWeight;
+        StrokeJoin strokeJoin;
+        f32 strokeWeight;
         float miterLimit;
     };
 
@@ -61,12 +48,12 @@ namespace processing
     {
         float2 center;
         Radius radius;
-        usize segments;
     };
 
     struct EllipsePath
     {
         EllipseProperties properties;
+        usize segments;
         std::vector<float2> points;
     };
 } // namespace processing
@@ -91,3 +78,20 @@ namespace processing
 } // namespace processing
 
 #endif // _PROCESSING_INCLUDE_SHAPE_BUILDER_HPP_
+
+#ifndef _PROCESSING_INCLUDE_SHAPE_BUILDER_INL_
+#define _PROCESSING_INCLUDE_SHAPE_BUILDER_INL_
+
+namespace processing
+{
+    constexpr Radius Radius::circular(const f32 radius)
+    {
+        return {.x = radius, .y = radius};
+    }
+    constexpr Radius Radius::elliptical(const f32 x, const f32 y)
+    {
+        return {.x = x, .y = y};
+    }
+} // namespace processing
+
+#endif // _PROCESSING_INCLUDE_SHAPE_BUILDER_INL_

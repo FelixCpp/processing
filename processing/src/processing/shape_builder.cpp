@@ -5,6 +5,30 @@
 
 namespace processing
 {
+    static usize getCircleSegments(f32 radius)
+    {
+        const usize segments = static_cast<usize>(TAU * radius / 8.0f);
+        return std::clamp(segments, 12uz, 64uz);
+    }
+
+    static usize getEllipseSegments(const Radius radius)
+    {
+        const f32 rad = std::max(radius.x, radius.y);
+        return getCircleSegments(rad);
+    }
+
+    static usize getRoundLineSegments(f32 strokeWeight, f32 angle)
+    {
+        const f32 normalizedAngle = std::abs(angle) / PI;
+        const f32 radius = strokeWeight * 0.5f;
+        const i32 baseSegments = static_cast<i32>(std::sqrt(radius) * 4.0f);
+        const i32 segments = static_cast<i32>(static_cast<f32>(baseSegments) * normalizedAngle);
+        return std::clamp(segments, 3, 16);
+    }
+} // namespace processing
+
+namespace processing
+{
     struct StrokeSegment
     {
         float2 point;
@@ -93,7 +117,7 @@ namespace processing
         };
     }
 
-    static std::vector<StrokeSegment> compute_stroke_segments(const std::span<const float2>& points, const std::span<const Color>& colors, const StrokeWeightLookup& strokeWeight, const float miterLimit)
+    static std::vector<StrokeSegment> compute_stroke_segments(const std::span<const float2>& points, const std::span<const Color>& colors, const f32 strokeWeight, const float miterLimit)
     {
         std::vector<StrokeSegment> segments;
         segments.reserve(points.size());
@@ -110,7 +134,7 @@ namespace processing
             const float2& nextPt = points[nextIdx];
             const float2& currPt = points[currIdx];
 
-            segments.push_back(segment_between_points(prevPt, currPt, nextPt, colors[currIdx], strokeWeight(currIdx), miterLimit, isClockwise));
+            segments.push_back(segment_between_points(prevPt, currPt, nextPt, colors[currIdx], strokeWeight, miterLimit, isClockwise));
         }
 
         return segments;
@@ -161,7 +185,7 @@ namespace processing
                 indices.push_back(idxStart + 0);
             }
 
-            StrokeJoin join = properties.strokeJoin(currIdx);
+            StrokeJoin join = properties.strokeJoin;
             if (join == StrokeJoin::miter and curr.miterLimitExceeded)
                 join = StrokeJoin::bevel;
 
@@ -217,13 +241,11 @@ namespace processing
                     const float startAngle = std::atan2(toStart.y, toStart.x);
                     const float endAngle = std::atan2(toEnd.y, toEnd.x);
                     float sweepAngle = endAngle - startAngle;
-                    while (sweepAngle > PI)
-                        sweepAngle -= TAU;
-                    while (sweepAngle < -PI)
-                        sweepAngle += TAU;
-                    const size_t numSegments = 4;
-                    const float angleStepSize = sweepAngle / static_cast<float>(numSegments);
+                    while (sweepAngle > PI) sweepAngle -= TAU;
+                    while (sweepAngle < -PI) sweepAngle += TAU;
                     const float radius = curr.strokeWeight * 0.5f;
+                    const size_t numSegments = getRoundLineSegments(curr.strokeWeight, sweepAngle);
+                    const float angleStepSize = sweepAngle / static_cast<float>(numSegments);
 
                     const size_t idxStart = positions.size();
                     positions.push_back(center);
@@ -304,10 +326,12 @@ namespace processing
 {
     EllipsePath path_ellipse(const EllipseProperties& properties)
     {
+        const usize segments = getEllipseSegments(properties.radius);
+
         std::vector<float2> points;
-        for (usize i = 0; i < properties.segments; ++i)
+        for (usize i = 0; i < segments; ++i)
         {
-            const f32 angle = 2.0f * PI * i / static_cast<f32>(properties.segments);
+            const f32 angle = 2.0f * PI * i / static_cast<f32>(segments);
             const f32 x = properties.center.x + std::cos(angle) * properties.radius.x;
             const f32 y = properties.center.y + std::sin(angle) * properties.radius.y;
 
@@ -316,6 +340,7 @@ namespace processing
 
         return EllipsePath{
             .properties = properties,
+            .segments = segments,
             .points = points,
         };
     }
@@ -337,7 +362,7 @@ namespace processing
         texcoords.emplace_back(0.5f, 0.5f);
         colors.emplace_back(color);
 
-        for (size_t i = 0; i < path.properties.segments; ++i)
+        for (size_t i = 0; i < path.points.size(); ++i)
         {
             const float2& point = path.points[i];
             points.emplace_back(point);
@@ -349,11 +374,11 @@ namespace processing
         }
 
         std::vector<u32> indices;
-        for (size_t i = 1; i <= path.properties.segments; ++i)
+        for (size_t i = 1; i <= path.points.size(); ++i)
         {
             indices.push_back(0);
             indices.push_back(i);
-            indices.push_back(i < path.properties.segments ? i + 1 : 1);
+            indices.push_back(i < path.points.size() ? i + 1 : 1);
         }
 
         return PolygonContour{
@@ -421,8 +446,9 @@ namespace processing
         const float2 direction = (end - start).normalized();
         const float2 offset = direction.perpendicular_cw() * strokeWeight * 0.5f;
 
-        const float circumference = PI * strokeWeight;
-        const size_t segments = std::max(4, static_cast<int>(circumference / 4.0f));
+        // const float circumference = PI * strokeWeight;
+        // const size_t segments = std::max(4, static_cast<int>(circumference / 4.0f));
+        const usize segments = getRoundLineSegments(strokeWeight, PI);
 
         std::vector<float2> positions;
         std::vector<Color> cols;

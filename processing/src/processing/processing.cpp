@@ -282,7 +282,7 @@ namespace processing
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 
-        // glfwWindowHint(GLFW_SAMPLES, 4);
+        // glfwWindowHint(GLFW_SAMPLES, 0);
         // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
         s_data.window = glfwCreateWindow(800, 800, "Processing App", nullptr, nullptr);
         glfwMakeContextCurrent(s_data.window);
