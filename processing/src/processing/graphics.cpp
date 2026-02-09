@@ -29,8 +29,6 @@ namespace processing
         float2 texcoord;
         Color fillColor;
         Color strokeColor;
-        StrokeJoin strokeJoin;
-        f32 strokeWeight;
     };
 
     struct GraphicsData
@@ -452,6 +450,11 @@ namespace processing
         fill(Color(grey, alpha));
     }
 
+    void fill(const Color color, const i32 alpha)
+    {
+        fill(Color(color.r, color.g, color.b, alpha));
+    }
+
     void fill(const Color color)
     {
         RenderStyle& style = peekStyle();
@@ -798,6 +801,41 @@ namespace processing
         }
     }
 
+    void renderPolygon(const std::span<const ShapeBuilderPoint>& points, const RenderStyle& style, const matrix4x4& transform, const RenderState& renderState)
+    {
+        for (size_t i = 0; i + 3 < points.size(); i += 2)
+        {
+            const ShapeBuilderPoint& a = points[i + 0];
+            const ShapeBuilderPoint& b = points[i + 1];
+            const ShapeBuilderPoint& c = points[i + 2];
+            const ShapeBuilderPoint& d = points[i + 3];
+
+            if (style.isFillEnabled)
+            {
+                const PolygonContour contour = contour_polygon_polygon_fill(
+                    std::array{a.position, b.position, c.position, d.position},
+                    std::array{a.texcoord, b.texcoord, c.texcoord, d.texcoord},
+                    std::array{a.fillColor, b.fillColor, c.fillColor, d.fillColor}
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+
+            if (style.isStrokeEnabled)
+            {
+                const PolygonContour contour = contour_polygon_polygon_stroke(
+                    std::array{a.position, b.position, c.position, d.position},
+                    std::array{a.strokeColor, b.strokeColor, c.strokeColor, d.strokeColor},
+                    get_stroke_properties(style)
+                );
+
+                const Vertices vertices = vertices_from_polygon_contour(contour, transform, getNextDepth());
+                render(vertices, renderState);
+            }
+        }
+    }
+
     void endShape(const bool closed)
     {
         if (not s_graphics->shapeStarted) return;
@@ -818,6 +856,7 @@ namespace processing
             case ShapeMode::triangleFan: { renderTriangleFan(s_graphics->points, style, transform, renderState); } break;
             case ShapeMode::quads: { renderQuads(s_graphics->points, style, transform, renderState); } break;
             case ShapeMode::quadStrip: { renderQuadStrip(s_graphics->points, style, transform, renderState); } break;
+            case ShapeMode::polygon: { renderPolygon(s_graphics->points, style, transform, renderState); } break;
                 // clang-format on
         }
 
@@ -840,8 +879,6 @@ namespace processing
             .texcoord = {u, v},
             .fillColor = style.fillColor,
             .strokeColor = style.strokeColor,
-            .strokeJoin = style.strokeJoin,
-            .strokeWeight = style.strokeWeight,
         };
 
         s_graphics->points.emplace_back(std::move(point));

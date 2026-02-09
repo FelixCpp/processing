@@ -315,6 +315,7 @@ namespace processing
         triangleFan,
         quads,
         quadStrip,
+        polygon,
     };
 } // namespace processing
 
@@ -622,6 +623,7 @@ namespace processing
 
     void fill(i32 red, i32 green, i32 blue, i32 alpha = 255);
     void fill(i32 grey, i32 alpha = 255);
+    void fill(Color color, i32 alpha);
     void fill(Color color);
     void noFill();
 
