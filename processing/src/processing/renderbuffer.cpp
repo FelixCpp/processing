@@ -3,14 +3,12 @@
 namespace processing
 {
     Renderbuffer::Renderbuffer()
-        : m_assetId(AssetId{.value = 0}),
-          m_impl(nullptr)
+        : m_impl(nullptr)
     {
     }
 
-    Renderbuffer::Renderbuffer(const AssetId assetId, std::shared_ptr<PlatformRenderbuffer> impl)
-        : m_assetId{assetId},
-          m_impl{std::move(impl)}
+    Renderbuffer::Renderbuffer(std::shared_ptr<PlatformRenderbuffer> impl)
+        : m_impl{std::move(impl)}
     {
     }
 
@@ -26,7 +24,6 @@ namespace processing
 
     AssetId Renderbuffer::getAssetId() const
     {
-        return m_assetId;
+        return m_impl->getAssetId();
     }
-
 } // namespace processing

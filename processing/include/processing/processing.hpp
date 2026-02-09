@@ -478,20 +478,20 @@ namespace processing
         virtual ~PlatformRenderbuffer() = default;
         virtual Image& getImage() = 0;
         virtual uint2 getSize() const = 0;
+        virtual AssetId getAssetId() const = 0;
     };
 
     class Renderbuffer
     {
     public:
         Renderbuffer();
-        explicit Renderbuffer(AssetId assetId, std::shared_ptr<PlatformRenderbuffer> impl);
+        explicit Renderbuffer(std::shared_ptr<PlatformRenderbuffer> impl);
 
         Image& getImage();
         uint2 getSize() const;
         AssetId getAssetId() const;
 
     private:
-        AssetId m_assetId;
         std::shared_ptr<PlatformRenderbuffer> m_impl;
     };
 
