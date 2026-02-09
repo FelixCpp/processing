@@ -57,6 +57,7 @@ namespace processing
         T length() const;
         T lengthSquared() const;
         T dot(const value2& other) const;
+        T cross(const value2& other) const;
 
         value2 perpendicular_cw() const;
         value2 perpendicular_ccw() const;
@@ -690,6 +691,7 @@ namespace processing
     template <typename T> T value2<T>::length() const { return std::hypot(x, y); }
     template <typename T> T value2<T>::lengthSquared() const { return x * x + y * y; }
     template <typename T> T value2<T>::dot(const value2<T>& other) const { return x * other.x + y * other.y; }
+    template <typename T> T value2<T>::cross(const value2<T>& other) const { return x * other.y - y * other.x; }
     template <typename T> value2<T> value2<T>::perpendicular_cw() const { return { y, -x }; }
     template <typename T> value2<T> value2<T>::perpendicular_ccw() const { return { -y, x }; }
     template <typename T> value2<T> value2<T>::normalized() const { const T len = length(); if (len != static_cast<T>(0.0)) { return { x / len, y / len }; } return *this; }

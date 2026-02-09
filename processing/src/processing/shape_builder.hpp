@@ -9,13 +9,6 @@
 
 namespace processing
 {
-    struct Contour
-    {
-        std::vector<float2> positions;
-        std::vector<float2> texcoords;
-        std::vector<uint32_t> indices;
-    };
-
     struct PolygonContour
     {
         std::vector<float2> points;

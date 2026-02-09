@@ -46,7 +46,7 @@ namespace processing
         std::vector<ShapeBuilderPoint> points;
         std::vector<float2> curvePoints;
 
-        std::shared_ptr<DefaultRenderer> renderer;
+        std::shared_ptr<BatchRenderer> renderer;
     };
 
     inline static std::unique_ptr<GraphicsData> s_graphics;
@@ -132,7 +132,7 @@ namespace processing
                 .shapeStarted = false,
                 .points = {},
                 .curvePoints = {},
-                .renderer = DefaultRenderer::create(),
+                .renderer = BatchRenderer::create(),
             },
         };
     }

@@ -32,7 +32,7 @@ namespace processing
     struct StrokeSegment
     {
         float2 point;
-        Color color;
+        // Color color;
         f32 strokeWeight;
 
         float2 interInner;
@@ -49,11 +49,10 @@ namespace processing
     {
         float area = 0.0f;
 
-        for (size_t i = 0; i < points.size(); ++i)
+        const size_t n = points.size();
+        for (size_t i = 0, j = n - 1; i < n; j = i++)
         {
-            const size_t j = (i + 1) % points.size();
-            area += points[i].x * points[j].y;
-            area -= points[j].x * points[i].y;
+            area += (points[j].x * points[i].y) - (points[i].x * points[j].y);
         }
 
         return area;
@@ -63,7 +62,7 @@ namespace processing
         const float2& previous,
         const float2& current,
         const float2& next,
-        const Color& currentColor,
+        // const Color& currentColor,
         const float strokeWeight,
         const float miterLimit,
         const bool isClockwise
@@ -72,8 +71,14 @@ namespace processing
         const float2 dirPrev = (current - previous).normalized();
         const float2 dirNext = (next - current).normalized();
 
-        const float2 nPrev = isClockwise ? dirPrev.perpendicular_cw() : dirPrev.perpendicular_ccw();
-        const float2 nNext = isClockwise ? dirNext.perpendicular_cw() : dirNext.perpendicular_ccw();
+        // clang-format off
+        const auto perpendicular = isClockwise
+            ? [](const float2& v) { return v.perpendicular_cw(); }
+            : [](const float2& v) { return v.perpendicular_ccw(); };
+        // clang-format on
+
+        const float2 nPrev = perpendicular(dirPrev);
+        const float2 nNext = perpendicular(dirNext);
 
         const float halfStrokeWeight = strokeWeight * 0.5f;
 
@@ -83,13 +88,14 @@ namespace processing
         const float2 nextInner = current - nNext * halfStrokeWeight;
 
         const float2 bisector = (nPrev + nNext).normalized();
+        constexpr f32 kParallelThreshold = 1e-4f;
         float dotProduct = bisector.dot(nNext);
+        dotProduct = std::copysign(std::max(std::fabs(dotProduct), kParallelThreshold), dotProduct);
 
-        constexpr float epsilon = std::numeric_limits<float>::epsilon();
-        if (std::abs(dotProduct) < epsilon)
-        {
-            dotProduct = (dotProduct >= 0.0f) ? epsilon : -epsilon;
-        }
+        // if (std::abs(dotProduct) < kParallelThreshold)
+        // {
+        //     dotProduct = std::copysign(kParallelThreshold, dotProduct);
+        // }
 
         const float maxMiterLength = halfStrokeWeight * miterLimit;
 
@@ -105,7 +111,7 @@ namespace processing
 
         return {
             .point = current,
-            .color = currentColor,
+            // .color = currentColor,
             .strokeWeight = strokeWeight,
             .interInner = innerIntersection,
             .interOuter = outerIntersection,
@@ -117,7 +123,7 @@ namespace processing
         };
     }
 
-    static std::vector<StrokeSegment> compute_stroke_segments(const std::span<const float2>& points, const std::span<const Color>& colors, const f32 strokeWeight, const float miterLimit)
+    static std::vector<StrokeSegment> compute_stroke_segments(const std::span<const float2>& points, const f32 strokeWeight, const float miterLimit)
     {
         std::vector<StrokeSegment> segments;
         segments.reserve(points.size());
@@ -134,10 +140,142 @@ namespace processing
             const float2& nextPt = points[nextIdx];
             const float2& currPt = points[currIdx];
 
-            segments.push_back(segment_between_points(prevPt, currPt, nextPt, colors[currIdx], strokeWeight, miterLimit, isClockwise));
+            segments.push_back(segment_between_points(prevPt, currPt, nextPt, strokeWeight, miterLimit, isClockwise));
         }
 
         return segments;
+    }
+
+    static void emitStripQuad(const StrokeSegment& a, const StrokeSegment& b, const Color& aColor, const Color& bColor, std::vector<float2>& positions, std::vector<Color>& colors, std::vector<u32>& indices)
+    {
+        const size_t idxStart = positions.size();
+        positions.push_back(a.nextOuter);
+        positions.push_back(a.interInner);
+        positions.push_back(b.interInner);
+        positions.push_back(b.prevOuter);
+
+        colors.push_back(aColor);
+        colors.push_back(aColor);
+        colors.push_back(bColor);
+        colors.push_back(bColor);
+
+        indices.push_back(idxStart + 0);
+        indices.push_back(idxStart + 1);
+        indices.push_back(idxStart + 2);
+
+        indices.push_back(idxStart + 2);
+        indices.push_back(idxStart + 3);
+        indices.push_back(idxStart + 0);
+    }
+
+    static void emitJoin(const StrokeSegment& prev, const StrokeSegment& curr, const Color& currColor, StrokeJoin strokeJoin, const f32 strokeWeight, std::vector<float2>& positions, std::vector<Color>& colors, std::vector<u32>& indices)
+    {
+        if (strokeJoin == StrokeJoin::miter and curr.miterLimitExceeded)
+        {
+            strokeJoin = StrokeJoin::bevel;
+        }
+
+        switch (strokeJoin)
+        {
+            case StrokeJoin::miter:
+            {
+                const size_t idxStart = positions.size();
+                positions.push_back(curr.interInner);
+                positions.push_back(curr.prevOuter);
+                positions.push_back(curr.interOuter);
+                positions.push_back(curr.nextOuter);
+
+                colors.push_back(currColor);
+                colors.push_back(currColor);
+                colors.push_back(currColor);
+                colors.push_back(currColor);
+
+                indices.push_back(idxStart + 0);
+                indices.push_back(idxStart + 1);
+                indices.push_back(idxStart + 2);
+
+                indices.push_back(idxStart + 2);
+                indices.push_back(idxStart + 3);
+                indices.push_back(idxStart + 0);
+                break;
+            }
+
+            case StrokeJoin::bevel:
+            {
+                const size_t idxStart = positions.size();
+                positions.push_back(curr.interInner);
+                positions.push_back(curr.prevOuter);
+                positions.push_back(curr.nextOuter);
+
+                colors.push_back(currColor);
+                colors.push_back(currColor);
+                colors.push_back(currColor);
+
+                indices.push_back(idxStart + 0);
+                indices.push_back(idxStart + 1);
+                indices.push_back(idxStart + 2);
+                break;
+            }
+
+            case StrokeJoin::round:
+            {
+                const float2 center = curr.point;
+                const float2 v0 = curr.prevOuter - center;
+                const float2 v1 = curr.nextOuter - center;
+                const f32 cross = v0.cross(v1);
+                const f32 dot = v0.dot(v1);
+                const f32 sweepAngle = std::atan2(cross, dot);
+
+                if (std::abs(sweepAngle) < 1e-5f) return;
+
+                const usize segments = getRoundLineSegments(strokeWeight, sweepAngle);
+                if (segments == 0) return;
+
+                const f32 step = sweepAngle / static_cast<f32>(segments);
+                const f32 cos = std::cos(step);
+                const f32 sin = std::sin(step);
+
+                const usize centerIdx = positions.size();
+                positions.emplace_back(center);
+                colors.emplace_back(currColor);
+
+                float2 p = v0;
+
+                for (usize i = 0; i <= segments; ++i)
+                {
+                    positions.emplace_back(center + p);
+                    colors.emplace_back(currColor);
+
+                    const float angle = i * step;
+                    // p = p.rotated(angle);
+
+                    p = float2{
+                        p.x * cos - p.y * sin,
+                        p.x * sin + p.y * cos
+                    };
+                }
+
+                for (size_t i = 0; i < segments; ++i)
+                {
+                    indices.push_back(centerIdx);
+                    indices.push_back(centerIdx + 1 + i);
+                    indices.push_back(centerIdx + 1 + i + 1);
+                }
+
+                size_t innerIdx = positions.size();
+                positions.push_back(curr.interInner);
+                colors.push_back(currColor);
+
+                indices.push_back(centerIdx);
+                indices.push_back(centerIdx + segments + 1);
+                indices.push_back(innerIdx);
+
+                indices.push_back(centerIdx);
+                indices.push_back(innerIdx);
+                indices.push_back(centerIdx + 1);
+            }
+            break;
+        }
     }
 
     static PolygonContour contour_stroke_from_path(const std::span<const float2>& points, const std::span<const Color>& colors, const StrokeProperties& properties)
@@ -147,148 +285,33 @@ namespace processing
             return {};
         }
 
-        const std::vector<StrokeSegment> segments = compute_stroke_segments(points, colors, properties.strokeWeight, properties.miterLimit);
+        const bool isClockwise = compute_signed_area(points) > 0.0f;
+
+        const StrokeSegment first = segment_between_points(points[points.size() - 1], points[0], points[1], properties.strokeWeight, properties.miterLimit, isClockwise);
+        StrokeSegment prev = first;
+
         std::vector<float2> positions;
-        std::vector<float2> texcoords;
         std::vector<Color> cols;
-        std::vector<uint32_t> indices;
+        std::vector<u32> indices;
 
-        for (size_t i = 0; i < segments.size(); ++i)
+        for (usize i = 1; i <= points.size(); ++i)
         {
-            const size_t prevIdx = (i == 0) ? (segments.size() - 1) : (i - 1);
-            const size_t nextIdx = (i + 1) % segments.size();
-            const size_t currIdx = i;
+            const float2& prevPt = points[i - 1];
+            const float2& currPt = points[i % points.size()];
+            const float2& nextPt = points[(i + 1) % points.size()];
 
-            const StrokeSegment& prev = segments[prevIdx];
-            const StrokeSegment& next = segments[nextIdx];
-            const StrokeSegment& curr = segments[currIdx];
+            const Color& prevCol = colors[i - 1];
+            const Color& currCol = colors[i % points.size()];
 
-            if (true)
-            {
-                const size_t idxStart = positions.size();
-                positions.push_back(curr.nextOuter);
-                positions.push_back(curr.interInner);
-                positions.push_back(next.interInner);
-                positions.push_back(next.prevOuter);
+            const StrokeSegment curr = segment_between_points(prevPt, currPt, nextPt, properties.strokeWeight, properties.miterLimit, isClockwise);
 
-                cols.push_back(curr.color);
-                cols.push_back(curr.color);
-                cols.push_back(next.color);
-                cols.push_back(next.color);
+            emitStripQuad(prev, curr, prevCol, currCol, positions, cols, indices);
+            emitJoin(prev, curr, currCol, properties.strokeJoin, properties.strokeWeight, positions, cols, indices);
 
-                indices.push_back(idxStart + 0);
-                indices.push_back(idxStart + 1);
-                indices.push_back(idxStart + 2);
-
-                indices.push_back(idxStart + 2);
-                indices.push_back(idxStart + 3);
-                indices.push_back(idxStart + 0);
-            }
-
-            StrokeJoin join = properties.strokeJoin;
-            if (join == StrokeJoin::miter and curr.miterLimitExceeded)
-                join = StrokeJoin::bevel;
-
-            switch (join)
-            {
-                case StrokeJoin::miter:
-                {
-                    const size_t idxStart = positions.size();
-                    positions.push_back(curr.interInner);
-                    positions.push_back(curr.prevOuter);
-                    positions.push_back(curr.interOuter);
-                    positions.push_back(curr.nextOuter);
-
-                    cols.push_back(curr.color);
-                    cols.push_back(curr.color);
-                    cols.push_back(curr.color);
-                    cols.push_back(curr.color);
-
-                    indices.push_back(idxStart + 0);
-                    indices.push_back(idxStart + 1);
-                    indices.push_back(idxStart + 2);
-
-                    indices.push_back(idxStart + 2);
-                    indices.push_back(idxStart + 3);
-                    indices.push_back(idxStart + 0);
-                    break;
-                }
-
-                case StrokeJoin::bevel:
-                {
-                    const size_t idxStart = positions.size();
-                    positions.push_back(curr.interInner);
-                    positions.push_back(curr.prevOuter);
-                    positions.push_back(curr.nextOuter);
-
-                    cols.push_back(curr.color);
-                    cols.push_back(curr.color);
-                    cols.push_back(curr.color);
-
-                    indices.push_back(idxStart + 0);
-                    indices.push_back(idxStart + 1);
-                    indices.push_back(idxStart + 2);
-                    break;
-                }
-
-                case StrokeJoin::round:
-                {
-                    const float2 center = curr.point;
-                    const float2 arcStart = curr.prevOuter;
-                    const float2 arcEnd = curr.nextOuter;
-                    const float2 toStart = arcStart - center;
-                    const float2 toEnd = arcEnd - center;
-                    const float startAngle = std::atan2(toStart.y, toStart.x);
-                    const float endAngle = std::atan2(toEnd.y, toEnd.x);
-                    float sweepAngle = endAngle - startAngle;
-                    while (sweepAngle > PI) sweepAngle -= TAU;
-                    while (sweepAngle < -PI) sweepAngle += TAU;
-                    const float radius = curr.strokeWeight * 0.5f;
-                    const size_t numSegments = getRoundLineSegments(curr.strokeWeight, sweepAngle);
-                    const float angleStepSize = sweepAngle / static_cast<float>(numSegments);
-
-                    const size_t idxStart = positions.size();
-                    positions.push_back(center);
-                    cols.push_back(curr.color);
-                    const size_t centerIdx = idxStart;
-
-                    for (size_t j = 0; j <= numSegments; ++j)
-                    {
-                        const float angle = startAngle + angleStepSize * static_cast<float>(j);
-                        const float2 arcPoint = {
-                            center.x + std::cos(angle) * radius,
-                            center.y + std::sin(angle) * radius,
-                        };
-
-                        positions.push_back(arcPoint);
-                        cols.push_back(curr.color);
-                    }
-
-                    for (size_t j = 0; j < numSegments; ++j)
-                    {
-                        indices.push_back(centerIdx);
-                        indices.push_back(idxStart + 1 + j);
-                        indices.push_back(idxStart + 1 + j + 1);
-                    }
-
-                    positions.push_back(curr.interInner);
-                    cols.push_back(curr.color);
-                    const size_t innerIdx = positions.size() - 1;
-
-                    indices.push_back(centerIdx);
-                    indices.push_back(idxStart + 1 + numSegments);
-                    indices.push_back(innerIdx);
-
-                    indices.push_back(centerIdx);
-                    indices.push_back(innerIdx);
-                    indices.push_back(idxStart + 1);
-
-                    break;
-                }
-            }
+            prev = curr;
         }
 
-        texcoords.resize(positions.size(), {});
+        std::vector<float2> texcoords(positions.size(), float2{});
 
         return {
             .points = std::move(positions),
@@ -296,6 +319,155 @@ namespace processing
             .colors = std::move(cols),
             .indices = std::move(indices),
         };
+
+        // std::vector<float2> positions;
+        // std::vector<float2> texcoords;
+        // std::vector<Color> cols;
+        // std::vector<uint32_t> indices;
+        //
+        // for (size_t i = 0; i < segments.size(); ++i)
+        // {
+        //     const size_t prevIdx = (i == 0) ? (segments.size() - 1) : (i - 1);
+        //     const size_t nextIdx = (i + 1) % segments.size();
+        //     const size_t currIdx = i;
+        //
+        //     const StrokeSegment& prev = segments[prevIdx];
+        //     const StrokeSegment& next = segments[nextIdx];
+        //     const StrokeSegment& curr = segments[currIdx];
+        //
+        //     if (true)
+        //     {
+        //         const size_t idxStart = positions.size();
+        //         positions.push_back(curr.nextOuter);
+        //         positions.push_back(curr.interInner);
+        //         positions.push_back(next.interInner);
+        //         positions.push_back(next.prevOuter);
+        //
+        //         cols.push_back(curr.color);
+        //         cols.push_back(curr.color);
+        //         cols.push_back(next.color);
+        //         cols.push_back(next.color);
+        //
+        //         indices.push_back(idxStart + 0);
+        //         indices.push_back(idxStart + 1);
+        //         indices.push_back(idxStart + 2);
+        //
+        //         indices.push_back(idxStart + 2);
+        //         indices.push_back(idxStart + 3);
+        //         indices.push_back(idxStart + 0);
+        //     }
+        //
+        //     StrokeJoin join = properties.strokeJoin;
+        //     if (join == StrokeJoin::miter and curr.miterLimitExceeded)
+        //         join = StrokeJoin::bevel;
+        //
+        //     switch (join)
+        //     {
+        //         case StrokeJoin::miter:
+        //         {
+        //             const size_t idxStart = positions.size();
+        //             positions.push_back(curr.interInner);
+        //             positions.push_back(curr.prevOuter);
+        //             positions.push_back(curr.interOuter);
+        //             positions.push_back(curr.nextOuter);
+        //
+        //             cols.push_back(curr.color);
+        //             cols.push_back(curr.color);
+        //             cols.push_back(curr.color);
+        //             cols.push_back(curr.color);
+        //
+        //             indices.push_back(idxStart + 0);
+        //             indices.push_back(idxStart + 1);
+        //             indices.push_back(idxStart + 2);
+        //
+        //             indices.push_back(idxStart + 2);
+        //             indices.push_back(idxStart + 3);
+        //             indices.push_back(idxStart + 0);
+        //             break;
+        //         }
+        //
+        //         case StrokeJoin::bevel:
+        //         {
+        //             const size_t idxStart = positions.size();
+        //             positions.push_back(curr.interInner);
+        //             positions.push_back(curr.prevOuter);
+        //             positions.push_back(curr.nextOuter);
+        //
+        //             cols.push_back(curr.color);
+        //             cols.push_back(curr.color);
+        //             cols.push_back(curr.color);
+        //
+        //             indices.push_back(idxStart + 0);
+        //             indices.push_back(idxStart + 1);
+        //             indices.push_back(idxStart + 2);
+        //             break;
+        //         }
+        //
+        //         case StrokeJoin::round:
+        //         {
+        //             const float2 center = curr.point;
+        //             const float2 arcStart = curr.prevOuter;
+        //             const float2 arcEnd = curr.nextOuter;
+        //             const float2 toStart = arcStart - center;
+        //             const float2 toEnd = arcEnd - center;
+        //             const float startAngle = std::atan2(toStart.y, toStart.x);
+        //             const float endAngle = std::atan2(toEnd.y, toEnd.x);
+        //             float sweepAngle = endAngle - startAngle;
+        //             while (sweepAngle > PI) sweepAngle -= TAU;
+        //             while (sweepAngle < -PI) sweepAngle += TAU;
+        //             const float radius = curr.strokeWeight * 0.5f;
+        //             const size_t numSegments = getRoundLineSegments(curr.strokeWeight, sweepAngle);
+        //             const float angleStepSize = sweepAngle / static_cast<float>(numSegments);
+        //
+        //             const size_t idxStart = positions.size();
+        //             positions.push_back(center);
+        //             cols.push_back(curr.color);
+        //             const size_t centerIdx = idxStart;
+        //
+        //             for (size_t j = 0; j <= numSegments; ++j)
+        //             {
+        //                 const float angle = startAngle + angleStepSize * static_cast<float>(j);
+        //                 const float2 arcPoint = {
+        //                     center.x + std::cos(angle) * radius,
+        //                     center.y + std::sin(angle) * radius,
+        //                 };
+        //
+        //                 positions.push_back(arcPoint);
+        //                 cols.push_back(curr.color);
+        //             }
+        //
+        //             for (size_t j = 0; j < numSegments; ++j)
+        //             {
+        //                 indices.push_back(centerIdx);
+        //                 indices.push_back(idxStart + 1 + j);
+        //                 indices.push_back(idxStart + 1 + j + 1);
+        //             }
+        //
+        //             positions.push_back(curr.interInner);
+        //             cols.push_back(curr.color);
+        //             const size_t innerIdx = positions.size() - 1;
+        //
+        //             indices.push_back(centerIdx);
+        //             indices.push_back(idxStart + 1 + numSegments);
+        //             indices.push_back(innerIdx);
+        //
+        //             indices.push_back(centerIdx);
+        //             indices.push_back(innerIdx);
+        //             indices.push_back(idxStart + 1);
+        //
+        //             break;
+        //         }
+        //     }
+        // }
+        //
+        // texcoords.resize(positions.size(), {});
+        //
+        // return {
+        //     .points = std::move(positions),
+        //     .texcoords = std::move(texcoords),
+        //     .colors = std::move(cols),
+        //     .indices = std::move(indices),
+        // };
     }
 } // namespace processing
 
