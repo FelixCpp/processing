@@ -1,4 +1,5 @@
 #include <processing/graphics.hpp>
+#include <processing/geometry_arena.hpp>
 #include <processing/shape_builder.hpp>
 
 #include <glad/gl.h>
@@ -46,6 +47,7 @@ namespace processing
         std::vector<ShapeBuilderPoint> points;
         std::vector<float2> curvePoints;
 
+        std::unique_ptr<GeometryArena> arena;
         std::shared_ptr<BatchRenderer> renderer;
     };
 
@@ -132,6 +134,14 @@ namespace processing
                 .shapeStarted = false,
                 .points = {},
                 .curvePoints = {},
+                .arena = std::unique_ptr<GeometryArena>(new GeometryArena{
+                    .points = std::make_unique<float2[]>(25'000),
+                    .texcoords = std::make_unique<float2[]>(25'000),
+                    .colors = std::make_unique<Color[]>(25'000),
+                    .indices = std::make_unique<u32[]>(50'000),
+                    .vertexCursor = 0,
+                    .indexCursor = 0,
+                }),
                 .renderer = BatchRenderer::create(),
             },
         };
@@ -140,10 +150,12 @@ namespace processing
     void beginDraw()
     {
         s_graphics->renderer->beginDraw(peekFramebuffer());
+        geometry_begin_frame(*s_graphics->arena);
     }
 
     void endDraw(u32 width, u32 height)
     {
+        geometry_end_frame();
         s_graphics->renderer->endDraw();
         blit(width, height, peekFramebuffer());
 
@@ -1012,17 +1024,19 @@ namespace processing
         if (style.isFillEnabled)
         {
             const std::array<Color, 4> colors = {style.fillColor, style.fillColor, style.fillColor, style.fillColor};
-            const PolygonContour contour = contour_polygon_quad_fill(points, colors);
-            const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
-            render(vertices, getRenderState());
+            geometry_add_quad_fill(points, colors);
+            // const PolygonContour contour = contour_polygon_quad_fill(points, colors);
+            // const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
+            // render(vertices, getRenderState());
         }
 
         if (style.isStrokeEnabled)
         {
             const std::array<Color, 4> colors = {style.strokeColor, style.strokeColor, style.strokeColor, style.strokeColor};
-            const PolygonContour contour = contour_polygon_quad_stroke(points, colors, get_stroke_properties(style));
-            const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
-            render(vertices, getRenderState());
+            geometry_add_quad_stroke(points, colors, get_stroke_properties(style));
+            // const PolygonContour contour = contour_polygon_quad_stroke(points, colors, get_stroke_properties(style));
+            // const Vertices vertices = vertices_from_polygon_contour(contour, matrix, getNextDepth());
+            // render(vertices, getRenderState());
         }
     }
 
